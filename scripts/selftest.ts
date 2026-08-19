@@ -26,22 +26,17 @@ const prompt = buildPrompt(
   "몽골 간섭과 고려의 개혁",
   "[원 간섭기 권문세족의 성장]\n더미 지문",
   "공민왕은 왜 전민변정도감을 설치했을까?",
-  "L2 분석형",
-  "이거 왕이 직접 한 게 맞는지 궁금해요"
+  "L2 분석형"
 );
 assert(prompt.includes("[읽기자료]"), "프롬프트에 [읽기자료] 섹션 포함");
 assert(prompt.includes("더미 지문"), "프롬프트에 실제 읽기자료 내용이 삽입됨");
 assert(prompt.includes("[자가평가 비교]"), "프롬프트에 [자가평가 비교] 섹션 포함");
 assert(prompt.includes("[4가지 질문 틀 및 구조 점검]"), "프롬프트에 4가지 질문 틀 섹션 포함");
 assert(prompt.includes(`총점 ${APPROVAL_THRESHOLD}점 이상`), "프롬프트에 승인 기준이 APPROVAL_THRESHOLD와 일치");
-assert(prompt.includes("이거 왕이 직접 한 게 맞는지 궁금해요"), "프롬프트에 학생이 적은 의심스러운 점 포함");
 assert(prompt.includes("완성된 대안 질문 금지"), "프롬프트에 예시 복붙 방지 규칙 포함");
 assert(prompt.includes("L4 (복합형"), "프롬프트에 L4 트랙 포함");
 assert(prompt.includes("정보 요소"), "프롬프트에 자료 통합 깊이 재작성 반영");
 assert(RESPONSE_SCHEMA.required.includes("self_assessment_mismatch"), "스키마에 self_assessment_mismatch 필수 필드 포함");
-
-const emptyDoubtPrompt = buildPrompt("단원", "지문", "질문?", "L1 사실 확인형");
-assert(emptyDoubtPrompt.includes("(작성 안 함)"), "의심스러운 점 미작성 시 (작성 안 함)으로 표시");
 
 // 2) computeApproval/computeLevelBand/computeFinalStatus가 같은 기준값(APPROVAL_THRESHOLD)으로
 // 서로 모순되지 않는 결과를 내는지 확인 - "레벨은 낮음인데 승인" 같은 불일치 재발 방지.

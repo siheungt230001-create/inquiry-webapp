@@ -26,7 +26,6 @@ export async function POST(request: Request) {
     question,
     selfLevel,
     textbookLink = "",
-    doubt = "",
   } = body || {};
 
   if (!unit || !question || !selfLevel || !String(textbookLink).trim()) {
@@ -60,7 +59,7 @@ export async function POST(request: Request) {
 
   try {
     const groundingText = await getGroundingTextForUnit(unit);
-    const prompt = buildPrompt(unit, groundingText, question, selfLevel, doubt);
+    const prompt = buildPrompt(unit, groundingText, question, selfLevel);
     const rawResult = await callGemini(prompt);
 
     // Gemini가 응답에 담아 보낸 level/score/approval은 신뢰하지 않고, criteria_scores만
@@ -85,7 +84,7 @@ export async function POST(request: Request) {
       question,
       selfLevel,
       textbookLink,
-      doubt,
+      doubt: "", // 의심스러운 점 입력란 폐지 - Sheets 컬럼 구조 유지를 위해 항상 빈 값만 기록
       status: "완료",
       aiLevel: result.level,
       aiScore: result.score,
@@ -117,7 +116,7 @@ export async function POST(request: Request) {
       question,
       selfLevel,
       textbookLink,
-      doubt,
+      doubt: "", // 의심스러운 점 입력란 폐지 - Sheets 컬럼 구조 유지를 위해 항상 빈 값만 기록
       status: `오류: ${message}`,
       aiLevel: "",
       aiScore: "",

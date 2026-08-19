@@ -31,7 +31,6 @@ export default function SubmitForm() {
   const [question, setQuestion] = useState("");
   const [selfLevel, setSelfLevel] = useState(SELF_LEVEL_LIST[0]);
   const [textbookLink, setTextbookLink] = useState("");
-  const [doubt, setDoubt] = useState("");
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -74,7 +73,6 @@ export default function SubmitForm() {
           question,
           selfLevel,
           textbookLink,
-          doubt,
         }),
       });
       const data = await res.json();
@@ -177,15 +175,6 @@ export default function SubmitForm() {
           className="input"
           placeholder="이 질문과 관련된 교과서 쪽수·소제목"
           required
-        />
-      </Field>
-
-      <Field label="의심스러운 점 (선택)">
-        <input
-          value={doubt}
-          onChange={(e) => setDoubt(e.target.value)}
-          className="input"
-          placeholder="스스로 확신이 안 드는 부분이 있다면"
         />
       </Field>
 
