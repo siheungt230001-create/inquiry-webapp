@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ROUND_LIST, SELF_LEVEL_LIST } from "@/lib/constants";
+import { SELF_LEVEL_LIST } from "@/lib/constants";
 import type { GradingResult } from "@/lib/types";
 import { approvalBadgeClass } from "@/lib/badge";
 
@@ -28,7 +28,6 @@ export default function SubmitForm() {
   const [units, setUnits] = useState<string[]>([]);
   const [profile, setProfile] = useState<Profile>(loadProfile);
   const [unit, setUnit] = useState("");
-  const [round, setRound] = useState(ROUND_LIST[0]);
   const [question, setQuestion] = useState("");
   const [selfLevel, setSelfLevel] = useState(SELF_LEVEL_LIST[0]);
   const [textbookLink, setTextbookLink] = useState("");
@@ -72,7 +71,6 @@ export default function SubmitForm() {
           no: profile.no,
           name: profile.name,
           unit,
-          round,
           question,
           selfLevel,
           textbookLink,
@@ -97,11 +95,16 @@ export default function SubmitForm() {
     return (
       <ResultCard
         result={result}
+        question={question}
         timestamp={timestamp}
         onReset={() => {
           setResult(null);
           setTimestamp(null);
           setQuestion("");
+        }}
+        onEdit={() => {
+          setResult(null);
+          setTimestamp(null);
         }}
       />
     );
@@ -142,16 +145,6 @@ export default function SubmitForm() {
           {units.map((u) => (
             <option key={u} value={u}>
               {u}
-            </option>
-          ))}
-        </select>
-      </Field>
-
-      <Field label="제출 회차">
-        <select value={round} onChange={(e) => setRound(e.target.value)} className="input">
-          {ROUND_LIST.map((r) => (
-            <option key={r} value={r}>
-              {r}
             </option>
           ))}
         </select>
@@ -238,12 +231,16 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 function ResultCard({
   result,
+  question,
   timestamp,
   onReset,
+  onEdit,
 }: {
   result: GradingResult;
+  question: string;
   timestamp: string;
   onReset: () => void;
+  onEdit: () => void;
 }) {
   const approved = result.approval === "승인";
   const [finalStatus, setFinalStatus] = useState<string | null>(null);
@@ -275,7 +272,9 @@ function ResultCard({
 
   return (
     <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-      <div className="flex items-center gap-2">
+      <p className="font-semibold text-zinc-900">{question}</p>
+
+      <div className="mt-3 flex items-center gap-2">
         <span className="rounded-full bg-zinc-900 px-3 py-1 text-xs font-semibold text-white">
           {result.level}
         </span>
@@ -328,12 +327,21 @@ function ResultCard({
         </button>
       )}
 
-      <button
-        onClick={onReset}
-        className="mt-2 w-full rounded-lg border border-zinc-300 px-4 py-2.5 text-sm font-medium text-zinc-800 hover:bg-zinc-50"
-      >
-        {finalStatus ? "다른 질문 제출하기" : approved ? "다른 질문 제출하기" : "질문 다듬어서 다시 제출하기"}
-      </button>
+      {finalStatus || approved ? (
+        <button
+          onClick={onReset}
+          className="mt-2 w-full rounded-lg border border-zinc-300 px-4 py-2.5 text-sm font-medium text-zinc-800 hover:bg-zinc-50"
+        >
+          다른 질문 제출하기
+        </button>
+      ) : (
+        <button
+          onClick={onEdit}
+          className="mt-2 w-full rounded-lg border border-zinc-300 px-4 py-2.5 text-sm font-medium text-zinc-800 hover:bg-zinc-50"
+        >
+          질문 수정하기
+        </button>
+      )}
     </div>
   );
 }

@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { buildPrompt } from "@/lib/rubric";
+import { buildPrompt, evaluateCriteriaScores } from "@/lib/rubric";
 import { callGemini } from "@/lib/gemini";
 import {
   getGroundingTextForUnit,
   appendSubmission,
   checkAbuseFlag,
+  getSubmissionsByEmail,
 } from "@/lib/sheets";
+import { formatRound } from "@/lib/constants";
 import type { SubmissionRow } from "@/lib/types";
 
 export async function POST(request: Request) {
@@ -21,7 +23,6 @@ export async function POST(request: Request) {
     no = "",
     name = "",
     unit,
-    round = "",
     question,
     selfLevel,
     textbookLink = "",
@@ -52,12 +53,26 @@ export async function POST(request: Request) {
     );
   }
 
+  const priorSubmissions = await getSubmissionsByEmail(email);
+  const round = formatRound(priorSubmissions.filter((r) => r.unit === unit).length + 1);
+
   let row: SubmissionRow;
 
   try {
     const groundingText = await getGroundingTextForUnit(unit);
-    const prompt = buildPrompt(unit, groundingText, question, selfLevel);
-    const result = await callGemini(prompt);
+    const prompt = buildPrompt(unit, groundingText, question, selfLevel, doubt);
+    const rawResult = await callGemini(prompt);
+
+    // Gemini가 응답에 담아 보낸 level/score/approval은 신뢰하지 않고, criteria_scores만
+    // 가져와 코드에서 재계산한다 (lib/rubric.ts의 evaluateCriteriaScores) - "레벨은
+    // 낮음인데 승인" 같은 불일치가 다시는 생기지 않도록 이 값을 최종값으로 쓴다.
+    const evaluated = evaluateCriteriaScores(rawResult.criteria_scores);
+    const result = {
+      ...rawResult,
+      level: evaluated.level,
+      score: evaluated.score,
+      approval: evaluated.approval,
+    };
 
     row = {
       timestamp,

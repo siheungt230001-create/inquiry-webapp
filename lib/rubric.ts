@@ -2,11 +2,70 @@
 // 프롬프트 내용을 바꿀 때는 이 파일과 apps_script_자동화.gs(Apps Script 버전을 계속 쓰는 경우)
 // 양쪽을 같이 수정해야 두 시스템의 채점 기준이 어긋나지 않습니다.
 
+import type { CriteriaScores } from "./types";
+
+export type Track = "L1" | "L2" | "L3" | "L4";
+
+// 승인/레벨 판정 기준점 - 프롬프트 텍스트와 evaluateCriteriaScores()가 전부 이 상수 하나만
+// 참조하게 해서, "레벨은 낮음인데 승인" 같은 숫자 불일치가 다시 생기지 않게 한다.
+export const APPROVAL_THRESHOLD = 3.5;
+export const EXCELLENT_THRESHOLD = 4.5; // L4 "우수" 구간 시작점
+
+// 트랙 판정은 Gemini의 자체 판단(level 필드)을 믿지 않고, 항목2·3 점수로 코드가 직접
+// 계산한다 - 이 두 값만 보면 되므로 Gemini가 틀릴 여지가 없다.
+export function computeTrack(causalDepth: number, comparisonClarity: number): Track {
+  if (causalDepth === 0 && comparisonClarity === 0) return "L1";
+  if (causalDepth > 0 && comparisonClarity === 0) return "L2";
+  if (causalDepth === 0 && comparisonClarity > 0) return "L3";
+  return "L4";
+}
+
+export function computeApproval(score: number): "승인" | "재제출" {
+  return score >= APPROVAL_THRESHOLD ? "승인" : "재제출";
+}
+
+export function computeLevelBand(track: Track, score: number): string {
+  if (track === "L1") return "L1";
+  if (track === "L4") {
+    if (score >= EXCELLENT_THRESHOLD) return "L4-높음(우수)";
+    return score >= APPROVAL_THRESHOLD ? "L4-높음" : "L4-낮음";
+  }
+  return `${track}-${score >= APPROVAL_THRESHOLD ? "높음" : "낮음"}`;
+}
+
+export interface EvaluatedResult {
+  track: Track;
+  score: number;
+  level: string;
+  approval: "승인" | "재제출";
+}
+
+// Gemini가 돌려준 criteria_scores(항목별 0/0.5/1점)만 입력으로 받아 트랙·총점·레벨·승인
+// 여부를 전부 코드에서 재계산한다. Gemini 자신이 응답에 담아 보내는 level/score/approval
+// 필드는 신뢰하지 않고 항상 이 함수의 결과로 덮어써야 한다 - 이게 rubric.ts를 다시 설계한
+// 원래 목적(레벨-점수 불일치 방지)이다.
+export function evaluateCriteriaScores(criteria: CriteriaScores): EvaluatedResult {
+  const score =
+    criteria.fact_accuracy +
+    criteria.causal_depth +
+    criteria.comparison_clarity +
+    criteria.sentence_clarity +
+    criteria.integration_depth;
+  const track = computeTrack(criteria.causal_depth, criteria.comparison_clarity);
+  return {
+    track,
+    score,
+    level: computeLevelBand(track, score),
+    approval: computeApproval(score),
+  };
+}
+
 export function buildPrompt(
   unitTitle: string,
   unitReadingText: string,
   studentQuestion: string,
-  selfAssessedLevel: string
+  selfAssessedLevel: string,
+  doubt: string = ""
 ): string {
   return `[역할 및 페르소나]
 - 당신은 중학교 역사 수업에서 학생의 탐구 질문을 코칭하는 "질문 코치 AI"입니다.
@@ -32,6 +91,7 @@ ${unitReadingText}
 - 제출 주제: ${unitTitle}
 - 학생 질문: "${studentQuestion}"
 - 학생이 스스로 예상한 레벨: ${selfAssessedLevel}
+- 학생이 적은 의심스러운 점: ${doubt.trim() ? `"${doubt.trim()}"` : "(작성 안 함)"}
 
 [4가지 질문 틀 및 구조 점검]
 학생 질문을 아래 4가지 틀 중 가장 가까운 유형으로 먼저 분류하고, "구조적 결함"이
@@ -77,22 +137,24 @@ ${unitReadingText}
 0점 초과         | 0점 초과         | L4 (복합형 - 분석+평가 결합)
 
 [레벨·점수 구간]
-L1              : 0.0 ~ 3.0   (인과·비교 요소 없음, 구조상 승인 불가 트랙)
-L2 - 낮음       : 3.5
-L2 - 높음       : 4.0         (트랙 내 최고점)
-L3 - 낮음       : 3.5
-L3 - 높음       : 4.0         (트랙 내 최고점)
-L4 - 낮음       : 3.5 ~ 4.0
-L4 - 높음(우수) : 4.5 ~ 5.0   (유일하게 만점 5.0 도달 가능)
+L1              : 0.0 ~ 3.0                                (인과·비교 요소 없음, 구조상 승인 불가 트랙)
+L2 - 낮음       : ${APPROVAL_THRESHOLD}점 미만
+L2 - 높음       : ${APPROVAL_THRESHOLD}점 이상
+L3 - 낮음       : ${APPROVAL_THRESHOLD}점 미만
+L3 - 높음       : ${APPROVAL_THRESHOLD}점 이상
+L4 - 낮음       : ${APPROVAL_THRESHOLD}점 미만
+L4 - 높음       : ${APPROVAL_THRESHOLD}점 이상 ~ ${EXCELLENT_THRESHOLD}점 미만
+L4 - 높음(우수) : ${EXCELLENT_THRESHOLD}점 이상                                (유일하게 만점 5.0 도달 가능)
 
 [승인 기준]
-- 총점 4.0점 이상 → "승인" (= "우수질문")
-- 총점 4.0점 미만 → "재제출"
+- 총점 ${APPROVAL_THRESHOLD}점 이상 → "승인" (= "우수질문")
+- 총점 ${APPROVAL_THRESHOLD}점 미만 → "재제출"
 - L1은 트랙 특성상 최고점이 3.0이므로 항상 재제출(구조적으로 승인 불가).
-- L2·L3는 "높음"(4.0)부터 승인. L4는 4.0부터 승인, 4.5~5.0은 "우수" 구간으로
-  피드백에서 별도로 칭찬한다.
+- L2·L3는 "높음"(${APPROVAL_THRESHOLD}점 이상)부터 승인. L4도 ${APPROVAL_THRESHOLD}점부터
+  승인, ${EXCELLENT_THRESHOLD}점 이상은 "우수" 구간으로 피드백에서 별도로 칭찬한다.
 - level 필드에는 트랙(L1/L2/L3/L4)을, approval 필드에는 위 기준에 따른 "승인"
-  또는 "재제출"을 넣는다.
+  또는 "재제출"을 넣는다. 두 필드가 서로 모순되지 않도록(예: 레벨은 "낮음"인데
+  approval은 "승인") 반드시 같은 점수 기준으로 함께 판단한다.
 
 [피드백 작성 규칙]
 문장 개수를 고정하지 않는다. 필요한 내용을 다 담기 위해 분량은 자연스럽게
@@ -107,8 +169,26 @@ L4 - 높음(우수) : 4.5 ~ 5.0   (유일하게 만점 5.0 도달 가능)
    주지 않는다). 만약에형인데 조건·기준이 없으면 "그때 있었을 법한 조건을
    하나 정해보면 어때요?"처럼, 현재연결형인데 같은 점만 있으면 "다른 점도
    함께 물어보면 비교가 돼요"처럼 안내한다.
-3. "예를 들어 이렇게 물어볼 수도 있어요" 식으로 질문의 형태(틀)만 보여주는
+3. 학생이 적은 "의심스러운 점"이 "(작성 안 함)"이 아니라면, 그 의심에 대해
+   짧게 반응하고 스스로 확인해볼 수 있는 방향이나 힌트를 제안한다(어느
+   자료를 다시 보면 좋을지, 무엇을 비교해보면 좋을지 등). 이때도 절대 규칙
+   1(정답 금지)을 지켜서 직접적인 사실이나 정답은 말하지 않는다. "(작성
+   안 함)"이면 이 항목은 그냥 건너뛴다.
+4. "예를 들어 이렇게 물어볼 수도 있어요" 식으로 질문의 형태(틀)만 보여주는
    예시를 제공한다. 실제 역사적 정답 내용은 담지 않는다.
+
+   ★★ 매우 중요 - 완성된 대안 질문 금지: 지금 학생 질문에 나온 구체적인
+     인물·사건·정책·연도 등 실제 고유명사를 그대로 써서, 학생이 그대로
+     베껴 쓰면 바로 완성된 질문이 되는 문장을 만들면 안 된다. 반드시 아래
+     두 방식 중 하나로만 제시한다:
+     (1) 빈칸(플레이스홀더) 형태 - "OO의 입장에서는 왜 ~했을까?",
+         "OO와 △△는 무엇이 달랐을까?"처럼 실제 이름 대신 "OO"/"△△"로
+         비워서 구조만 보여준다.
+     (2) 방향 설명 형태 - 완성된 질문 문장이 아니라 "다르게 보면, 인물별
+         입장 차이를 비교하는 방향으로 질문을 다듬어볼 수 있어요"처럼
+         어떤 방향으로 바꾸면 좋을지 말로만 설명한다.
+     학생 질문에 나온 실제 고유명사를 예시 문장 안에 그대로 재사용하지
+     않는다.
 
    ★ 재제출인 경우 (L4 제외), 트랙에 관계없이 예시를 원칙적으로 2개,
      "우열 없이 병렬로" 제시한다:
@@ -128,24 +208,29 @@ L4 - 높음(우수) : 4.5 ~ 5.0   (유일하게 만점 5.0 도달 가능)
      ※ L4(복합형)는 예외적으로 예시 1개만: causal_depth와 comparison_clarity
        중 상대적으로 더 약한 쪽 항목을 더 정교하게 다듬는 방향의 심화 예시.
 
-     예) L2(인과형) 질문 "세종이 한글을 창제한 이유는 무엇일까?"
-         (a) 같은 트랙 심화: "이유가 여러 가지라면, 그중 무엇이 더 결정적
-             이었을까?" (단일 원인을 넘어서는 방향)
-         (b) 다른 트랙 확장: "한글 창제 이전과 이후, 백성들의 삶은 무엇이
-             달라졌을까?" (비교·평가 트랙으로 보는 방식)
+     예) L2(인과형) 질문이 "OO은 왜 ~했을까?" 형태라면
+         (a) 같은 트랙 심화(빈칸형): "이유가 여러 가지라면, 그중 무엇이
+             더 결정적이었을까?" (단일 원인을 넘어서는 방향 - 이름이
+             없어도 이렇게 그대로 일반화된 형태로 쓸 수 있다)
+         (b) 다른 트랙 확장(방향 설명형): "다르게 보면, 그 일 전후로
+             상황이 어떻게 달라졌는지 비교하는 방향으로도 질문을 만들 수
+             있어요."
 
-     예) L1(사실확인형) 질문 "세종이 한글을 만든 해는 언제일까?"
-         (a) 같은 트랙(L1) 심화: "한글 창제와 반포는 각각 언제, 어떤
-             과정을 거쳤을까?" (정보 요소를 1개에서 2개 이상으로 확장)
-         (b) L2(인과) 방향 확장: "세종은 왜 한글을 만들었을까?"
-             (인과 트랙으로 넘어가는 방향)
-         (c) L3(비교·평가) 방향 확장: "한글과 한자는 백성들이 배우기에
-             무엇이 달랐을까?" (비교·평가 트랙으로 넘어가는 방향)
+     예) L1(사실확인형) 질문이 "OO은 언제 ~했을까?" 형태라면
+         (a) 같은 트랙(L1) 심화(빈칸형): "OO의 시작과 끝(또는 이전·이후
+             단계)은 각각 언제, 어떤 과정을 거쳤을까?" (정보 요소를
+             1개에서 2개 이상으로 확장)
+         (b) L2(인과) 방향 확장(방향 설명형): "왜 그 일이 그 시점에
+             일어났는지 원인을 묻는 방향으로도 질문을 바꿔볼 수 있어요."
+         (c) L3(비교·평가) 방향 확장(방향 설명형): "비슷한 다른 대상과
+             비교해서 무엇이 달랐는지 묻는 방향으로도 질문을 바꿔볼 수
+             있어요."
 
    ★ 승인(우수질문)인 경우, 예시는 필수가 아니며 넣더라도 짧게 1개만,
-     부담 없는 "확장 초대" 톤으로 제시한다(이미 목표를 달성했으므로).
+     부담 없는 "확장 초대" 톤으로 제시한다(이미 목표를 달성했으므로). 이
+     경우에도 위 "완성된 대안 질문 금지" 규칙은 그대로 적용된다.
 
-4. 짧고 따뜻한 응원으로 마무리한다.
+5. 짧고 따뜻한 응원으로 마무리한다.
 
 [자가평가 비교]
 학생이 예상한 레벨과 AI 판정 레벨이 다르면, 그 차이를 한 문장으로 부드럽게
@@ -160,7 +245,7 @@ export function computeFinalStatus(
   totalScore: number,
   isManuallySubmitted: boolean = true
 ): "승인" | "재제출" | "제출완료(미승인)" {
-  if (totalScore >= 4.0) return "승인";
+  if (totalScore >= APPROVAL_THRESHOLD) return "승인";
   return isManuallySubmitted ? "제출완료(미승인)" : "재제출";
 }
 

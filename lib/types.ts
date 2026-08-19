@@ -1,5 +1,4 @@
 // 채점 결과 타입 - apps_script_자동화.gs의 RESPONSE_SCHEMA와 1:1로 대응합니다.
-export type Level = "L1" | "L2" | "L3" | "L4";
 export type Approval = "승인" | "재제출" | "제출완료(미승인)";
 
 export interface CriteriaScores {
@@ -11,7 +10,10 @@ export interface CriteriaScores {
 }
 
 export interface GradingResult {
-  level: Level;
+  // level/score/approval은 Gemini가 1차로 채워 보내지만, app/api/submit/route.ts에서
+  // lib/rubric.ts의 evaluateCriteriaScores(criteria_scores)로 재계산한 값으로 항상
+  // 덮어써진다 - Gemini 자신의 판단을 최종값으로 신뢰하지 않는다.
+  level: string;
   score: number;
   criteria_scores: CriteriaScores;
   approval: Approval;

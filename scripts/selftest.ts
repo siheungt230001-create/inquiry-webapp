@@ -1,7 +1,16 @@
 // AI 채점 엔진(lib/rubric.ts, lib/gemini.ts)이 실제 Gemini API 키 없이도 올바르게
 // 동작하는지 확인하는 자체 테스트입니다. 실제 네트워크 요청은 fetch를 흉내내서 대신합니다.
 // 실행: npx tsx scripts/selftest.ts
-import { buildPrompt, RESPONSE_SCHEMA } from "../lib/rubric";
+import {
+  buildPrompt,
+  RESPONSE_SCHEMA,
+  APPROVAL_THRESHOLD,
+  computeApproval,
+  computeLevelBand,
+  computeTrack,
+  evaluateCriteriaScores,
+  computeFinalStatus,
+} from "../lib/rubric";
 
 function assert(cond: unknown, msg: string) {
   if (!cond) {
@@ -17,16 +26,63 @@ const prompt = buildPrompt(
   "몽골 간섭과 고려의 개혁",
   "[원 간섭기 권문세족의 성장]\n더미 지문",
   "공민왕은 왜 전민변정도감을 설치했을까?",
-  "L2 분석형"
+  "L2 분석형",
+  "이거 왕이 직접 한 게 맞는지 궁금해요"
 );
 assert(prompt.includes("[읽기자료]"), "프롬프트에 [읽기자료] 섹션 포함");
 assert(prompt.includes("더미 지문"), "프롬프트에 실제 읽기자료 내용이 삽입됨");
 assert(prompt.includes("[자가평가 비교]"), "프롬프트에 [자가평가 비교] 섹션 포함");
 assert(prompt.includes("[4가지 질문 틀 및 구조 점검]"), "프롬프트에 4가지 질문 틀 섹션 포함");
-assert(prompt.includes("총점 4.0점 이상"), "프롬프트에 4.0점 승인 기준 포함");
+assert(prompt.includes(`총점 ${APPROVAL_THRESHOLD}점 이상`), "프롬프트에 승인 기준이 APPROVAL_THRESHOLD와 일치");
+assert(prompt.includes("이거 왕이 직접 한 게 맞는지 궁금해요"), "프롬프트에 학생이 적은 의심스러운 점 포함");
+assert(prompt.includes("완성된 대안 질문 금지"), "프롬프트에 예시 복붙 방지 규칙 포함");
 assert(prompt.includes("L4 (복합형"), "프롬프트에 L4 트랙 포함");
 assert(prompt.includes("정보 요소"), "프롬프트에 자료 통합 깊이 재작성 반영");
 assert(RESPONSE_SCHEMA.required.includes("self_assessment_mismatch"), "스키마에 self_assessment_mismatch 필수 필드 포함");
+
+const emptyDoubtPrompt = buildPrompt("단원", "지문", "질문?", "L1 사실 확인형");
+assert(emptyDoubtPrompt.includes("(작성 안 함)"), "의심스러운 점 미작성 시 (작성 안 함)으로 표시");
+
+// 2) computeApproval/computeLevelBand/computeFinalStatus가 같은 기준값(APPROVAL_THRESHOLD)으로
+// 서로 모순되지 않는 결과를 내는지 확인 - "레벨은 낮음인데 승인" 같은 불일치 재발 방지.
+assert(computeApproval(APPROVAL_THRESHOLD) === "승인", `${APPROVAL_THRESHOLD}점은 승인`);
+assert(computeApproval(APPROVAL_THRESHOLD - 0.5) === "재제출", `${APPROVAL_THRESHOLD - 0.5}점은 재제출`);
+assert(
+  computeLevelBand("L2", APPROVAL_THRESHOLD) === "L2-높음",
+  `${APPROVAL_THRESHOLD}점은 L2-높음 (승인 기준과 일치)`
+);
+assert(
+  computeLevelBand("L2", APPROVAL_THRESHOLD - 0.5) === "L2-낮음",
+  `${APPROVAL_THRESHOLD - 0.5}점은 L2-낮음 (재제출 기준과 일치)`
+);
+assert(computeFinalStatus(APPROVAL_THRESHOLD) === "승인", "computeFinalStatus도 같은 기준점 사용");
+
+// computeTrack: 항목2·3 조합 4가지 전부 확인
+assert(computeTrack(0, 0) === "L1", "인과0·비교0 → L1");
+assert(computeTrack(1, 0) === "L2", "인과>0·비교0 → L2");
+assert(computeTrack(0, 1) === "L3", "인과0·비교>0 → L3");
+assert(computeTrack(0.5, 0.5) === "L4", "인과>0·비교>0 → L4");
+
+// evaluateCriteriaScores: Gemini 자신이 응답에 담아 보낸 level/score/approval이 틀려도
+// (여기서는 일부러 L4/5.0점/승인이라고 거짓 응답한 상황을 흉내냄) criteria_scores만
+// 보고 코드가 올바른 값(L1/2.0점/재제출)으로 재계산하는지 확인 - 오늘 고친 핵심 버그.
+const dishonestGeminiResponse = {
+  level: "L4",
+  score: 5.0,
+  approval: "승인",
+  criteria_scores: {
+    fact_accuracy: 1,
+    causal_depth: 0,
+    comparison_clarity: 0,
+    sentence_clarity: 1,
+    integration_depth: 0,
+  },
+};
+const evaluated = evaluateCriteriaScores(dishonestGeminiResponse.criteria_scores);
+assert(evaluated.track === "L1", "criteria_scores 기준 실제 트랙은 L1 (Gemini의 L4 자체 판단 무시)");
+assert(evaluated.score === 2.0, "criteria_scores 합산 실제 총점은 2.0 (Gemini의 5.0 자체 판단 무시)");
+assert(evaluated.approval === "재제출", "실제 승인 여부는 재제출 (Gemini의 승인 자체 판단 무시)");
+assert(evaluated.level === "L1", "실제 레벨은 L1 (Gemini의 L4 자체 판단 무시)");
 
 // 2) callGemini() 성공 경로 - fetch를 가짜로 바꿔서 실제 네트워크 없이 파싱 로직만 검증
 async function testCallGeminiSuccess() {
