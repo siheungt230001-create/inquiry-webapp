@@ -3,6 +3,7 @@ import Link from "next/link";
 import { auth } from "@/auth";
 import { isTeacherEmail } from "@/lib/teacher-auth";
 import { getAllSubmissions } from "@/lib/sheets";
+import { approvalBadgeClass } from "@/lib/badge";
 import {
   buildStudentLatest,
   buildBanStats,
@@ -10,12 +11,6 @@ import {
   type StudentLatest,
   type BanStat,
 } from "@/lib/aggregate";
-
-function approvalBadgeClass(approval: string) {
-  if (approval === "승인") return "bg-emerald-600";
-  if (approval === "재제출") return "bg-amber-500";
-  return "bg-zinc-400";
-}
 
 export default async function TeacherPage({
   searchParams,

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { ROUND_LIST, SELF_LEVEL_LIST } from "@/lib/constants";
 import type { GradingResult } from "@/lib/types";
+import { approvalBadgeClass } from "@/lib/badge";
 
 const PROFILE_KEY = "inquiry-webapp-profile";
 
@@ -36,6 +37,7 @@ export default function SubmitForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<GradingResult | null>(null);
+  const [timestamp, setTimestamp] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/units")
@@ -82,6 +84,7 @@ export default function SubmitForm() {
         setError(data.error || "알 수 없는 오류가 발생했습니다.");
       } else {
         setResult(data.result as GradingResult);
+        setTimestamp(data.timestamp as string);
       }
     } catch {
       setError("서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.");
@@ -90,8 +93,18 @@ export default function SubmitForm() {
     }
   }
 
-  if (result) {
-    return <ResultCard result={result} onReset={() => { setResult(null); setQuestion(""); }} />;
+  if (result && timestamp) {
+    return (
+      <ResultCard
+        result={result}
+        timestamp={timestamp}
+        onReset={() => {
+          setResult(null);
+          setTimestamp(null);
+          setQuestion("");
+        }}
+      />
+    );
   }
 
   return (
@@ -223,8 +236,43 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function ResultCard({ result, onReset }: { result: GradingResult; onReset: () => void }) {
+function ResultCard({
+  result,
+  timestamp,
+  onReset,
+}: {
+  result: GradingResult;
+  timestamp: string;
+  onReset: () => void;
+}) {
   const approved = result.approval === "승인";
+  const [finalStatus, setFinalStatus] = useState<string | null>(null);
+  const [finalizing, setFinalizing] = useState(false);
+  const [finalizeError, setFinalizeError] = useState<string | null>(null);
+  const displayApproval = finalStatus || result.approval;
+
+  async function handleFinalize() {
+    setFinalizing(true);
+    setFinalizeError(null);
+    try {
+      const res = await fetch("/api/finalize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ timestamp }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setFinalizeError(data.error || "제출 확정에 실패했습니다.");
+      } else {
+        setFinalStatus(data.approval as string);
+      }
+    } catch {
+      setFinalizeError("서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.");
+    } finally {
+      setFinalizing(false);
+    }
+  }
+
   return (
     <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
       <div className="flex items-center gap-2">
@@ -233,11 +281,9 @@ function ResultCard({ result, onReset }: { result: GradingResult; onReset: () =>
         </span>
         <span className="text-sm text-zinc-500">{result.score} / 5.0점</span>
         <span
-          className={`ml-auto rounded-full px-3 py-1 text-xs font-semibold text-white ${
-            approved ? "bg-emerald-600" : "bg-amber-500"
-          }`}
+          className={`ml-auto rounded-full px-3 py-1 text-xs font-semibold text-white ${approvalBadgeClass(displayApproval)}`}
         >
-          {result.approval}
+          {displayApproval}
         </span>
       </div>
 
@@ -262,11 +308,31 @@ function ResultCard({ result, onReset }: { result: GradingResult; onReset: () =>
         </ul>
       </details>
 
+      {finalizeError && (
+        <p className="mt-4 rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">
+          {finalizeError}
+        </p>
+      )}
+
+      {finalStatus ? (
+        <p className="mt-6 rounded-lg bg-blue-50 border border-blue-200 px-3 py-2 text-center text-sm text-blue-700">
+          제출이 완료됐어요. 최종 상태: {finalStatus}
+        </p>
+      ) : (
+        <button
+          onClick={handleFinalize}
+          disabled={finalizing}
+          className="mt-6 w-full rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
+        >
+          {finalizing ? "제출하는 중..." : "질문 제출하기"}
+        </button>
+      )}
+
       <button
         onClick={onReset}
-        className="mt-6 w-full rounded-lg border border-zinc-300 px-4 py-2.5 text-sm font-medium text-zinc-800 hover:bg-zinc-50"
+        className="mt-2 w-full rounded-lg border border-zinc-300 px-4 py-2.5 text-sm font-medium text-zinc-800 hover:bg-zinc-50"
       >
-        {approved ? "다른 질문 제출하기" : "질문 다듬어서 다시 제출하기"}
+        {finalStatus ? "다른 질문 제출하기" : approved ? "다른 질문 제출하기" : "질문 다듬어서 다시 제출하기"}
       </button>
     </div>
   );

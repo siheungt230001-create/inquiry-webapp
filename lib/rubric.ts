@@ -154,6 +154,16 @@ L4 - 높음(우수) : 4.5 ~ 5.0   (유일하게 만점 5.0 도달 가능)
 요청한 JSON 스키마에 맞춰서만 응답하세요.`;
 }
 
+// 학생이 점수와 무관하게 "질문 제출하기"로 최종 확정할 때 쓰는 상태 계산.
+// AI 자동 채점(재제출/승인)과는 별개 - Gemini는 이 상태를 직접 반환하지 않는다.
+export function computeFinalStatus(
+  totalScore: number,
+  isManuallySubmitted: boolean = true
+): "승인" | "재제출" | "제출완료(미승인)" {
+  if (totalScore >= 4.0) return "승인";
+  return isManuallySubmitted ? "제출완료(미승인)" : "재제출";
+}
+
 // Gemini에게 응답 형식을 강제하는 스키마 (JSON 모드) - RESPONSE_SCHEMA와 동일
 export const RESPONSE_SCHEMA = {
   type: "OBJECT",

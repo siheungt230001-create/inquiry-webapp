@@ -87,7 +87,7 @@ export async function POST(request: Request) {
     };
 
     await appendSubmission(row);
-    return NextResponse.json({ result });
+    return NextResponse.json({ result, timestamp });
   } catch (err) {
     // 채점 실패해도 제출 자체는 기록해서 나중에 재처리할 수 있게 남겨둡니다.
     const message = (err as Error).message;

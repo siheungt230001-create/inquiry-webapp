@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/auth";
 import { getSubmissionsByEmail } from "@/lib/sheets";
+import { approvalBadgeClass } from "@/lib/badge";
 
 export default async function HistoryPage() {
   const session = await auth();
@@ -42,12 +43,7 @@ export default async function HistoryPage() {
         ) : (
           <div className="mt-6 flex flex-col gap-3">
             {rows.map((r, i) => {
-              const badgeClass =
-                r.approval === "승인"
-                  ? "bg-emerald-600"
-                  : r.approval === "재제출"
-                  ? "bg-amber-500"
-                  : "bg-zinc-400";
+              const badgeClass = approvalBadgeClass(r.approval);
               return (
                 <div key={i} className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
                   <div className="text-xs text-zinc-400">

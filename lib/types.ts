@@ -1,6 +1,6 @@
 // 채점 결과 타입 - apps_script_자동화.gs의 RESPONSE_SCHEMA와 1:1로 대응합니다.
 export type Level = "L1" | "L2" | "L3" | "L4";
-export type Approval = "승인" | "재제출";
+export type Approval = "승인" | "재제출" | "제출완료(미승인)";
 
 export interface CriteriaScores {
   fact_accuracy: number;

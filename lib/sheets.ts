@@ -184,6 +184,52 @@ export async function getSubmissionsByEmail(email: string): Promise<SubmissionRo
   return rows.filter((s) => s.email === email);
 }
 
+const APPROVAL_COLUMN_LETTER = String.fromCharCode(
+  65 + SHEET_COLUMNS.indexOf("approval")
+);
+
+// 학생이 "질문 제출하기"로 최종 확정할 때 기존 행의 approval 칸만 제자리에서
+// 덮어쓴다 (email+timestamp로 행을 특정 - appendSubmission이 매번 새 timestamp로
+// 행을 추가하므로 이 조합이 사실상 유일 키다). 못 찾으면 false를 반환한다.
+export async function updateSubmissionApproval(
+  email: string,
+  timestamp: string,
+  approval: string
+): Promise<boolean> {
+  if (DEMO_MODE) {
+    const store = await readDemoStore();
+    const row = store.submissions.find(
+      (s) => s.email === email && s.timestamp === timestamp
+    );
+    if (!row) return false;
+    row.approval = approval;
+    await writeDemoStore(store);
+    return true;
+  }
+  // getAllSubmissions()는 최신순으로 정렬해서 반환하므로 그 인덱스로는 실제 시트
+  // 행 번호를 알 수 없다 - 원본 행 순서가 보존된 raw 읽기로 직접 인덱스를 찾는다.
+  const sheets = getSheetsClient();
+  const emailCol = SHEET_COLUMNS.indexOf("email");
+  const timestampCol = SHEET_COLUMNS.indexOf("timestamp");
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: process.env.SPREADSHEET_ID,
+    range: `${LOG_SHEET_NAME}!A2:X`,
+  });
+  const raw = res.data.values || [];
+  const idx = raw.findIndex(
+    (r) => r[emailCol] === email && r[timestampCol] === timestamp
+  );
+  if (idx === -1) return false;
+  const sheetRow = idx + 2; // 1행은 헤더
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: process.env.SPREADSHEET_ID,
+    range: `${LOG_SHEET_NAME}!${APPROVAL_COLUMN_LETTER}${sheetRow}`,
+    valueInputOption: "RAW",
+    requestBody: { values: [[approval]] },
+  });
+  return true;
+}
+
 export function isDemoMode(): boolean {
   return DEMO_MODE;
 }
