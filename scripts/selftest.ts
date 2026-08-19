@@ -23,7 +23,9 @@ assert(prompt.includes("[읽기자료]"), "프롬프트에 [읽기자료] 섹션
 assert(prompt.includes("더미 지문"), "프롬프트에 실제 읽기자료 내용이 삽입됨");
 assert(prompt.includes("[자가평가 비교]"), "프롬프트에 [자가평가 비교] 섹션 포함");
 assert(prompt.includes("[4가지 질문 틀 및 구조 점검]"), "프롬프트에 4가지 질문 틀 섹션 포함");
-assert(prompt.includes("승인 여부: 4.0점 이상"), "프롬프트에 4.0점 승인 기준 포함");
+assert(prompt.includes("총점 4.0점 이상"), "프롬프트에 4.0점 승인 기준 포함");
+assert(prompt.includes("L4 (복합형"), "프롬프트에 L4 트랙 포함");
+assert(prompt.includes("정보 요소"), "프롬프트에 자료 통합 깊이 재작성 반영");
 assert(RESPONSE_SCHEMA.required.includes("self_assessment_mismatch"), "스키마에 self_assessment_mismatch 필수 필드 포함");
 
 // 2) callGemini() 성공 경로 - fetch를 가짜로 바꿔서 실제 네트워크 없이 파싱 로직만 검증
