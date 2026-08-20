@@ -24,17 +24,23 @@ export function computeApproval(score: number): "승인" | "재제출" {
   return score >= APPROVAL_THRESHOLD ? "승인" : "재제출";
 }
 
+// L1은 구간 구분이 없다("" = 구간 없음). L4는 우수 구간이 하나 더 있어서 따로 뗀다.
+// level(예: "L4-높음(우수)")과 별개로 분석용 track/band를 나눠 저장하려고 분리해뒀다 -
+// SHEET_COLUMNS의 levelTrack/levelBand가 이 값을 그대로 받아 쓴다(문자열 파싱 불필요).
+export function computeBand(track: Track, score: number): string {
+  if (track === "L1") return "";
+  if (track === "L4" && score >= EXCELLENT_THRESHOLD) return "높음(우수)";
+  return score >= APPROVAL_THRESHOLD ? "높음" : "낮음";
+}
+
 export function computeLevelBand(track: Track, score: number): string {
-  if (track === "L1") return "L1";
-  if (track === "L4") {
-    if (score >= EXCELLENT_THRESHOLD) return "L4-높음(우수)";
-    return score >= APPROVAL_THRESHOLD ? "L4-높음" : "L4-낮음";
-  }
-  return `${track}-${score >= APPROVAL_THRESHOLD ? "높음" : "낮음"}`;
+  const band = computeBand(track, score);
+  return band ? `${track}-${band}` : track;
 }
 
 export interface EvaluatedResult {
   track: Track;
+  band: string;
   score: number;
   level: string;
   approval: "승인" | "재제출";
@@ -54,6 +60,7 @@ export function evaluateCriteriaScores(criteria: CriteriaScores): EvaluatedResul
   const track = computeTrack(criteria.causal_depth, criteria.comparison_clarity);
   return {
     track,
+    band: computeBand(track, score),
     score,
     level: computeLevelBand(track, score),
     approval: computeApproval(score),

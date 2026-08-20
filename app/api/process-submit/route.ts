@@ -36,6 +36,8 @@ export async function POST(request: Request) {
     await updateSubmissionResult(email, timestamp, {
       status: "완료",
       aiLevel: result.level,
+      levelTrack: result.track,
+      levelBand: result.band,
       aiScore: result.score,
       fact: result.criteria_scores.fact_accuracy,
       causal: result.criteria_scores.causal_depth,

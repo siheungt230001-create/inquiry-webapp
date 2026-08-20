@@ -18,6 +18,8 @@ function row(overrides: Partial<SubmissionRow>): SubmissionRow {
     doubt: "",
     status: "완료",
     aiLevel: "L1",
+    levelTrack: "L1",
+    levelBand: "",
     aiScore: 3,
     fact: 1,
     causal: 1,

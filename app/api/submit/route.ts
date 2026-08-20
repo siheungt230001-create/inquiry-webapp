@@ -79,6 +79,8 @@ export async function POST(request: Request) {
     doubt: "", // 의심스러운 점 입력란 폐지 - Sheets 컬럼 구조 유지를 위해 항상 빈 값만 기록
     status: "완료",
     aiLevel: "",
+    levelTrack: "",
+    levelBand: "",
     aiScore: "",
     fact: "",
     causal: "",
@@ -114,6 +116,8 @@ export async function POST(request: Request) {
       ...baseRow,
       status: "완료",
       aiLevel: result.level,
+      levelTrack: result.track,
+      levelBand: result.band,
       aiScore: result.score,
       fact: result.criteria_scores.fact_accuracy,
       causal: result.criteria_scores.causal_depth,

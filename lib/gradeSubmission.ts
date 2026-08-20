@@ -22,6 +22,8 @@ export async function gradeSubmission(
   return {
     ...rawResult,
     level: evaluated.level,
+    track: evaluated.track,
+    band: evaluated.band,
     score: evaluated.score,
     approval: evaluated.approval,
   };

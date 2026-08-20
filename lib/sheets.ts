@@ -210,7 +210,7 @@ export async function getAllSubmissions(): Promise<SubmissionRow[]> {
   const res = await withRetry(() =>
     sheets.spreadsheets.values.get({
       spreadsheetId: process.env.SPREADSHEET_ID,
-      range: `${LOG_SHEET_NAME}!A2:X`,
+      range: `${LOG_SHEET_NAME}!A2:Z`,
     })
   );
   const rows = res.data.values || [];
@@ -264,7 +264,7 @@ export async function updateSubmissionApproval(
   const res = await withRetry(() =>
     sheets.spreadsheets.values.get({
       spreadsheetId: process.env.SPREADSHEET_ID,
-      range: `${LOG_SHEET_NAME}!A2:X`,
+      range: `${LOG_SHEET_NAME}!A2:Z`,
     })
   );
   const raw = res.data.values || [];
@@ -308,7 +308,7 @@ export async function updateSubmissionResult(
   const res = await withRetry(() =>
     sheets.spreadsheets.values.get({
       spreadsheetId: process.env.SPREADSHEET_ID,
-      range: `${LOG_SHEET_NAME}!A2:X`,
+      range: `${LOG_SHEET_NAME}!A2:Z`,
     })
   );
   const raw = res.data.values || [];
@@ -328,7 +328,7 @@ export async function updateSubmissionResult(
   await withRetry(() =>
     sheets.spreadsheets.values.update({
       spreadsheetId: process.env.SPREADSHEET_ID,
-      range: `${LOG_SHEET_NAME}!A${sheetRow}:X${sheetRow}`,
+      range: `${LOG_SHEET_NAME}!A${sheetRow}:Z${sheetRow}`,
       valueInputOption: "RAW",
       requestBody: { values },
     })

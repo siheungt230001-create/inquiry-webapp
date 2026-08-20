@@ -14,6 +14,10 @@ export interface GradingResult {
   // lib/rubric.ts의 evaluateCriteriaScores(criteria_scores)로 재계산한 값으로 항상
   // 덮어써진다 - Gemini 자신의 판단을 최종값으로 신뢰하지 않는다.
   level: string;
+  // 분석용으로 level을 미리 쪼개둔 값들 - lib/rubric.ts의 computeTrack/computeBand가
+  // 계산한다. level 문자열을 굳이 파싱하지 않아도 트랙별/구간별 집계가 바로 된다.
+  track: string; // "L1" | "L2" | "L3" | "L4"
+  band: string; // "" | "낮음" | "높음" | "높음(우수)" (L1은 항상 "")
   score: number;
   criteria_scores: CriteriaScores;
   approval: Approval;
@@ -36,6 +40,8 @@ export interface SubmissionRow {
   doubt: string;
   status: string; // 처리중 | 완료 | 오류: ...
   aiLevel: string;
+  levelTrack: string; // aiLevel을 분석용으로 미리 쪼갠 값 - "L1"|"L2"|"L3"|"L4"
+  levelBand: string; // aiLevel을 분석용으로 미리 쪼갠 값 - ""|"낮음"|"높음"|"높음(우수)"
   aiScore: number | "";
   fact: number | "";
   causal: number | "";
@@ -75,6 +81,10 @@ export const SHEET_COLUMNS: (keyof SubmissionRow)[] = [
   "feedback",
   "processedAt",
   "abuseFlag",
+  // 여기 두 개는 기존 데이터 안 깨지게 반드시 맨 끝에만 추가한다(중간 삽입 금지 -
+  // 실제 시트 컬럼도 위치로만 매칭되므로 순서가 어긋나면 기존 행이 통째로 밀린다).
+  "levelTrack",
+  "levelBand",
 ];
 
 // "탐구_글쓰기_기록" 시트의 한 행 - 메인 질문 채점(SubmissionRow)과는 별개 탭.

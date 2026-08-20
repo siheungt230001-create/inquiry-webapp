@@ -32,6 +32,8 @@ export async function GET(request: Request) {
 
   const result: GradingResult = {
     level: row.aiLevel,
+    track: row.levelTrack,
+    band: row.levelBand,
     score: row.aiScore === "" ? 0 : row.aiScore,
     criteria_scores: {
       fact_accuracy: row.fact === "" ? 0 : row.fact,
