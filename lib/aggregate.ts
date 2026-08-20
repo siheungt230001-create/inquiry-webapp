@@ -1,7 +1,7 @@
 // 교사 대시보드 / 우수질문 목록에서 쓰는 집계 함수. reference/teacher_dashboard.gs의
 // refreshTeacherDashboard()와 reference/export_approved_questions.gs의 getApprovedRows_()
 // 로직을 그대로 옮긴 순수 함수들 (시트 접근 없음 - lib/sheets.ts가 읽어온 rows를 받아 계산만 함).
-import type { SubmissionRow } from "./types";
+import type { SubmissionRow, InquiryRecord } from "./types";
 
 export interface StudentLatest {
   email: string;
@@ -20,6 +20,7 @@ export interface StudentLatest {
   compare: number | "";
   sentence: number | "";
   integration: number | "";
+  timestamp: string; // 최신 메인 질문 제출의 timestamp - InquiryRecord.mainQuestionTimestamp와 조인용
 }
 
 export interface BanStat {
@@ -28,6 +29,26 @@ export interface BanStat {
   approved: number;
   approvalRate: number;
   avgScore: number;
+}
+
+export interface UnitStat {
+  unit: string;
+  total: number;
+  approved: number;
+  approvalRate: number;
+  avgScore: number;
+  studentCount: number;
+  lastActivity: string;
+}
+
+export interface AllStudentSummary {
+  email: string;
+  name: string;
+  ban: string;
+  no: string;
+  totalCount: number;
+  unitCount: number;
+  lastActivity: string;
 }
 
 export interface ApprovedItem {
@@ -39,14 +60,19 @@ export interface ApprovedItem {
   score: number | "";
 }
 
-// 학생별 최신 상태: 이메일별 가장 최근 제출 1건, 반 → 번호 순 정렬.
-export function buildStudentLatest(rows: SubmissionRow[]): StudentLatest[] {
-  const byEmail = new Map<string, StudentLatest & { ts: string }>();
+// rows를 keyOf(row)별로 묶어서 각 그룹의 가장 최근 1건만 남긴다 - buildStudentLatest(이메일별)와
+// buildStudentUnitHistory(한 학생의 단원별) 둘 다 이 로직을 그대로 쓴다.
+function groupLatestBy(
+  rows: SubmissionRow[],
+  keyOf: (row: SubmissionRow) => string
+): Map<string, StudentLatest> {
+  const byKey = new Map<string, StudentLatest>();
   for (const row of rows) {
-    if (!row.email) continue;
-    const existing = byEmail.get(row.email);
+    const key = keyOf(row);
+    if (!key) continue;
+    const existing = byKey.get(key);
     if (!existing) {
-      byEmail.set(row.email, {
+      byKey.set(key, {
         email: row.email,
         name: row.name,
         ban: row.ban,
@@ -63,12 +89,12 @@ export function buildStudentLatest(rows: SubmissionRow[]): StudentLatest[] {
         compare: row.compare,
         sentence: row.sentence,
         integration: row.integration,
-        ts: row.timestamp,
+        timestamp: row.timestamp,
       });
       continue;
     }
     existing.count += 1;
-    if (new Date(row.timestamp) > new Date(existing.ts)) {
+    if (new Date(row.timestamp) > new Date(existing.timestamp)) {
       existing.name = row.name;
       existing.ban = row.ban;
       existing.no = row.no;
@@ -83,33 +109,28 @@ export function buildStudentLatest(rows: SubmissionRow[]): StudentLatest[] {
       existing.compare = row.compare;
       existing.sentence = row.sentence;
       existing.integration = row.integration;
-      existing.ts = row.timestamp;
+      existing.timestamp = row.timestamp;
     }
   }
-  return Array.from(byEmail.values())
-    .sort((a, b) => {
-      const banDiff = (Number(a.ban) || 0) - (Number(b.ban) || 0);
-      if (banDiff !== 0) return banDiff;
-      return (Number(a.no) || 0) - (Number(b.no) || 0);
-    })
-    .map((s) => ({
-      email: s.email,
-      name: s.name,
-      ban: s.ban,
-      no: s.no,
-      unit: s.unit,
-      level: s.level,
-      score: s.score,
-      approval: s.approval,
-      count: s.count,
-      question: s.question,
-      feedback: s.feedback,
-      fact: s.fact,
-      causal: s.causal,
-      compare: s.compare,
-      sentence: s.sentence,
-      integration: s.integration,
-    }));
+  return byKey;
+}
+
+// 학생별 최신 상태: 이메일별 가장 최근 제출 1건, 반 → 번호 순 정렬.
+export function buildStudentLatest(rows: SubmissionRow[]): StudentLatest[] {
+  const byEmail = groupLatestBy(rows, (r) => r.email);
+  return Array.from(byEmail.values()).sort((a, b) => {
+    const banDiff = (Number(a.ban) || 0) - (Number(b.ban) || 0);
+    if (banDiff !== 0) return banDiff;
+    return (Number(a.no) || 0) - (Number(b.no) || 0);
+  });
+}
+
+// 한 학생이 낸 메인 질문 전부(단원 안 가리고, 묶지 않고) - 최신순. "전체 보기"의 학생
+// 상세 화면에서 질문 목록으로 보여준다(같은 단원 재제출도 각각 별도 항목으로 나온다).
+export function buildStudentQuestionHistory(rows: SubmissionRow[], email: string): SubmissionRow[] {
+  return rows
+    .filter((r) => r.email === email)
+    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 }
 
 // 제출이 있는 단원 목록, 가장 최근 제출이 있는 단원 순으로 정렬 (대시보드 단원 드롭다운용).
@@ -152,6 +173,90 @@ export function buildBanStats(rows: SubmissionRow[]): BanStat[] {
     }));
 }
 
+// 교사 대시보드 1단계(단원 목록) - 단원별 총 제출/승인/승인율/평균점수/참여 학생 수,
+// 가장 최근 활동이 있는 단원 순으로 정렬.
+export function buildUnitStats(rows: SubmissionRow[]): UnitStat[] {
+  const byUnit = new Map<
+    string,
+    { total: number; approved: number; scoreSum: number; scoreCount: number; emails: Set<string>; last: string }
+  >();
+  for (const row of rows) {
+    if (!row.unit) continue;
+    const acc = byUnit.get(row.unit) || {
+      total: 0,
+      approved: 0,
+      scoreSum: 0,
+      scoreCount: 0,
+      emails: new Set<string>(),
+      last: row.timestamp,
+    };
+    acc.total += 1;
+    if (row.approval === "승인") acc.approved += 1;
+    if (typeof row.aiScore === "number") {
+      acc.scoreSum += row.aiScore;
+      acc.scoreCount += 1;
+    }
+    if (row.email) acc.emails.add(row.email);
+    if (new Date(row.timestamp) > new Date(acc.last)) acc.last = row.timestamp;
+    byUnit.set(row.unit, acc);
+  }
+  return Array.from(byUnit.entries())
+    .map(([unit, a]) => ({
+      unit,
+      total: a.total,
+      approved: a.approved,
+      approvalRate: a.total ? a.approved / a.total : 0,
+      avgScore: a.scoreCount ? a.scoreSum / a.scoreCount : 0,
+      studentCount: a.emails.size,
+      lastActivity: a.last,
+    }))
+    .sort((x, y) => new Date(y.lastActivity).getTime() - new Date(x.lastActivity).getTime());
+}
+
+// "전체 보기" 1단계(학생 목록) - 단원을 가로질러 학생별로 총 제출 수/참여 단원 수/최근
+// 활동 시각만 요약. 세부 점수는 학생을 클릭해 들어간 buildStudentUnitHistory에서 본다.
+export function buildAllStudentsSummary(rows: SubmissionRow[]): AllStudentSummary[] {
+  const byEmail = new Map<
+    string,
+    { name: string; ban: string; no: string; totalCount: number; units: Set<string>; last: string }
+  >();
+  for (const row of rows) {
+    if (!row.email) continue;
+    const acc = byEmail.get(row.email) || {
+      name: row.name,
+      ban: row.ban,
+      no: row.no,
+      totalCount: 0,
+      units: new Set<string>(),
+      last: row.timestamp,
+    };
+    acc.totalCount += 1;
+    if (row.unit) acc.units.add(row.unit);
+    if (new Date(row.timestamp) > new Date(acc.last)) {
+      acc.last = row.timestamp;
+      acc.name = row.name;
+      acc.ban = row.ban;
+      acc.no = row.no;
+    }
+    byEmail.set(row.email, acc);
+  }
+  return Array.from(byEmail.entries())
+    .map(([email, a]) => ({
+      email,
+      name: a.name,
+      ban: a.ban,
+      no: a.no,
+      totalCount: a.totalCount,
+      unitCount: a.units.size,
+      lastActivity: a.last,
+    }))
+    .sort((x, y) => {
+      const banDiff = (Number(x.ban) || 0) - (Number(y.ban) || 0);
+      if (banDiff !== 0) return banDiff;
+      return (Number(x.no) || 0) - (Number(y.no) || 0);
+    });
+}
+
 // 승인된 질문만 단원별로 묶어서 점수 내림차순. 원본 exportApprovedQuestionsDoc처럼 익명
 // 공유가 기본 목적이라 이름/반은 여기서 담되, 표시 여부는 페이지(app/approved-questions)에서 결정.
 export function buildApprovedByUnit(rows: SubmissionRow[]): Map<string, ApprovedItem[]> {
@@ -174,4 +279,42 @@ export function buildApprovedByUnit(rows: SubmissionRow[]): Map<string, Approved
     byUnit.set(item.unit, list);
   }
   return byUnit;
+}
+
+// 메인 질문 timestamp → 진행 상태. records는 getAllInquiryRecords()가 이미 최신순으로
+// 정렬해서 주므로, 같은 mainQuestionTimestamp가 여러 번 나와도 먼저 만나는 게 최신
+// 상태다(upsertInquiryRecord가 학생당 행 하나만 유지하므로 실제로는 중복이 안 생기지만,
+// 과거 데이터에 중복이 남아있어도 안전하게 처리하려고 첫 매칭만 쓴다).
+export function buildInquiryProgressMap(
+  records: InquiryRecord[]
+): Map<string, "진행중" | "완료"> {
+  const map = new Map<string, "진행중" | "완료">();
+  for (const r of records) {
+    if (!r.mainQuestionTimestamp || map.has(r.mainQuestionTimestamp)) continue;
+    map.set(r.mainQuestionTimestamp, r.totalScore === "" ? "진행중" : "완료");
+  }
+  return map;
+}
+
+// 학생별 최신 상태 표의 각 행을 펼쳤을 때 보여줄 탐구 글쓰기 기록들 - 이메일별로 묶는다.
+// records는 이미 최신순으로 정렬된 채로 오므로 그룹 내부 순서도 그대로 최신순 유지.
+export function buildInquiryByEmail(records: InquiryRecord[]): Map<string, InquiryRecord[]> {
+  const map = new Map<string, InquiryRecord[]>();
+  for (const r of records) {
+    const list = map.get(r.email) || [];
+    list.push(r);
+    map.set(r.email, list);
+  }
+  return map;
+}
+
+// 교사 대시보드 "탐구 글쓰기 기록" 섹션 - 선택된 단원/반으로 필터링(이미 최신순 정렬된 채로 옴).
+export function filterInquiryRecords(
+  records: InquiryRecord[],
+  unit: string,
+  ban: string
+): InquiryRecord[] {
+  return records.filter(
+    (r) => (!unit || r.unit === unit) && (!ban || r.ban === ban)
+  );
 }

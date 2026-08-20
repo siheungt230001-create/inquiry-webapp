@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { SELF_LEVEL_LIST } from "@/lib/constants";
 import type { GradingResult } from "@/lib/types";
-import { approvalBadgeClass } from "@/lib/badge";
+import { approvalBadgeClass, CRITERIA_ACCENTS } from "@/lib/badge";
+import AutoTextarea from "./AutoTextarea";
 
 const PROFILE_KEY = "inquiry-webapp-profile";
 
@@ -36,6 +37,16 @@ export default function SubmitForm() {
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<GradingResult | null>(null);
   const [timestamp, setTimestamp] = useState<string | null>(null);
+  const [polling, setPolling] = useState(false);
+  const pollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pollStartRef = useRef(0);
+
+  useEffect(() => {
+    // 언마운트 시 폴링 타이머 정리
+    return () => {
+      if (pollTimeoutRef.current) clearTimeout(pollTimeoutRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     fetch("/api/units")
@@ -53,6 +64,45 @@ export default function SubmitForm() {
     const merged = { ...profile, ...next };
     setProfile(merged);
     localStorage.setItem(PROFILE_KEY, JSON.stringify(merged));
+  }
+
+  const POLL_INTERVAL_MS = 3000;
+  const POLL_TIMEOUT_MS = 5 * 60 * 1000;
+
+  function stopPolling() {
+    if (pollTimeoutRef.current) clearTimeout(pollTimeoutRef.current);
+    setPolling(false);
+  }
+
+  async function pollStatus(ts: string) {
+    if (Date.now() - pollStartRef.current > POLL_TIMEOUT_MS) {
+      stopPolling();
+      setError("채점이 너무 오래 걸리고 있어요. 잠시 후 이력에서 결과를 확인해 주세요.");
+      return;
+    }
+    try {
+      const res = await fetch(`/api/submit/status?ts=${encodeURIComponent(ts)}`);
+      const data = await res.json();
+      if (!res.ok) {
+        stopPolling();
+        setError(data.error || "결과를 확인하지 못했습니다.");
+        return;
+      }
+      if (data.status === "완료") {
+        stopPolling();
+        setResult(data.result as GradingResult);
+        setTimestamp(ts);
+        return;
+      }
+      if (data.status === "오류") {
+        stopPolling();
+        setError("채점 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
+        return;
+      }
+      pollTimeoutRef.current = setTimeout(() => pollStatus(ts), POLL_INTERVAL_MS);
+    } catch {
+      pollTimeoutRef.current = setTimeout(() => pollStatus(ts), POLL_INTERVAL_MS);
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -78,6 +128,11 @@ export default function SubmitForm() {
       const data = await res.json();
       if (!res.ok) {
         setError(data.error || "알 수 없는 오류가 발생했습니다.");
+      } else if (data.queued) {
+        setTimestamp(data.timestamp as string);
+        setPolling(true);
+        pollStartRef.current = Date.now();
+        pollStatus(data.timestamp as string);
       } else {
         setResult(data.result as GradingResult);
         setTimestamp(data.timestamp as string);
@@ -87,6 +142,17 @@ export default function SubmitForm() {
     } finally {
       setLoading(false);
     }
+  }
+
+  if (polling) {
+    return (
+      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+        <p className="font-semibold text-zinc-900">{question}</p>
+        <p className="mt-4 rounded-lg bg-blue-50 border border-blue-200 px-3 py-2 text-sm text-blue-700">
+          제출이 접수됐어요. 순서대로 채점 중이니 잠시만 기다려 주세요.
+        </p>
+      </div>
+    );
   }
 
   if (result && timestamp) {
@@ -149,10 +215,10 @@ export default function SubmitForm() {
       </Field>
 
       <Field label="나의 탐구 질문">
-        <textarea
+        <AutoTextarea
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
-          className="input min-h-[100px] resize-y"
+          className="input min-h-[100px]"
           placeholder="예: 세종대왕은 왜 한글을 만들었을까?"
           required
         />
@@ -287,12 +353,30 @@ function ResultCard({
 
       <details className="mt-4 text-xs text-zinc-500">
         <summary className="cursor-pointer">세부 채점 보기</summary>
-        <ul className="mt-2 grid grid-cols-2 gap-1">
-          <li>사실 정확성: {result.criteria_scores.fact_accuracy}</li>
-          <li>인과·분석 깊이: {result.criteria_scores.causal_depth}</li>
-          <li>비교·평가 요소: {result.criteria_scores.comparison_clarity}</li>
-          <li>문장 명료성: {result.criteria_scores.sentence_clarity}</li>
-          <li>자료 통합 깊이: {result.criteria_scores.integration_depth}</li>
+        <ul className="mt-2 grid grid-cols-2 gap-1.5">
+          {CRITERIA_ACCENTS.map((c, i) => {
+            const value = [
+              result.criteria_scores.fact_accuracy,
+              result.criteria_scores.causal_depth,
+              result.criteria_scores.comparison_clarity,
+              result.criteria_scores.sentence_clarity,
+              result.criteria_scores.integration_depth,
+            ][i];
+            return (
+              <li
+                key={c.label}
+                className="flex items-center gap-1.5 border-l-2 py-0.5 pl-2"
+                style={{ borderColor: c.color }}
+              >
+                <span
+                  className="h-1.5 w-1.5 shrink-0 rounded-full"
+                  style={{ backgroundColor: c.color }}
+                />
+                <span style={c.textSafe ? { color: c.color } : undefined}>{c.label}</span>
+                <span className="text-zinc-500">: {value}</span>
+              </li>
+            );
+          })}
         </ul>
       </details>
 

@@ -76,3 +76,51 @@ export const SHEET_COLUMNS: (keyof SubmissionRow)[] = [
   "processedAt",
   "abuseFlag",
 ];
+
+// "탐구_글쓰기_기록" 시트의 한 행 - 메인 질문 채점(SubmissionRow)과는 별개 탭.
+// 보조질문 개수가 3~5개로 가변이라 개별 컬럼으로 안 쪼개고 JSON 문자열 하나로 담는다.
+export interface InquirySubQuestion {
+  label: string;
+  question: string;
+  answer: string;
+}
+
+export interface InquiryRecord {
+  timestamp: string; // ISO, 이 레코드의 유일 키
+  email: string;
+  ban: string;
+  no: string;
+  name: string;
+  unit: string;
+  mainQuestionTimestamp: string; // 원본 SubmissionRow.timestamp와 연결
+  mainQuestion: string;
+  subQuestionsJson: string; // JSON.stringify(InquirySubQuestion[])
+  intro: string;
+  body: string;
+  conclusion: string;
+  // 서론(0~1)/본론(0~3)/결론(0~1) - AI가 매긴 점수. total은 코드가 셋을 더해 계산한다
+  // (lib/subQuestionFlow.ts의 computeEssayTotal).
+  introScore: number | "";
+  bodyScore: number | "";
+  conclusionScore: number | "";
+  totalScore: number | "";
+}
+
+export const INQUIRY_COLUMNS: (keyof InquiryRecord)[] = [
+  "timestamp",
+  "email",
+  "ban",
+  "no",
+  "name",
+  "unit",
+  "mainQuestionTimestamp",
+  "mainQuestion",
+  "subQuestionsJson",
+  "intro",
+  "body",
+  "conclusion",
+  "introScore",
+  "bodyScore",
+  "conclusionScore",
+  "totalScore",
+];

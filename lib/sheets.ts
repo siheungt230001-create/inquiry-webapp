@@ -1,8 +1,8 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { google } from "googleapis";
-import type { SubmissionRow } from "./types";
-import { SHEET_COLUMNS } from "./types";
+import type { SubmissionRow, InquiryRecord } from "./types";
+import { SHEET_COLUMNS, INQUIRY_COLUMNS } from "./types";
 
 // ===== 실행 모드 =====
 // GOOGLE_SERVICE_ACCOUNT_KEY와 SPREADSHEET_ID가 둘 다 설정돼 있으면 실제 Google Sheets에
@@ -14,6 +14,7 @@ const DEMO_MODE =
 
 const UNIT_SHEET_NAME = "단원_자료";
 const LOG_SHEET_NAME = "제출_판정_로그";
+const INQUIRY_SHEET_NAME = "탐구_글쓰기_기록";
 
 // SubmissionRow에서 number | "" 타입인 컬럼들. types.ts와 반드시 일치시킬 것.
 const NUMERIC_COLUMNS = new Set<keyof SubmissionRow>([
@@ -25,12 +26,21 @@ const NUMERIC_COLUMNS = new Set<keyof SubmissionRow>([
   "integration",
 ]);
 
+// InquiryRecord에서 number | "" 타입인 컬럼들.
+const NUMERIC_INQUIRY_COLUMNS = new Set<keyof InquiryRecord>([
+  "introScore",
+  "bodyScore",
+  "conclusionScore",
+  "totalScore",
+]);
+
 // ===== 데모 모드: 로컬 JSON 파일 저장소 =====
 const DEMO_FILE = path.join(process.cwd(), "data", "demo-store.json");
 
 interface DemoStore {
   units: { title: string; readingText: string }[];
   submissions: SubmissionRow[];
+  inquiryRecords: InquiryRecord[];
 }
 
 const SEED_UNIT = {
@@ -66,9 +76,12 @@ const SEED_UNIT = {
 async function readDemoStore(): Promise<DemoStore> {
   try {
     const raw = await fs.readFile(DEMO_FILE, "utf-8");
-    return JSON.parse(raw) as DemoStore;
+    const parsed = JSON.parse(raw) as DemoStore;
+    // 이 필드가 생기기 전에 저장된 demo-store.json이 남아있을 수 있으니 채워준다.
+    if (!parsed.inquiryRecords) parsed.inquiryRecords = [];
+    return parsed;
   } catch {
-    const initial: DemoStore = { units: [SEED_UNIT], submissions: [] };
+    const initial: DemoStore = { units: [SEED_UNIT], submissions: [], inquiryRecords: [] };
     await fs.mkdir(path.dirname(DEMO_FILE), { recursive: true });
     await fs.writeFile(DEMO_FILE, JSON.stringify(initial, null, 2));
     return initial;
@@ -78,6 +91,32 @@ async function readDemoStore(): Promise<DemoStore> {
 async function writeDemoStore(store: DemoStore): Promise<void> {
   await fs.mkdir(path.dirname(DEMO_FILE), { recursive: true });
   await fs.writeFile(DEMO_FILE, JSON.stringify(store, null, 2));
+}
+
+// Google Sheets API가 429(분당 요청 한도 초과)나 503(일시적 서버 오류)을 주면 잠깐
+// 쉬었다 다시 시도한다 (lib/gemini.ts의 callGemini 재시도와 같은 이유 - 학생 여러
+// 명이 한꺼번에 제출할 때 순간적인 한도 초과로 전체 요청이 바로 실패하지 않게 한다).
+function getErrorStatus(err: unknown): number | undefined {
+  const anyErr = err as { code?: number | string; status?: number; response?: { status?: number } };
+  const raw = anyErr?.response?.status ?? anyErr?.status ?? anyErr?.code;
+  const num = typeof raw === "string" ? Number(raw) : raw;
+  return typeof num === "number" && !Number.isNaN(num) ? num : undefined;
+}
+
+async function withRetry<T>(fn: () => Promise<T>, maxAttempts = 3): Promise<T> {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      const status = getErrorStatus(err);
+      const canRetry = (status === 429 || status === 503) && attempt < maxAttempts;
+      if (!canRetry) throw err;
+      // 지수 백오프 + 지터(무작위 지연) - 여러 요청이 동시에 재시도해 다시 몰리는 것을 완화.
+      const delay = 1000 * Math.pow(2, attempt) + Math.random() * 500;
+      await new Promise((r) => setTimeout(r, delay));
+    }
+  }
+  throw new Error("알 수 없는 오류로 모든 재시도가 실패했습니다.");
 }
 
 // ===== 실제 Google Sheets 클라이언트 (서비스 계정) =====
@@ -103,10 +142,12 @@ export async function getUnits(): Promise<{ title: string; readingText: string }
     return store.units;
   }
   const sheets = getSheetsClient();
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: process.env.SPREADSHEET_ID,
-    range: `${UNIT_SHEET_NAME}!A2:B`,
-  });
+  const res = await withRetry(() =>
+    sheets.spreadsheets.values.get({
+      spreadsheetId: process.env.SPREADSHEET_ID,
+      range: `${UNIT_SHEET_NAME}!A2:B`,
+    })
+  );
   const rows = res.data.values || [];
   return rows
     .filter((r) => r[0])
@@ -124,9 +165,10 @@ export async function getGroundingTextForUnit(unitTitle: string): Promise<string
   return found.readingText;
 }
 
-// 같은 학생이 같은 단원에 60초 안에 다시 제출했는지 확인 (Apps Script checkAbuseFlag_와 동일)
-export async function checkAbuseFlag(email: string, unit: string): Promise<string> {
-  const rows = await getSubmissionsByEmail(email);
+// 같은 학생이 같은 단원에 60초 안에 다시 제출했는지 확인 (Apps Script checkAbuseFlag_와 동일).
+// 호출부(app/api/submit/route.ts)가 이미 읽어온 rows를 넘겨받는다 - 학생 30명이 몰릴 때
+// 같은 이메일의 제출 이력을 시트에서 두 번 읽는 걸(회차 계산용으로도 필요) 막기 위함.
+export function checkAbuseFlag(rows: SubmissionRow[], unit: string): string {
   const sameUnit = rows.find((r) => r.unit === unit);
   if (!sameUnit) return "";
   const diffSec = (Date.now() - new Date(sameUnit.timestamp).getTime()) / 1000;
@@ -142,12 +184,18 @@ export async function appendSubmission(row: SubmissionRow): Promise<void> {
   }
   const sheets = getSheetsClient();
   const values = [SHEET_COLUMNS.map((key) => row[key] ?? "")];
-  await sheets.spreadsheets.values.append({
-    spreadsheetId: process.env.SPREADSHEET_ID,
-    range: `${LOG_SHEET_NAME}!A1`,
-    valueInputOption: "RAW",
-    requestBody: { values },
-  });
+  await withRetry(() =>
+    sheets.spreadsheets.values.append({
+      spreadsheetId: process.env.SPREADSHEET_ID,
+      range: `${LOG_SHEET_NAME}!A1`,
+      valueInputOption: "RAW",
+      // 학생 여러 명이 짧은 시간 안에 연달아 제출하면 OVERWRITE(기본값)는 "마지막 행이
+      // 어디인지" 판단이 서로 어긋나 직전 제출 행을 덮어쓰는 경우가 있었다. INSERT_ROWS는
+      // 매 호출을 실제 행 삽입 연산으로 처리해서 이 경합을 막는다.
+      insertDataOption: "INSERT_ROWS",
+      requestBody: { values },
+    })
+  );
 }
 
 // 제출_판정_로그 전체 행 (최신순 정렬). 교사 대시보드/우수질문 목록이 공유해서 씀.
@@ -159,10 +207,12 @@ export async function getAllSubmissions(): Promise<SubmissionRow[]> {
     );
   }
   const sheets = getSheetsClient();
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: process.env.SPREADSHEET_ID,
-    range: `${LOG_SHEET_NAME}!A2:X`,
-  });
+  const res = await withRetry(() =>
+    sheets.spreadsheets.values.get({
+      spreadsheetId: process.env.SPREADSHEET_ID,
+      range: `${LOG_SHEET_NAME}!A2:X`,
+    })
+  );
   const rows = res.data.values || [];
   const parsed: SubmissionRow[] = rows.map((r) => {
     const obj: Record<string, unknown> = {};
@@ -211,23 +261,166 @@ export async function updateSubmissionApproval(
   const sheets = getSheetsClient();
   const emailCol = SHEET_COLUMNS.indexOf("email");
   const timestampCol = SHEET_COLUMNS.indexOf("timestamp");
-  const res = await sheets.spreadsheets.values.get({
-    spreadsheetId: process.env.SPREADSHEET_ID,
-    range: `${LOG_SHEET_NAME}!A2:X`,
-  });
+  const res = await withRetry(() =>
+    sheets.spreadsheets.values.get({
+      spreadsheetId: process.env.SPREADSHEET_ID,
+      range: `${LOG_SHEET_NAME}!A2:X`,
+    })
+  );
   const raw = res.data.values || [];
   const idx = raw.findIndex(
     (r) => r[emailCol] === email && r[timestampCol] === timestamp
   );
   if (idx === -1) return false;
   const sheetRow = idx + 2; // 1행은 헤더
-  await sheets.spreadsheets.values.update({
-    spreadsheetId: process.env.SPREADSHEET_ID,
-    range: `${LOG_SHEET_NAME}!${APPROVAL_COLUMN_LETTER}${sheetRow}`,
-    valueInputOption: "RAW",
-    requestBody: { values: [[approval]] },
-  });
+  await withRetry(() =>
+    sheets.spreadsheets.values.update({
+      spreadsheetId: process.env.SPREADSHEET_ID,
+      range: `${LOG_SHEET_NAME}!${APPROVAL_COLUMN_LETTER}${sheetRow}`,
+      valueInputOption: "RAW",
+      requestBody: { values: [[approval]] },
+    })
+  );
   return true;
+}
+
+// QStash 큐 처리("대기중" 행 → 실제 채점 결과)에서 쓴다 - email+timestamp로 행을
+// 찾아서 patch에 담긴 필드들로 그 행 전체를 덮어쓴다(updateSubmissionApproval과
+// 같은 방식으로 행을 찾되, approval 한 칸이 아니라 여러 칸을 한 번에 갱신).
+export async function updateSubmissionResult(
+  email: string,
+  timestamp: string,
+  patch: Partial<SubmissionRow>
+): Promise<boolean> {
+  if (DEMO_MODE) {
+    const store = await readDemoStore();
+    const row = store.submissions.find(
+      (s) => s.email === email && s.timestamp === timestamp
+    );
+    if (!row) return false;
+    Object.assign(row, patch);
+    await writeDemoStore(store);
+    return true;
+  }
+  const sheets = getSheetsClient();
+  const emailCol = SHEET_COLUMNS.indexOf("email");
+  const timestampCol = SHEET_COLUMNS.indexOf("timestamp");
+  const res = await withRetry(() =>
+    sheets.spreadsheets.values.get({
+      spreadsheetId: process.env.SPREADSHEET_ID,
+      range: `${LOG_SHEET_NAME}!A2:X`,
+    })
+  );
+  const raw = res.data.values || [];
+  const idx = raw.findIndex(
+    (r) => r[emailCol] === email && r[timestampCol] === timestamp
+  );
+  if (idx === -1) return false;
+  const sheetRow = idx + 2; // 1행은 헤더
+
+  const current: Record<string, unknown> = {};
+  SHEET_COLUMNS.forEach((key, i) => {
+    current[key] = raw[idx][i] ?? "";
+  });
+  const merged = { ...current, ...patch } as SubmissionRow;
+  const values = [SHEET_COLUMNS.map((key) => merged[key] ?? "")];
+
+  await withRetry(() =>
+    sheets.spreadsheets.values.update({
+      spreadsheetId: process.env.SPREADSHEET_ID,
+      range: `${LOG_SHEET_NAME}!A${sheetRow}:X${sheetRow}`,
+      valueInputOption: "RAW",
+      requestBody: { values },
+    })
+  );
+  return true;
+}
+
+// ===== 탐구 글쓰기 기록 (별도 탭 - 메인 질문 채점 로그와 완전히 분리) =====
+
+// email+mainQuestionTimestamp로 기존 행을 찾아 있으면 그 자리에서 통째로 덮어쓰고,
+// 없으면 새로 추가한다. 2단계(보조질문만 작성)에서 만든 행을 3단계(종합 글쓰기 제출)에서
+// 같은 행으로 갱신하기 위한 것 - 매번 새 행을 추가하면 학생 하나당 중복 행이 쌓인다.
+// totalScore가 ""면 아직 채점 전(2단계 상태), 숫자가 채워지면 3단계 완료로 구분한다
+// (별도 상태 컬럼을 안 둬도 되는 이유 - lib/aggregate.ts의 buildInquiryProgressMap 참고).
+export async function upsertInquiryRecord(record: InquiryRecord): Promise<void> {
+  if (DEMO_MODE) {
+    const store = await readDemoStore();
+    const idx = store.inquiryRecords.findIndex(
+      (r) => r.email === record.email && r.mainQuestionTimestamp === record.mainQuestionTimestamp
+    );
+    if (idx === -1) {
+      store.inquiryRecords.unshift(record);
+    } else {
+      store.inquiryRecords[idx] = record;
+    }
+    await writeDemoStore(store);
+    return;
+  }
+  const sheets = getSheetsClient();
+  const emailCol = INQUIRY_COLUMNS.indexOf("email");
+  const mainTsCol = INQUIRY_COLUMNS.indexOf("mainQuestionTimestamp");
+  const res = await withRetry(() =>
+    sheets.spreadsheets.values.get({
+      spreadsheetId: process.env.SPREADSHEET_ID,
+      range: `${INQUIRY_SHEET_NAME}!A2:P`,
+    })
+  );
+  const raw = res.data.values || [];
+  const idx = raw.findIndex(
+    (r) => r[emailCol] === record.email && r[mainTsCol] === record.mainQuestionTimestamp
+  );
+  const values = [INQUIRY_COLUMNS.map((key) => record[key] ?? "")];
+
+  if (idx === -1) {
+    await withRetry(() =>
+      sheets.spreadsheets.values.append({
+        spreadsheetId: process.env.SPREADSHEET_ID,
+        range: `${INQUIRY_SHEET_NAME}!A1`,
+        valueInputOption: "RAW",
+        insertDataOption: "INSERT_ROWS", // appendSubmission과 같은 이유 - 동시 제출 시 덮어쓰기 방지
+        requestBody: { values },
+      })
+    );
+  } else {
+    const sheetRow = idx + 2; // 1행은 헤더
+    await withRetry(() =>
+      sheets.spreadsheets.values.update({
+        spreadsheetId: process.env.SPREADSHEET_ID,
+        range: `${INQUIRY_SHEET_NAME}!A${sheetRow}:P${sheetRow}`,
+        valueInputOption: "RAW",
+        requestBody: { values },
+      })
+    );
+  }
+}
+
+export async function getAllInquiryRecords(): Promise<InquiryRecord[]> {
+  if (DEMO_MODE) {
+    const store = await readDemoStore();
+    return [...store.inquiryRecords].sort(
+      (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+    );
+  }
+  const sheets = getSheetsClient();
+  const res = await withRetry(() =>
+    sheets.spreadsheets.values.get({
+      spreadsheetId: process.env.SPREADSHEET_ID,
+      range: `${INQUIRY_SHEET_NAME}!A2:P`,
+    })
+  );
+  const rows = res.data.values || [];
+  const parsed: InquiryRecord[] = rows.map((r) => {
+    const obj: Record<string, unknown> = {};
+    INQUIRY_COLUMNS.forEach((key, i) => {
+      const raw = r[i] ?? "";
+      obj[key] = NUMERIC_INQUIRY_COLUMNS.has(key) && raw !== "" ? Number(raw) : raw;
+    });
+    return obj as unknown as InquiryRecord;
+  });
+  return parsed.sort(
+    (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+  );
 }
 
 export function isDemoMode(): boolean {

@@ -1,15 +1,22 @@
 import { NextResponse } from "next/server";
+import { Client as QStashClient } from "@upstash/qstash";
 import { auth } from "@/auth";
-import { buildPrompt, evaluateCriteriaScores } from "@/lib/rubric";
-import { callGemini } from "@/lib/gemini";
-import {
-  getGroundingTextForUnit,
-  appendSubmission,
-  checkAbuseFlag,
-  getSubmissionsByEmail,
-} from "@/lib/sheets";
+import { gradeSubmission } from "@/lib/gradeSubmission";
+import { GEMINI_RATE_LIMIT_PER_MINUTE } from "@/lib/gemini";
+import { appendSubmission, checkAbuseFlag, getSubmissionsByEmail } from "@/lib/sheets";
 import { formatRound } from "@/lib/constants";
 import type { SubmissionRow } from "@/lib/types";
+
+// QSTASH_TOKEN이 설정돼 있으면(Upstash QStash 계정 연결됨) 채점을 큐에 태워서
+// Gemini 무료 티어 분당 한도를 안 넘기게 한다. 없으면 지금까지처럼 그 자리에서
+// 바로 채점한다(lib/sheets.ts의 DEMO_MODE와 같은 자동 폴백 패턴).
+const QUEUE_MODE = Boolean(process.env.QSTASH_TOKEN);
+
+function getAppUrl(): string {
+  if (process.env.APP_URL) return process.env.APP_URL;
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+  return "http://localhost:3000";
+}
 
 export async function POST(request: Request) {
   const session = await auth();
@@ -43,8 +50,12 @@ export async function POST(request: Request) {
 
   const email = session.user.email;
   const timestamp = new Date().toISOString();
+  const studentName = name || session.user.name || "";
 
-  const abuseFlag = await checkAbuseFlag(email, unit);
+  // 같은 이메일의 제출 이력은 여기서 한 번만 읽어서 어뷰징 체크·회차 계산 둘 다에 쓴다
+  // (예전엔 두 번 따로 읽어서, 학생이 몰릴 때 시트 읽기 요청이 불필요하게 배로 나갔다).
+  const priorSubmissions = await getSubmissionsByEmail(email);
+  const abuseFlag = checkAbuseFlag(priorSubmissions, unit);
   if (abuseFlag) {
     return NextResponse.json(
       { error: `같은 단원에 너무 빨리 다시 제출했어요. 잠시 후 다시 시도해 주세요. (${abuseFlag})` },
@@ -52,39 +63,55 @@ export async function POST(request: Request) {
     );
   }
 
-  const priorSubmissions = await getSubmissionsByEmail(email);
   const round = formatRound(priorSubmissions.filter((r) => r.unit === unit).length + 1);
 
-  let row: SubmissionRow;
+  const baseRow: SubmissionRow = {
+    timestamp,
+    email,
+    ban,
+    no,
+    name: studentName,
+    unit,
+    round,
+    question,
+    selfLevel,
+    textbookLink,
+    doubt: "", // 의심스러운 점 입력란 폐지 - Sheets 컬럼 구조 유지를 위해 항상 빈 값만 기록
+    status: "완료",
+    aiLevel: "",
+    aiScore: "",
+    fact: "",
+    causal: "",
+    compare: "",
+    sentence: "",
+    integration: "",
+    approval: "",
+    mismatch: "",
+    feedback: "",
+    processedAt: "",
+    abuseFlag: "",
+  };
+
+  if (QUEUE_MODE) {
+    // 채점 전에 "대기중" 행부터 먼저 남긴다 - QStash 워커(app/api/process-submit)가
+    // 나중에 email+timestamp로 이 행을 찾아서 실제 결과로 채운다.
+    await appendSubmission({ ...baseRow, status: "대기중" });
+
+    const qstash = new QStashClient({ token: process.env.QSTASH_TOKEN! });
+    await qstash.publishJSON({
+      url: `${getAppUrl()}/api/process-submit`,
+      body: { email, timestamp, unit, question, selfLevel },
+      flowControl: { key: "gemini-submit", rate: GEMINI_RATE_LIMIT_PER_MINUTE, period: 60 },
+    });
+
+    return NextResponse.json({ queued: true, timestamp });
+  }
 
   try {
-    const groundingText = await getGroundingTextForUnit(unit);
-    const prompt = buildPrompt(unit, groundingText, question, selfLevel);
-    const rawResult = await callGemini(prompt);
+    const result = await gradeSubmission(unit, question, selfLevel);
 
-    // Gemini가 응답에 담아 보낸 level/score/approval은 신뢰하지 않고, criteria_scores만
-    // 가져와 코드에서 재계산한다 (lib/rubric.ts의 evaluateCriteriaScores) - "레벨은
-    // 낮음인데 승인" 같은 불일치가 다시는 생기지 않도록 이 값을 최종값으로 쓴다.
-    const evaluated = evaluateCriteriaScores(rawResult.criteria_scores);
-    const result = {
-      ...rawResult,
-      level: evaluated.level,
-      score: evaluated.score,
-      approval: evaluated.approval,
-    };
-
-    row = {
-      timestamp,
-      email,
-      ban,
-      no,
-      name: name || session.user.name || "",
-      unit,
-      round,
-      question,
-      selfLevel,
-      textbookLink,
-      doubt: "", // 의심스러운 점 입력란 폐지 - Sheets 컬럼 구조 유지를 위해 항상 빈 값만 기록
+    const row: SubmissionRow = {
+      ...baseRow,
       status: "완료",
       aiLevel: result.level,
       aiScore: result.score,
@@ -97,7 +124,6 @@ export async function POST(request: Request) {
       mismatch: result.self_assessment_mismatch || "",
       feedback: result.feedback_text,
       processedAt: new Date().toISOString(),
-      abuseFlag: "",
     };
 
     await appendSubmission(row);
@@ -105,32 +131,7 @@ export async function POST(request: Request) {
   } catch (err) {
     // 채점 실패해도 제출 자체는 기록해서 나중에 재처리할 수 있게 남겨둡니다.
     const message = (err as Error).message;
-    row = {
-      timestamp,
-      email,
-      ban,
-      no,
-      name: name || session.user.name || "",
-      unit,
-      round,
-      question,
-      selfLevel,
-      textbookLink,
-      doubt: "", // 의심스러운 점 입력란 폐지 - Sheets 컬럼 구조 유지를 위해 항상 빈 값만 기록
-      status: `오류: ${message}`,
-      aiLevel: "",
-      aiScore: "",
-      fact: "",
-      causal: "",
-      compare: "",
-      sentence: "",
-      integration: "",
-      approval: "",
-      mismatch: "",
-      feedback: "",
-      processedAt: "",
-      abuseFlag: "",
-    };
+    const row: SubmissionRow = { ...baseRow, status: `오류: ${message}` };
     await appendSubmission(row).catch(() => {});
     return NextResponse.json(
       { error: `채점 중 오류가 발생했습니다: ${message}` },
