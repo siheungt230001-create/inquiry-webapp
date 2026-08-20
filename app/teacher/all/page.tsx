@@ -10,23 +10,26 @@ import TeacherModeTabs from "@/components/TeacherModeTabs";
 import {
   buildAllStudentsSummary,
   buildStudentQuestionHistory,
+  buildBanStats,
   buildInquiryProgressMap,
   buildInquiryByEmail,
+  type BanStat,
 } from "@/lib/aggregate";
 import type { InquiryRecord, InquirySubQuestion, SubmissionRow } from "@/lib/types";
 
-// 단원을 가로지르는 종합 보기 - 1단계는 학생 목록(전체 단원 합산 요약), 학생을 클릭하면
-// 2단계로 그 학생의 단원별 이력이 나온다. /teacher(단원→반→학생 드릴다운)와는 별도 화면.
+// 단원을 가로지르는 종합 보기 - 1단계는 반 목록(전체 단원 합산), 반을 클릭하면 2단계로
+// 그 반 학생 목록, 학생을 클릭하면 3단계로 그 학생의 단원별 질문 이력이 나온다.
+// /teacher(단원→반→학생 드릴다운)와는 축이 다른 별도 화면(이쪽은 단원을 안 가린다).
 export default async function TeacherAllPage({
   searchParams,
 }: {
-  searchParams: Promise<{ student?: string }>;
+  searchParams: Promise<{ ban?: string; student?: string }>;
 }) {
   const session = await auth();
   if (!session?.user?.email) redirect("/login");
   if (!isTeacherEmail(session.user.email)) return <TeacherAccessDenied />;
 
-  const { student: studentEmail } = await searchParams;
+  const { ban: banParam, student: studentEmail } = await searchParams;
   const rows = await getAllSubmissions();
 
   return (
@@ -46,13 +49,64 @@ export default async function TeacherAllPage({
           <TeacherModeTabs active="all" />
         </div>
 
-        {!studentEmail ? (
-          <StudentSummaryStage rows={rows} />
-        ) : (
+        {studentEmail ? (
           <StudentHistoryStage rows={rows} email={studentEmail} />
+        ) : banParam ? (
+          <StudentSummaryStage rows={rows} ban={banParam} />
+        ) : (
+          <BanListStage rows={rows} />
         )}
       </div>
     </div>
+  );
+}
+
+// ===== 1단계: 반 목록(전체 단원 합산) =====
+function BanListStage({ rows }: { rows: SubmissionRow[] }) {
+  const bans = buildBanStats(rows);
+  return (
+    <>
+      <div className="mt-6">
+        <Breadcrumb items={[{ label: "전체 보기" }]} />
+      </div>
+      <Section title={`반 목록 (${bans.length}개 반, 전체 단원 합산)`}>
+        {bans.length === 0 ? (
+          <EmptyState>데이터 없음</EmptyState>
+        ) : (
+          <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-zinc-200 text-left text-xs text-zinc-500">
+                  <th className="px-4 py-2.5">반</th>
+                  <th className="px-4 py-2.5">총 제출</th>
+                  <th className="px-4 py-2.5">승인</th>
+                  <th className="px-4 py-2.5">승인율</th>
+                  <th className="px-4 py-2.5">평균 점수</th>
+                </tr>
+              </thead>
+              <tbody>
+                {bans.map((b: BanStat) => (
+                  <tr key={b.ban} className="border-b border-zinc-100 last:border-0 hover:bg-zinc-50">
+                    <td className="px-4 py-2.5 font-medium text-zinc-900">
+                      <Link
+                        href={`/teacher/all?ban=${encodeURIComponent(b.ban)}`}
+                        className="underline decoration-dotted underline-offset-2 hover:text-indigo-600"
+                      >
+                        {b.ban}반
+                      </Link>
+                    </td>
+                    <td className="px-4 py-2.5">{b.total}</td>
+                    <td className="px-4 py-2.5">{b.approved}</td>
+                    <td className="px-4 py-2.5">{(b.approvalRate * 100).toFixed(1)}%</td>
+                    <td className="px-4 py-2.5">{b.avgScore.toFixed(2)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Section>
+    </>
   );
 }
 
@@ -73,15 +127,15 @@ function EmptyState({ children }: { children: React.ReactNode }) {
   );
 }
 
-// ===== 1단계: 학생 목록(전체 단원 요약) =====
-function StudentSummaryStage({ rows }: { rows: Parameters<typeof buildAllStudentsSummary>[0] }) {
-  const students = buildAllStudentsSummary(rows);
+// ===== 2단계: 한 반의 학생 목록(전체 단원 합산) =====
+function StudentSummaryStage({ rows, ban }: { rows: SubmissionRow[]; ban: string }) {
+  const students = buildAllStudentsSummary(rows.filter((r) => r.ban === ban));
   return (
     <>
       <div className="mt-6">
-        <Breadcrumb items={[{ label: "전체 보기" }]} />
+        <Breadcrumb items={[{ label: "전체 보기", href: "/teacher/all" }, { label: `${ban}반` }]} />
       </div>
-      <Section title={`학생 목록 (${students.length}명, 전체 단원)`}>
+      <Section title={`${ban}반 학생 목록 (${students.length}명, 전체 단원 합산)`}>
         {students.length === 0 ? (
           <EmptyState>데이터 없음</EmptyState>
         ) : (
@@ -138,7 +192,13 @@ async function StudentHistoryStage({ rows, email }: { rows: SubmissionRow[]; ema
   return (
     <>
       <div className="mt-6">
-        <Breadcrumb items={[{ label: "전체 보기", href: "/teacher/all" }, { label: name }]} />
+        <Breadcrumb
+          items={[
+            { label: "전체 보기", href: "/teacher/all" },
+            { label: `${ban}반`, href: `/teacher/all?ban=${encodeURIComponent(ban)}` },
+            { label: name },
+          ]}
+        />
       </div>
       <Section title={`${ban}반 ${no}번 · ${name} — 질문 목록 (${questions.length}건)`}>
         <div className="flex flex-col gap-2">
