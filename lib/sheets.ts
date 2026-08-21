@@ -434,6 +434,21 @@ export async function getAllInquiryRecords(): Promise<InquiryRecord[]> {
   );
 }
 
+// 학생이 특정 메인 질문에 대해 지금까지 작성한 탐구 글쓰기 기록(진행중/완료 둘 다)을
+// 하나 찾는다 - 페이지를 다시 열었을 때 sessionStorage가 비어 있어도(탭을 닫았다 열거나
+// 다른 기기) 여기서 불러와 이어 쓸 수 있게 하기 위함.
+export async function getInquiryRecord(
+  email: string,
+  mainQuestionTimestamp: string
+): Promise<InquiryRecord | null> {
+  const rows = await getAllInquiryRecords();
+  return (
+    rows.find(
+      (r) => r.email === email && r.mainQuestionTimestamp === mainQuestionTimestamp
+    ) ?? null
+  );
+}
+
 export function isDemoMode(): boolean {
   return DEMO_MODE;
 }

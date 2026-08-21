@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { getSubmissionsByEmail, upsertInquiryRecord } from "@/lib/sheets";
+import { getInquiryRecord, getSubmissionsByEmail, upsertInquiryRecord } from "@/lib/sheets";
 import { callGeminiGeneric } from "@/lib/gemini";
 import {
   buildEssayFeedbackPrompt,
@@ -9,6 +9,45 @@ import {
   type EssayFeedbackResult,
 } from "@/lib/subQuestionFlow";
 import type { InquiryRecord, InquirySubQuestion } from "@/lib/types";
+
+// 학생이 이 화면(보조질문/보조질문 답/종합 글쓰기)에 다시 들어왔을 때 sessionStorage가
+// 비어 있어도(탭을 닫았다 열거나 다른 기기) 서버에 남은 진행 상황을 불러오는 용도.
+export async function GET(request: Request) {
+  const session = await auth();
+  if (!session?.user?.email) {
+    return NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 });
+  }
+
+  const ts = new URL(request.url).searchParams.get("ts");
+  if (!ts) {
+    return NextResponse.json({ error: "ts가 필요합니다." }, { status: 400 });
+  }
+
+  const record = await getInquiryRecord(session.user.email, ts);
+  if (!record) {
+    return NextResponse.json({ record: null });
+  }
+
+  let subQuestions: InquirySubQuestion[] = [];
+  try {
+    subQuestions = JSON.parse(record.subQuestionsJson || "[]");
+  } catch {
+    subQuestions = [];
+  }
+
+  return NextResponse.json({
+    record: {
+      subQuestions,
+      intro: record.intro,
+      body: record.body,
+      conclusion: record.conclusion,
+      introScore: record.introScore,
+      bodyScore: record.bodyScore,
+      conclusionScore: record.conclusionScore,
+      totalScore: record.totalScore,
+    },
+  });
+}
 
 export async function POST(request: Request) {
   const session = await auth();
@@ -47,8 +86,11 @@ export async function POST(request: Request) {
 
   const items = subQuestions as InquirySubQuestion[];
 
-  // 2단계(보조질문 작성 중) 저장 - 아직 종합 글을 안 썼으니 AI 채점 없이 보조질문만
-  // 남긴다. 교사 화면은 totalScore가 ""인 걸로 "진행중"과 "완료"를 구분한다
+  // 진행중 저장(보조질문 작성/보조질문 답변/종합 글쓰기 초안 전부 여기로 온다) - 아직
+  // "제출하기"를 안 눌렀으니 AI 채점 없이 지금까지 쓴 내용만 그대로 남긴다. intro/body/
+  // conclusion도 지금 화면에 있는 값을 그대로 저장해야 새로고침·재접속 시 이어 쓸 수 있다
+  // (예전엔 여기서 항상 빈 문자열로 덮어써서 종합 글쓰기 초안이 저장 안 됐다).
+  // 교사 화면은 totalScore가 ""인 걸로 "진행중"과 "완료"를 구분한다
   // (lib/aggregate.ts의 buildInquiryProgressMap).
   if (draft) {
     const record: InquiryRecord = {
@@ -61,9 +103,9 @@ export async function POST(request: Request) {
       mainQuestionTimestamp,
       mainQuestion: mainRow.question,
       subQuestionsJson: JSON.stringify(items),
-      intro: "",
-      body: "",
-      conclusion: "",
+      intro,
+      body: bodyText,
+      conclusion,
       introScore: "",
       bodyScore: "",
       conclusionScore: "",

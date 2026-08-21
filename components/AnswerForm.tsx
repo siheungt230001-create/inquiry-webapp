@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { SUB_QUESTION_CARDS } from "@/lib/constants";
 import type { SubQuestionCheckResult } from "@/lib/subQuestionFlow";
+import { useDebouncedEffect } from "@/lib/useDebouncedEffect";
 import AutoTextarea from "./AutoTextarea";
 
 interface Essay {
@@ -66,8 +67,18 @@ function isCardLengthArray(v: unknown): boolean {
   return Array.isArray(v) && v.length === SUB_QUESTION_CARDS.length;
 }
 
-// "양호" 판정을 받고(2단계) 답까지 적은(보조질문 답 쓰기 단계) 것만 참고 자료로 보여준다.
-function loadSubQAs(timestamp: string): SubQA[] {
+interface FullSubQuestion {
+  label: string;
+  question: string;
+  answer: string;
+  status: SubQuestionCheckResult["status"] | null;
+  comment: string;
+}
+
+// sessionStorage 세 키(subq/subqStatus/subAnswers)를 합쳐서 카드별 전체 상태를 만든다.
+// "양호" 아닌 항목도 그대로 들고 있어야, 이 화면에서 자동 저장할 때 subQuestionsJson을
+// 통째로 덮어쓰면서 그 항목들 내용을 날려버리지 않는다.
+function loadFullSubQuestions(timestamp: string): FullSubQuestion[] {
   const values = loadJson<string[]>(
     subQuestionsKey(timestamp),
     SUB_QUESTION_CARDS.map(() => ""),
@@ -83,14 +94,20 @@ function loadSubQAs(timestamp: string): SubQA[] {
     SUB_QUESTION_CARDS.map(() => ""),
     isCardLengthArray
   );
+  return SUB_QUESTION_CARDS.map((card, i) => ({
+    label: card.label,
+    question: values[i] ?? "",
+    answer: answers[i] ?? "",
+    status: statuses[i]?.status ?? null,
+    comment: statuses[i]?.comment ?? "",
+  }));
+}
 
-  const result: SubQA[] = [];
-  SUB_QUESTION_CARDS.forEach((card, i) => {
-    if (statuses[i]?.status === "양호" && values[i]?.trim()) {
-      result.push({ label: card.label, question: values[i], answer: answers[i] ?? "" });
-    }
-  });
-  return result;
+// "양호" 판정을 받고(2단계) 답까지 적은(보조질문 답 쓰기 단계) 것만 참고 자료로 보여준다.
+function toApprovedSubQAs(full: FullSubQuestion[]): SubQA[] {
+  return full
+    .filter((item) => item.status === "양호" && item.question.trim())
+    .map((item) => ({ label: item.label, question: item.question, answer: item.answer }));
 }
 
 function loadEssay(timestamp: string): Essay {
@@ -112,7 +129,9 @@ export default function AnswerForm({
   mainQuestion: string;
 }) {
   const [subQAs, setSubQAs] = useState<SubQA[]>([]);
+  const [fullSubQuestions, setFullSubQuestions] = useState<FullSubQuestion[]>([]);
   const [essay, setEssay] = useState<Essay>(EMPTY_ESSAY);
+  const [loaded, setLoaded] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [comment, setComment] = useState<string | null>(null);
@@ -122,10 +141,94 @@ export default function AnswerForm({
   const [submitted, setSubmitted] = useState(false);
   const [submitScores, setSubmitScores] = useState<EssayScores | null>(null);
 
+  // sessionStorage에 값이 있으면 그대로 쓰고, 비어 있으면(탭을 닫았다 열거나 다른 기기)
+  // 서버(시트)에 남은 진행 상황을 대신 불러온다.
   useEffect(() => {
-    setSubQAs(loadSubQAs(timestamp));
-    setEssay(loadEssay(timestamp));
+    const localFull = loadFullSubQuestions(timestamp);
+    const localEssay = loadEssay(timestamp);
+    const hasLocalData =
+      localFull.some((item) => item.question.trim()) ||
+      Object.values(localEssay).some((v) => v.trim());
+
+    if (hasLocalData) {
+      setFullSubQuestions(localFull);
+      setSubQAs(toApprovedSubQAs(localFull));
+      setEssay(localEssay);
+      setLoaded(true);
+      return;
+    }
+
+    let cancelled = false;
+    fetch(`/api/inquiry-writing?ts=${encodeURIComponent(timestamp)}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled) return;
+        if (!data.record) {
+          setLoaded(true);
+          return;
+        }
+        const serverItems = data.record.subQuestions as FullSubQuestion[];
+        const nextFull: FullSubQuestion[] = SUB_QUESTION_CARDS.map((card, i) => ({
+          label: card.label,
+          question: serverItems[i]?.question ?? "",
+          answer: serverItems[i]?.answer ?? "",
+          status: serverItems[i]?.status ?? null,
+          comment: serverItems[i]?.comment ?? "",
+        }));
+        const nextEssay: Essay = {
+          intro: data.record.intro ?? "",
+          body: data.record.body ?? "",
+          conclusion: data.record.conclusion ?? "",
+        };
+        setFullSubQuestions(nextFull);
+        setSubQAs(toApprovedSubQAs(nextFull));
+        setEssay(nextEssay);
+        saveJson(essayKey(timestamp), nextEssay);
+        setLoaded(true);
+      })
+      .catch(() => setLoaded(true));
+    return () => {
+      cancelled = true;
+    };
   }, [timestamp]);
+
+  // 서론/본론/결론을 쓰는 동안 타이핑이 잠깐 멈추면 서버에도 초안을 저장한다 - "제출하기"를
+  // 누르기 전까지는 서버 저장이 아예 없어서, sessionStorage만 지워지면(탭 닫기 등) 종합
+  // 글쓰기 내용이 통째로 사라지는 게 버그의 핵심 원인이었다.
+  useDebouncedEffect(
+    () => {
+      if (!loaded) return;
+      const hasAnyContent =
+        fullSubQuestions.some((item) => item.question.trim()) ||
+        Object.values(essay).some((v) => v.trim());
+      if (!hasAnyContent) return;
+      const payloadItems = fullSubQuestions
+        .filter((item) => item.question.trim())
+        .map((item) => ({
+          label: item.label,
+          question: item.question,
+          answer: item.answer,
+          status: item.status,
+          comment: item.comment,
+        }));
+      fetch("/api/inquiry-writing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mainQuestionTimestamp: timestamp,
+          subQuestions: payloadItems,
+          intro: essay.intro,
+          body: essay.body,
+          conclusion: essay.conclusion,
+          draft: true,
+        }),
+      }).catch(() => {
+        // 무시 - 자동 저장은 부가 기능, 실패해도 화면 흐름은 막지 않는다
+      });
+    },
+    [essay, loaded, fullSubQuestions],
+    800
+  );
 
   function updateEssay(patch: Partial<Essay>) {
     const next = { ...essay, ...patch };

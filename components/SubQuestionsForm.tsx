@@ -71,11 +71,67 @@ export default function SubQuestionsForm({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // sessionStorage는 서버에 없으므로 마운트 후 클라이언트에서만 불러온다.
+  // sessionStorage는 서버에 없으므로 마운트 후 클라이언트에서만 불러온다. sessionStorage는
+  // 탭을 닫거나 다른 기기로 오면 비어 있으므로, 그럴 때는 서버(시트)에 남은 진행 상황을
+  // 대신 불러온다 - 탭을 다시 열면 다 사라져 보이던 버그의 원인이 sessionStorage 단일
+  // 저장소였던 부분.
   useEffect(() => {
-    setValues(loadValues(timestamp));
-    setComments(loadComments(timestamp));
+    const localValues = loadValues(timestamp);
+    const localComments = loadComments(timestamp);
+    const hasLocalData = localValues.some((v) => v.trim());
+    if (hasLocalData) {
+      setValues(localValues);
+      setComments(localComments);
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/inquiry-writing?ts=${encodeURIComponent(timestamp)}`)
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled || !data.record) return;
+        const items = data.record.subQuestions as {
+          question: string;
+          status?: SubQuestionCheckResult["status"] | null;
+          comment?: string;
+        }[];
+        const nextValues = SUB_QUESTION_CARDS.map((_, i) => items[i]?.question ?? "");
+        const nextComments = SUB_QUESTION_CARDS.map((_, i) =>
+          items[i]?.status ? { status: items[i].status!, comment: items[i].comment ?? "" } : null
+        );
+        setValues(nextValues);
+        setComments(nextComments);
+        saveJson(storageKey(timestamp), nextValues);
+        saveJson(statusStorageKey(timestamp), nextComments);
+      })
+      .catch(() => {
+        // 서버에서 못 불러와도 빈 값으로 계속 진행 - 원래도 처음 쓰는 학생은 빈 값으로 시작한다
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [timestamp]);
+
+  // 진행 상황(보조질문 + AI 판정)을 서버에 남긴다 - 다음 단계로 넘어갈 때뿐 아니라 AI
+  // 코멘트를 받은 직후에도 저장해서, 학생이 그대로 탭을 닫아도 다시 들어왔을 때 이어 쓸 수
+  // 있게 한다. 실패해도 부가 기능이라 화면 흐름은 막지 않는다.
+  async function saveDraft(nextValues: string[], nextComments: (SubQuestionCheckResult | null)[]) {
+    try {
+      const items = SUB_QUESTION_CARDS.map((card, i) => ({
+        label: card.label,
+        question: nextValues[i],
+        answer: "",
+        status: nextComments[i]?.status ?? null,
+        comment: nextComments[i]?.comment ?? "",
+      })).filter((_, i) => nextValues[i]?.trim());
+      await fetch("/api/inquiry-writing", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mainQuestionTimestamp: timestamp, subQuestions: items, draft: true }),
+      });
+    } catch {
+      // 무시 - 진행 상태 저장은 부가 기능
+    }
+  }
 
   function updateValue(index: number, text: string) {
     const next = [...values];
@@ -125,6 +181,7 @@ export default function SubQuestionsForm({
       });
       setComments(nextComments);
       saveJson(statusStorageKey(timestamp), nextComments);
+      saveDraft(values, nextComments);
     } catch {
       setError("서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.");
     } finally {
@@ -133,20 +190,9 @@ export default function SubQuestionsForm({
   }
 
   async function goToSubAnswers() {
-    // 2단계 진행 상태를 서버에 남겨서 교사 화면에 보이게 한다 - 실패해도 부가 기능이라
-    // 학생 흐름(다음 단계 이동)은 막지 않는다.
-    try {
-      const items = SUB_QUESTION_CARDS
-        .map((card, i) => ({ label: card.label, question: values[i], answer: "" }))
-        .filter((_, i) => values[i]?.trim());
-      await fetch("/api/inquiry-writing", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mainQuestionTimestamp: timestamp, subQuestions: items, draft: true }),
-      });
-    } catch {
-      // 무시 - 진행 상태 저장은 부가 기능
-    }
+    // 2단계 진행 상태를 서버에 다시 한번 남겨서 교사 화면에 보이게 한다 - 실패해도
+    // 부가 기능이라 학생 흐름(다음 단계 이동)은 막지 않는다.
+    await saveDraft(values, comments);
     router.push(
       `/submit/sub-answers?ts=${encodeURIComponent(timestamp)}&q=${encodeURIComponent(mainQuestion)}&unit=${encodeURIComponent(unit)}`
     );
