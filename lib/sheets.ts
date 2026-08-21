@@ -158,8 +158,19 @@ export async function getGroundingTextForUnit(unitTitle: string): Promise<string
   const units = await getUnits();
   const found = units.find((u) => u.title === unitTitle.trim());
   if (!found) {
-    throw new Error(
-      `"${UNIT_SHEET_NAME}"에서 단원명 "${unitTitle}"을 찾을 수 없습니다. 드롭다운 값과 단원 자료의 단원명이 정확히 일치하는지 확인하세요.`
+    // 학생/교사에게는 일반적인 안내만 보여주고, 어떤 단원명이 안 맞았는지는
+    // 서버 로그(Vercel 로그)에만 남긴다 - 실제 제출 행에도 unit 컬럼이 그대로
+    // 남아있으니 관리자는 시트에서 어느 단원이었는지 바로 확인할 수 있다.
+    console.error(
+      `[getGroundingTextForUnit] "${UNIT_SHEET_NAME}"에서 단원명 "${unitTitle}"을 찾을 수 없음 (드롭다운 값과 정확히 일치해야 함)`
+    );
+    throw new Error("해당 단원을 찾을 수 없습니다. 관리자에게 문의하세요.");
+  }
+  if (!found.readingText.trim()) {
+    // 조용히 넘어가면 참고자료 없이 채점이 진행돼서 품질이 티 안 나게 나빠진다 -
+    // 최소한 로그로는 남겨서 관리자가 나중에라도 알아챌 수 있게 한다.
+    console.warn(
+      `[getGroundingTextForUnit] "${unitTitle}" 단원의 읽기자료(B열)가 비어 있음 - 참고자료 없이 채점됨`
     );
   }
   return found.readingText;
