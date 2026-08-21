@@ -13,8 +13,10 @@ import {
   buildUnitStats,
   listUnitsByRecency,
   filterInquiryRecords,
-  buildInquiryProgressMap,
+  buildInquiryRecordByMainTimestamp,
   buildInquiryByEmail,
+  inquiryStageOf,
+  inquiryStageBadgeClass,
   type StudentLatest,
   type BanStat,
   type UnitStat,
@@ -228,7 +230,7 @@ async function StudentBanStage({
   const unitRows = allRows.filter((r) => r.unit === unit);
   const students = buildStudentLatest(unitRows).filter((s) => s.ban === ban);
   const allInquiryRecords = await getAllInquiryRecords();
-  const progressMap = buildInquiryProgressMap(allInquiryRecords);
+  const recordByMainTs = buildInquiryRecordByMainTimestamp(allInquiryRecords);
   const inquiryRecords = filterInquiryRecords(allInquiryRecords, unit, ban);
   const inquiryByEmail = buildInquiryByEmail(inquiryRecords);
 
@@ -244,7 +246,7 @@ async function StudentBanStage({
         />
       </div>
       <Section title={`학생별 최신 상태 — ${unit} · ${ban}반 (${students.length}명)`}>
-        <StudentTable students={students} progressMap={progressMap} inquiryByEmail={inquiryByEmail} />
+        <StudentTable students={students} recordByMainTs={recordByMainTs} inquiryByEmail={inquiryByEmail} />
       </Section>
     </>
   );
@@ -270,26 +272,15 @@ function CriteriaGrid({ s }: { s: StudentLatest }) {
   );
 }
 
-// 학생의 최신 메인 질문 제출에 이어지는 탐구 글쓰기 진행 상태 - progressMap에 없으면
+// 학생의 최신 메인 질문 제출에 이어지는 탐구 글쓰기 진행 상태 - record가 없으면
 // 아직 보조질문 단계로 넘어간 적 없다는 뜻(메인 질문만 제출됨).
-function progressLabel(timestamp: string, progressMap: Map<string, "진행중" | "완료">) {
-  const stage = progressMap.get(timestamp);
-  if (stage === "완료") return { text: "종합 글쓰기 완료", className: "bg-emerald-500" };
-  if (stage === "진행중") return { text: "보조질문 작성 중", className: "bg-amber-500" };
-  return { text: "메인 질문만 제출됨", className: "bg-zinc-400" };
-}
-
-function ProgressBadge({
-  timestamp,
-  progressMap,
-}: {
-  timestamp: string;
-  progressMap: Map<string, "진행중" | "완료">;
-}) {
-  const { text, className } = progressLabel(timestamp, progressMap);
+function ProgressBadge({ record }: { record: InquiryRecord | undefined }) {
+  const stage = inquiryStageOf(record);
   return (
-    <span className={`inline-block whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold text-white ${className}`}>
-      {text}
+    <span
+      className={`inline-block whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold text-white ${inquiryStageBadgeClass(stage)}`}
+    >
+      {stage}
     </span>
   );
 }
@@ -331,11 +322,11 @@ function InquiryRecordList({ records }: { records: InquiryRecord[] }) {
 // <details>/<summary>는 기본이 접힌 상태라 반/학생이 많아져도 표가 안 길어진다.
 function StudentTable({
   students,
-  progressMap,
+  recordByMainTs,
   inquiryByEmail,
 }: {
   students: StudentLatest[];
-  progressMap: Map<string, "진행중" | "완료">;
+  recordByMainTs: Map<string, InquiryRecord>;
   inquiryByEmail: Map<string, InquiryRecord[]>;
 }) {
   if (students.length === 0) return <EmptyState>데이터 없음</EmptyState>;
@@ -347,18 +338,28 @@ function StudentTable({
             <span className="font-medium text-zinc-900">
               {s.ban}반 {s.no}번 · {s.name}
             </span>
-            <span className="rounded-full bg-zinc-900 px-2.5 py-0.5 text-xs font-semibold text-white">
-              {s.level || "채점 대기중"}
+            {/* 최신 질문 자체의 AI 판정 - 아래 "탐구 글쓰기" 진행 상태와는 다른 값이다 */}
+            <span className="flex items-center gap-1.5">
+              <span className="text-[10px] text-zinc-400">질문 판정</span>
+              <span className="rounded-full bg-zinc-900 px-2.5 py-0.5 text-xs font-semibold text-white">
+                {s.level || "채점 대기중"}
+              </span>
+              {s.score !== "" && <span className="text-xs text-zinc-500">{s.score}점</span>}
+              <span
+                className={`rounded-full px-2.5 py-0.5 text-xs font-semibold text-white ${approvalBadgeClass(
+                  s.approval
+                )}`}
+              >
+                {s.approval || "처리중"}
+              </span>
             </span>
-            {s.score !== "" && <span className="text-xs text-zinc-500">{s.score}점</span>}
-            <span
-              className={`rounded-full px-2.5 py-0.5 text-xs font-semibold text-white ${approvalBadgeClass(
-                s.approval
-              )}`}
-            >
-              {s.approval || "처리중"}
+            <span className="h-4 w-px bg-zinc-200" aria-hidden />
+            {/* 승인된 질문의 후속 작업(보조질문→답변→종합 글쓰기) 진행 상태 - 질문 판정과
+                별개 축이라 승인/완료 점수가 나와도 여기는 "작성 중"일 수 있다(정상). */}
+            <span className="flex items-center gap-1.5">
+              <span className="text-[10px] text-zinc-400">탐구 글쓰기</span>
+              <ProgressBadge record={recordByMainTs.get(s.timestamp)} />
             </span>
-            <ProgressBadge timestamp={s.timestamp} progressMap={progressMap} />
             <span className="text-xs text-zinc-400">총 {s.count}회 제출</span>
             <span className="ml-auto max-w-[45%] min-w-0 truncate text-xs text-zinc-500">{s.question}</span>
           </summary>

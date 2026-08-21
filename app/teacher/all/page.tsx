@@ -11,8 +11,9 @@ import {
   buildAllStudentsSummary,
   buildStudentQuestionHistory,
   buildBanStats,
-  buildInquiryProgressMap,
   buildInquiryByEmail,
+  inquiryStageOf,
+  inquiryStageBadgeClass,
   type BanStat,
 } from "@/lib/aggregate";
 import type { InquiryRecord, InquirySubQuestion, SubmissionRow } from "@/lib/types";
@@ -185,7 +186,6 @@ async function StudentHistoryStage({ rows, email }: { rows: SubmissionRow[]; ema
   const { name, ban, no } = questions[0];
 
   const allInquiryRecords = await getAllInquiryRecords();
-  const progressMap = buildInquiryProgressMap(allInquiryRecords);
   const studentInquiryRecords = buildInquiryByEmail(allInquiryRecords).get(email) || [];
   const recordByMainTs = new Map(studentInquiryRecords.map((r) => [r.mainQuestionTimestamp, r]));
 
@@ -206,18 +206,25 @@ async function StudentHistoryStage({ rows, email }: { rows: SubmissionRow[]; ema
             <details key={q.timestamp} className="rounded-2xl border border-zinc-200 bg-white open:shadow-sm">
               <summary className="flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-3">
                 <span className="text-xs text-zinc-400">{q.unit}</span>
-                <span className="rounded-full bg-zinc-900 px-2.5 py-0.5 text-xs font-semibold text-white">
-                  {q.aiLevel || "채점 대기중"}
+                <span className="flex items-center gap-1.5">
+                  <span className="text-[10px] text-zinc-400">질문 판정</span>
+                  <span className="rounded-full bg-zinc-900 px-2.5 py-0.5 text-xs font-semibold text-white">
+                    {q.aiLevel || "채점 대기중"}
+                  </span>
+                  {q.aiScore !== "" && <span className="text-xs text-zinc-500">{q.aiScore}점</span>}
+                  <span
+                    className={`rounded-full px-2.5 py-0.5 text-xs font-semibold text-white ${approvalBadgeClass(
+                      q.approval
+                    )}`}
+                  >
+                    {q.approval || "처리중"}
+                  </span>
                 </span>
-                {q.aiScore !== "" && <span className="text-xs text-zinc-500">{q.aiScore}점</span>}
-                <span
-                  className={`rounded-full px-2.5 py-0.5 text-xs font-semibold text-white ${approvalBadgeClass(
-                    q.approval
-                  )}`}
-                >
-                  {q.approval || "처리중"}
+                <span className="h-4 w-px bg-zinc-200" aria-hidden />
+                <span className="flex items-center gap-1.5">
+                  <span className="text-[10px] text-zinc-400">탐구 글쓰기</span>
+                  <ProgressBadge record={recordByMainTs.get(q.timestamp)} />
                 </span>
-                <ProgressBadge timestamp={q.timestamp} progressMap={progressMap} />
                 <span className="whitespace-nowrap text-xs text-zinc-400">
                   {new Date(q.timestamp).toLocaleString("ko-KR")}
                 </span>
@@ -342,24 +349,13 @@ function EssayBlock({
   );
 }
 
-function progressLabel(timestamp: string, progressMap: Map<string, "진행중" | "완료">) {
-  const stage = progressMap.get(timestamp);
-  if (stage === "완료") return { text: "종합 글쓰기 완료", className: "bg-emerald-500" };
-  if (stage === "진행중") return { text: "보조질문 작성 중", className: "bg-amber-500" };
-  return { text: "메인 질문만 제출됨", className: "bg-zinc-400" };
-}
-
-function ProgressBadge({
-  timestamp,
-  progressMap,
-}: {
-  timestamp: string;
-  progressMap: Map<string, "진행중" | "완료">;
-}) {
-  const { text, className } = progressLabel(timestamp, progressMap);
+function ProgressBadge({ record }: { record: InquiryRecord | undefined }) {
+  const stage = inquiryStageOf(record);
   return (
-    <span className={`inline-block whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold text-white ${className}`}>
-      {text}
+    <span
+      className={`inline-block whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold text-white ${inquiryStageBadgeClass(stage)}`}
+    >
+      {stage}
     </span>
   );
 }

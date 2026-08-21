@@ -281,19 +281,53 @@ export function buildApprovedByUnit(rows: SubmissionRow[]): Map<string, Approved
   return byUnit;
 }
 
-// 메인 질문 timestamp → 진행 상태. records는 getAllInquiryRecords()가 이미 최신순으로
-// 정렬해서 주므로, 같은 mainQuestionTimestamp가 여러 번 나와도 먼저 만나는 게 최신
-// 상태다(upsertInquiryRecord가 학생당 행 하나만 유지하므로 실제로는 중복이 안 생기지만,
-// 과거 데이터에 중복이 남아있어도 안전하게 처리하려고 첫 매칭만 쓴다).
-export function buildInquiryProgressMap(
+// 메인 질문 timestamp → 그 질문에 딸린 탐구 글쓰기 기록. records는 getAllInquiryRecords()가
+// 이미 최신순으로 정렬해서 주므로, 같은 mainQuestionTimestamp가 여러 번 나와도 먼저
+// 만나는 게 최신 기록이다(upsertInquiryRecord가 학생당 행 하나만 유지하므로 실제로는
+// 중복이 안 생기지만, 과거 데이터에 중복이 남아있어도 안전하게 처리하려고 첫 매칭만 쓴다).
+export function buildInquiryRecordByMainTimestamp(
   records: InquiryRecord[]
-): Map<string, "진행중" | "완료"> {
-  const map = new Map<string, "진행중" | "완료">();
+): Map<string, InquiryRecord> {
+  const map = new Map<string, InquiryRecord>();
   for (const r of records) {
     if (!r.mainQuestionTimestamp || map.has(r.mainQuestionTimestamp)) continue;
-    map.set(r.mainQuestionTimestamp, r.totalScore === "" ? "진행중" : "완료");
+    map.set(r.mainQuestionTimestamp, r);
   }
   return map;
+}
+
+export type InquiryStage =
+  | "메인 질문만 제출됨"
+  | "보조질문 작성 중"
+  | "보조질문 답변 작성 중"
+  | "종합 글쓰기 작성 중"
+  | "종합 글쓰기 완료";
+
+// 학생이 지금 실제로 어느 단계에 있는지 판단한다. 예전엔 "진행중"/"완료" 두 값으로만
+// 뭉뚱그렸는데, 보조질문 단계를 건너뛰고(history 화면의 "종합 글쓰기로 이동" 링크로)
+// 바로 종합 글쓰기를 시작한 경우까지 전부 "보조질문 작성 중"으로 잘못 표시되는 문제가
+// 있었다. app/page.tsx의 "이어서 작성하기" 링크도 같은 판단 기준을 써야 하므로 여기
+// 하나로 모아둔다.
+export function inquiryStageOf(record: InquiryRecord | undefined): InquiryStage {
+  if (!record) return "메인 질문만 제출됨";
+  if (record.totalScore !== "") return "종합 글쓰기 완료";
+  if ([record.intro, record.body, record.conclusion].some((v) => v.trim())) {
+    return "종합 글쓰기 작성 중";
+  }
+  let subQuestions: { status?: string | null }[] = [];
+  try {
+    subQuestions = JSON.parse(record.subQuestionsJson || "[]");
+  } catch {
+    subQuestions = [];
+  }
+  if (subQuestions.some((s) => s.status === "양호")) return "보조질문 답변 작성 중";
+  return "보조질문 작성 중";
+}
+
+export function inquiryStageBadgeClass(stage: InquiryStage): string {
+  if (stage === "종합 글쓰기 완료") return "bg-emerald-500";
+  if (stage === "메인 질문만 제출됨") return "bg-zinc-400";
+  return "bg-amber-500";
 }
 
 // 학생별 최신 상태 표의 각 행을 펼쳤을 때 보여줄 탐구 글쓰기 기록들 - 이메일별로 묶는다.

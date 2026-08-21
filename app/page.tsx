@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { auth } from "@/auth";
 import { getInquiryRecord, getSubmissionsByEmail, isDemoMode } from "@/lib/sheets";
+import { inquiryStageOf } from "@/lib/aggregate";
 import SignOutButton from "@/components/SignOutButton";
 
 // 로그인 계정 기준으로 서버(시트)에서 "이어서 작성 중인 탐구"가 있는지 찾는다.
 // sessionStorage와 달리 브라우저/기기와 무관하게 항상 같은 결과가 나와야 하므로,
 // 링크를 타고 들어왔는지와 상관없이 루트 페이지에 새로 접속해도 여기서 바로 이어갈
-// 수 있게 한다.
+// 수 있게 한다. 단계 판단은 교사 대시보드 진행 배지와 같은 기준(inquiryStageOf)을 쓴다.
 async function findResumeLink(email: string) {
   const rows = await getSubmissionsByEmail(email);
   const latest = rows[0];
@@ -17,23 +18,16 @@ async function findResumeLink(email: string) {
   const ts = encodeURIComponent(latest.timestamp);
   const unit = encodeURIComponent(latest.unit);
 
-  if (record && record.totalScore !== "") {
-    // 종합 글쓰기까지 이미 채점 완료 - 새로 이어 쓸 게 없다.
-    return null;
+  switch (inquiryStageOf(record ?? undefined)) {
+    case "종합 글쓰기 완료":
+      return null; // 이미 다 끝났으니 새로 이어 쓸 게 없다.
+    case "종합 글쓰기 작성 중":
+      return { href: `/submit/answer?ts=${ts}&q=${q}`, label: "종합 글쓰기 이어서 쓰기" };
+    case "보조질문 답변 작성 중":
+      return { href: `/submit/sub-answers?ts=${ts}&q=${q}&unit=${unit}`, label: "보조질문 답 이어서 쓰기" };
+    default:
+      return { href: `/submit/sub-questions?ts=${ts}&q=${q}&unit=${unit}`, label: "보조질문 이어서 만들기" };
   }
-  if (record && [record.intro, record.body, record.conclusion].some((v) => v.trim())) {
-    return { href: `/submit/answer?ts=${ts}&q=${q}`, label: "종합 글쓰기 이어서 쓰기" };
-  }
-  let subQuestions: { status?: string }[] = [];
-  try {
-    subQuestions = record ? JSON.parse(record.subQuestionsJson || "[]") : [];
-  } catch {
-    subQuestions = [];
-  }
-  if (subQuestions.some((s) => s.status === "양호")) {
-    return { href: `/submit/sub-answers?ts=${ts}&q=${q}&unit=${unit}`, label: "보조질문 답 이어서 쓰기" };
-  }
-  return { href: `/submit/sub-questions?ts=${ts}&q=${q}&unit=${unit}`, label: "보조질문 이어서 만들기" };
 }
 
 export default async function Home() {
