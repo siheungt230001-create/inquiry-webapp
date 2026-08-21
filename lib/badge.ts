@@ -18,3 +18,12 @@ export const CRITERIA_ACCENTS = [
   { label: "문장 명료성", color: "#eda100", textSafe: false },
   { label: "자료 통합 깊이", color: "#e87ba4", textSafe: false },
 ] as const;
+
+// 종합 글쓰기(서론/본론/결론) 채점 카드 강조색 - components/AnswerForm.tsx의
+// ScoreBreakdown에서 쓴다. CRITERIA_ACCENTS와 같은 톤(같은 색 3개 재사용)으로 맞춰서
+// "질문 만들기" 피드백과 "종합 글쓰기" 피드백이 같은 시각 언어로 보이게 한다.
+export const ESSAY_ACCENTS = [
+  { label: "서론", color: "#2a78d6", textSafe: true, max: 1 },
+  { label: "본론", color: "#eb6834", textSafe: true, max: 3 },
+  { label: "결론", color: "#1baf7a", textSafe: false, max: 1 },
+] as const;

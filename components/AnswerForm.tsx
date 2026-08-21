@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { SUB_QUESTION_CARDS } from "@/lib/constants";
 import type { SubQuestionCheckResult } from "@/lib/subQuestionFlow";
 import { useDebouncedEffect } from "@/lib/useDebouncedEffect";
+import { ESSAY_ACCENTS } from "@/lib/badge";
 import AutoTextarea from "./AutoTextarea";
 
 interface Essay {
@@ -456,22 +457,34 @@ export default function AnswerForm({
   );
 }
 
+// "질문 만들기" 결과 카드(components/SubmitForm.tsx의 ResultCard)와 같은 톤 -
+// 항목별 강조색 배지 + 상단에 눈에 띄는 총점. 서론/본론/결론 본문 자체는 이 컴포넌트
+// 밖(AnswerForm의 textarea)에 그대로 있고, 여긴 채점 결과 표시만 담당한다.
 function ScoreBreakdown({ scores }: { scores: EssayScores }) {
+  const values = [scores.introScore, scores.bodyScore, scores.conclusionScore];
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
-      <span className="rounded-full bg-zinc-900 px-3 py-1 text-xs font-semibold text-white">
-        총점 {scores.totalScore} / 5.0점
-      </span>
-      <dl className="mt-2 grid grid-cols-3 gap-2 text-center text-xs">
-        {[
-          ["서론", scores.introScore, 1],
-          ["본론", scores.bodyScore, 3],
-          ["결론", scores.conclusionScore, 1],
-        ].map(([label, value, max]) => (
-          <div key={label as string} className="rounded-lg bg-zinc-50 px-1.5 py-1.5">
-            <dt className="text-zinc-400">{label}</dt>
-            <dd className="mt-0.5 font-semibold text-zinc-800">
-              {value} / {max}
+    <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs font-medium text-zinc-500">종합 글쓰기 채점 결과</span>
+        <span className="rounded-full bg-zinc-900 px-4 py-1.5 text-sm font-bold text-white">
+          총점 {scores.totalScore} / 5.0점
+        </span>
+      </div>
+      <dl className="mt-3 grid grid-cols-3 gap-2">
+        {ESSAY_ACCENTS.map((c, i) => (
+          <div
+            key={c.label}
+            className="rounded-lg border-t-2 bg-zinc-50 px-2 py-2 text-center"
+            style={{ borderColor: c.color }}
+          >
+            <dt className="flex items-center justify-center gap-1.5 text-xs">
+              <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: c.color }} />
+              <span style={c.textSafe ? { color: c.color } : undefined} className={c.textSafe ? undefined : "text-zinc-500"}>
+                {c.label}
+              </span>
+            </dt>
+            <dd className="mt-1 text-sm font-semibold text-zinc-800">
+              {values[i]} / {c.max}
             </dd>
           </div>
         ))}
