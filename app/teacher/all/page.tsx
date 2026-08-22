@@ -320,6 +320,23 @@ function EssaySection({ record }: { record?: InquiryRecord }) {
           전체 보기 →
         </Link>
       </div>
+      {subQuestions.length > 0 && (
+        <div className="rounded-lg border border-zinc-100 bg-zinc-50 px-3 py-2">
+          <p className="text-xs text-zinc-400">보조질문과 답</p>
+          <ul className="mt-1 flex flex-col gap-2">
+            {subQuestions.map((s, i) => (
+              <li key={i} className="text-xs">
+                <div className="text-zinc-700">
+                  <span className="text-zinc-400">[{s.label}]</span> {s.question}
+                </div>
+                <div className="mt-0.5 text-zinc-500">
+                  {s.answer ? s.answer : "(답을 안 씀)"}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       <EssayBlock label="서론" text={record.intro} score={record.introScore} max={1} />
       <EssayBlock label="본론" text={record.body} score={record.bodyScore} max={3} />
       <EssayBlock label="결론" text={record.conclusion} score={record.conclusionScore} max={1} />
