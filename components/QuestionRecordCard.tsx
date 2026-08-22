@@ -20,14 +20,17 @@ export function CriteriaGrid({ values }: { values: (number | "")[] }) {
 }
 
 // 학생의 메인 질문 제출에 이어지는 탐구 글쓰기 진행 상태 - record가 없으면 아직
-// 보조질문 단계로 넘어간 적 없다는 뜻(메인 질문만 제출됨).
+// 보조질문 단계로 넘어간 적 없다는 뜻(메인 질문만 제출됨). "질문 판정" 배지 옆에
+// 점수가 붙는 것과 맞춰서, 완료 상태일 땐 종합 글쓰기 총점도 같이 보여준다.
 export function ProgressBadge({ record }: { record: InquiryRecord | undefined }) {
   const stage = inquiryStageOf(record);
+  const showScore = stage === "종합 글쓰기 완료" && record && record.totalScore !== "";
   return (
     <span
       className={`inline-block whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold text-white ${inquiryStageBadgeClass(stage)}`}
     >
       {stage}
+      {showScore && ` (${record!.totalScore}점)`}
     </span>
   );
 }
