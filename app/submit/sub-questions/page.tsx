@@ -18,8 +18,8 @@ export default async function SubQuestionsPage({
     <div className="flex-1 bg-zinc-50 px-4 py-10">
       <div className="mx-auto max-w-xl">
         <div className="mb-4 flex items-center justify-between">
-          <Link href="/history" className="text-sm text-zinc-500 hover:text-zinc-800">
-            ← 내 제출 이력
+          <Link href={`/submit/edit?ts=${encodeURIComponent(ts)}`} className="text-sm text-zinc-500 hover:text-zinc-800">
+            ← 질문 수정하기
           </Link>
         </div>
         <h1 className="text-xl font-semibold text-zinc-900">보조질문 만들기</h1>
