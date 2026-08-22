@@ -15,6 +15,7 @@ import {
   buildUnitStats,
   listUnitsByRecency,
   buildInquiryRecordByMainTimestamp,
+  classLabel,
   type StudentLatest,
   type BanStat,
   type UnitStat,
@@ -27,13 +28,13 @@ import type { InquiryRecord, SubmissionRow } from "@/lib/types";
 export default async function TeacherPage({
   searchParams,
 }: {
-  searchParams: Promise<{ unit?: string; ban?: string; student?: string }>;
+  searchParams: Promise<{ unit?: string; grade?: string; ban?: string; student?: string }>;
 }) {
   const session = await auth();
   if (!session?.user?.email) redirect("/login");
   if (!isTeacherEmail(session.user.email)) return <TeacherAccessDenied />;
 
-  const { unit: unitParam, ban: banParam, student: studentEmail } = await searchParams;
+  const { unit: unitParam, grade: gradeParam, ban: banParam, student: studentEmail } = await searchParams;
   const rows = await getAllSubmissions();
   const units = listUnitsByRecency(rows);
   const selectedUnit = unitParam && units.includes(unitParam) ? unitParam : "";
@@ -57,10 +58,16 @@ export default async function TeacherPage({
 
         {!selectedUnit ? (
           <UnitListStage rows={rows} units={units} />
-        ) : !banParam ? (
+        ) : banParam === undefined ? (
           <BanStage unit={selectedUnit} unitRows={rows.filter((r) => r.unit === selectedUnit)} />
         ) : (
-          <StudentBanStage unit={selectedUnit} ban={banParam} allRows={rows} highlightEmail={studentEmail} />
+          <StudentBanStage
+            unit={selectedUnit}
+            grade={gradeParam ?? ""}
+            ban={banParam}
+            allRows={rows}
+            highlightEmail={studentEmail}
+          />
         )}
 
       </div>
@@ -163,13 +170,15 @@ function BanTable({ unit, bans }: { unit: string; bans: BanStat[] }) {
           </thead>
           <tbody>
             {bans.map((b) => (
-              <tr key={b.ban} className="border-b border-zinc-100 last:border-0 hover:bg-zinc-50">
+              <tr key={`${b.grade}-${b.ban}`} className="border-b border-zinc-100 last:border-0 hover:bg-zinc-50">
                 <td className="px-4 py-2.5 font-medium text-zinc-900">
                   <Link
-                    href={`/teacher?unit=${encodeURIComponent(unit)}&ban=${encodeURIComponent(b.ban)}`}
+                    href={`/teacher?unit=${encodeURIComponent(unit)}&grade=${encodeURIComponent(
+                      b.grade
+                    )}&ban=${encodeURIComponent(b.ban)}`}
                     className="underline decoration-dotted underline-offset-2 hover:text-indigo-600"
                   >
-                    {b.ban}반
+                    {classLabel(b.grade, b.ban)}
                   </Link>
                 </td>
                 <td className="px-4 py-2.5">{b.total}</td>
@@ -185,11 +194,13 @@ function BanTable({ unit, bans }: { unit: string; bans: BanStat[] }) {
       <div className="grid grid-cols-2 gap-3 sm:hidden">
         {bans.map((b) => (
           <Link
-            key={b.ban}
-            href={`/teacher?unit=${encodeURIComponent(unit)}&ban=${encodeURIComponent(b.ban)}`}
+            key={`${b.grade}-${b.ban}`}
+            href={`/teacher?unit=${encodeURIComponent(unit)}&grade=${encodeURIComponent(
+              b.grade
+            )}&ban=${encodeURIComponent(b.ban)}`}
             className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm"
           >
-            <div className="text-sm font-semibold text-zinc-900">{b.ban}반</div>
+            <div className="text-sm font-semibold text-zinc-900">{classLabel(b.grade, b.ban)}</div>
             <dl className="mt-2 space-y-1 text-xs text-zinc-500">
               <div className="flex justify-between">
                 <dt>총 제출</dt>
@@ -218,17 +229,19 @@ function BanTable({ unit, bans }: { unit: string; bans: BanStat[] }) {
 // ===== 3단계: 선택한 단원+반의 학생별 최신 상태 =====
 async function StudentBanStage({
   unit,
+  grade,
   ban,
   allRows,
   highlightEmail,
 }: {
   unit: string;
+  grade: string;
   ban: string;
   allRows: SubmissionRow[];
   highlightEmail?: string;
 }) {
   const unitRows = allRows.filter((r) => r.unit === unit);
-  const students = buildStudentLatest(unitRows).filter((s) => s.ban === ban);
+  const students = buildStudentLatest(unitRows).filter((s) => s.ban === ban && s.grade === grade);
   const allInquiryRecords = await getAllInquiryRecords();
   const recordByMainTs = buildInquiryRecordByMainTimestamp(allInquiryRecords);
 
@@ -239,11 +252,11 @@ async function StudentBanStage({
           items={[
             { label: "단원 목록", href: "/teacher" },
             { label: unit, href: `/teacher?unit=${encodeURIComponent(unit)}` },
-            { label: `${ban}반` },
+            { label: classLabel(grade, ban) },
           ]}
         />
       </div>
-      <Section title={`학생별 최신 상태 — ${unit} · ${ban}반 (${students.length}명)`}>
+      <Section title={`학생별 최신 상태 — ${unit} · ${classLabel(grade, ban)} (${students.length}명)`}>
         <StudentTable
           students={students}
           unitRows={unitRows}
@@ -284,7 +297,7 @@ function StudentTable({
           >
             <summary className="flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-3">
               <span className="font-medium text-zinc-900">
-                {s.ban}반 {s.no}번 · {s.name}
+                {classLabel(s.grade, s.ban)} {s.no}번 · {s.name}
               </span>
               {/* 최신 질문 자체의 AI 판정 - 펼치면 보이는 회차별 판정과는 별개로 한눈에 보는 요약 */}
               <span className="flex items-center gap-1.5">

@@ -29,6 +29,8 @@ export interface GradingResult {
 export interface SubmissionRow {
   timestamp: string; // ISO
   email: string;
+  grade: string; // 학년 - 반 번호는 학년 간 겹칠 수 있어(예: 1학년 1반/2학년 1반) 반 표기는
+  // 항상 학년과 묶어서 다룬다 (lib/aggregate.ts의 classLabel/compareGradeBan 참고).
   ban: string;
   no: string;
   name: string;
@@ -88,6 +90,7 @@ export const SHEET_COLUMNS: (keyof SubmissionRow)[] = [
   "levelTrack",
   "levelBand",
   "teacherComment",
+  "grade",
 ];
 
 // "탐구_글쓰기_기록" 시트의 한 행 - 메인 질문 채점(SubmissionRow)과는 별개 탭.

@@ -26,6 +26,7 @@ export async function POST(request: Request) {
 
   const body = await request.json();
   const {
+    grade = "",
     ban = "",
     no = "",
     name = "",
@@ -35,9 +36,9 @@ export async function POST(request: Request) {
     textbookLink = "",
   } = body || {};
 
-  if (!unit || !question || !selfLevel || !String(textbookLink).trim()) {
+  if (!grade || !unit || !question || !selfLevel || !String(textbookLink).trim()) {
     return NextResponse.json(
-      { error: "단원, 질문, 예상 레벨, 교과서 연결 내용은 필수입니다." },
+      { error: "학년, 단원, 질문, 예상 레벨, 교과서 연결 내용은 필수입니다." },
       { status: 400 }
     );
   }
@@ -68,6 +69,7 @@ export async function POST(request: Request) {
   const baseRow: SubmissionRow = {
     timestamp,
     email,
+    grade,
     ban,
     no,
     name: studentName,

@@ -7,6 +7,7 @@ function row(overrides: Partial<SubmissionRow>): SubmissionRow {
   return {
     timestamp: "2026-08-17T00:00:00.000Z",
     email: "a@school.kr",
+    grade: "",
     ban: "1",
     no: "1",
     name: "학생1",
@@ -72,5 +73,24 @@ const approved = buildApprovedByUnit(rows);
 assert.equal(approved.size, 2);
 assert.equal(approved.get("단원1")![0].question, "최신 질문");
 assert.equal(approved.get("단원2")![0].name, "학생B");
+
+// 학년-반: 같은 반 번호("1")라도 학년이 다르면(2학년/3학년) 별도 반으로 묶여야 하고,
+// 학년 정보가 없는(구버전) 반은 맨 뒤로 가야 한다.
+const gradeRows: SubmissionRow[] = [
+  row({ email: "e@school.kr", grade: "3", ban: "1", no: "1", name: "학생E" }),
+  row({ email: "f@school.kr", grade: "2", ban: "1", no: "1", name: "학생F" }),
+  row({ email: "g@school.kr", grade: "", ban: "1", no: "1", name: "학생G" }),
+];
+const gradeBans = buildBanStats(gradeRows);
+assert.equal(gradeBans.length, 3); // 2학년 1반 / 3학년 1반 / (학년 없는) 1반 - 셋 다 별도
+assert.deepEqual(
+  gradeBans.map((b) => `${b.grade}-${b.ban}`),
+  ["2-1", "3-1", "-1"] // 학년 오름차순, 학년 없는 건 맨 뒤
+);
+const gradeStudents = buildStudentLatest(gradeRows);
+assert.deepEqual(
+  gradeStudents.map((s) => s.email),
+  ["f@school.kr", "e@school.kr", "g@school.kr"] // 2학년 → 3학년 → 학년 미상
+);
 
 console.log("aggregate.test.ts OK");

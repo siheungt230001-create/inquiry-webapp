@@ -88,6 +88,7 @@ async function readDemoStore(): Promise<DemoStore> {
     }
     for (const s of parsed.submissions) {
       if (s.teacherComment === undefined) s.teacherComment = "";
+      if (s.grade === undefined) s.grade = "";
     }
     return parsed;
   } catch {
@@ -231,7 +232,7 @@ export async function getAllSubmissions(): Promise<SubmissionRow[]> {
   const res = await withRetry(() =>
     sheets.spreadsheets.values.get({
       spreadsheetId: process.env.SPREADSHEET_ID,
-      range: `${LOG_SHEET_NAME}!A2:AA`,
+      range: `${LOG_SHEET_NAME}!A2:AB`,
     })
   );
   const rows = res.data.values || [];
@@ -298,7 +299,7 @@ export async function updateSubmissionApproval(
   const res = await withRetry(() =>
     sheets.spreadsheets.values.get({
       spreadsheetId: process.env.SPREADSHEET_ID,
-      range: `${LOG_SHEET_NAME}!A2:AA`,
+      range: `${LOG_SHEET_NAME}!A2:AB`,
     })
   );
   const raw = res.data.values || [];
@@ -341,7 +342,7 @@ export async function updateTeacherComment(
   const res = await withRetry(() =>
     sheets.spreadsheets.values.get({
       spreadsheetId: process.env.SPREADSHEET_ID,
-      range: `${LOG_SHEET_NAME}!A2:AA`,
+      range: `${LOG_SHEET_NAME}!A2:AB`,
     })
   );
   const raw = res.data.values || [];
@@ -385,7 +386,7 @@ export async function updateSubmissionResult(
   const res = await withRetry(() =>
     sheets.spreadsheets.values.get({
       spreadsheetId: process.env.SPREADSHEET_ID,
-      range: `${LOG_SHEET_NAME}!A2:AA`,
+      range: `${LOG_SHEET_NAME}!A2:AB`,
     })
   );
   const raw = res.data.values || [];
@@ -405,7 +406,7 @@ export async function updateSubmissionResult(
   await withRetry(() =>
     sheets.spreadsheets.values.update({
       spreadsheetId: process.env.SPREADSHEET_ID,
-      range: `${LOG_SHEET_NAME}!A${sheetRow}:AA${sheetRow}`,
+      range: `${LOG_SHEET_NAME}!A${sheetRow}:AB${sheetRow}`,
       valueInputOption: "RAW",
       requestBody: { values },
     })

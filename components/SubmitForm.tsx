@@ -9,20 +9,21 @@ import AutoTextarea from "./AutoTextarea";
 const PROFILE_KEY = "inquiry-webapp-profile";
 
 interface Profile {
+  grade: string;
   ban: string;
   no: string;
   name: string;
 }
 
 function loadProfile(): Profile {
-  if (typeof window === "undefined") return { ban: "", no: "", name: "" };
+  if (typeof window === "undefined") return { grade: "", ban: "", no: "", name: "" };
   try {
     const saved = window.localStorage.getItem(PROFILE_KEY);
-    if (saved) return JSON.parse(saved) as Profile;
+    if (saved) return { grade: "", ...JSON.parse(saved) } as Profile;
   } catch {
     // 저장된 값이 없거나 깨졌으면 그냥 빈 값으로 시작
   }
-  return { ban: "", no: "", name: "" };
+  return { grade: "", ban: "", no: "", name: "" };
 }
 
 // 큐 모드(QSTASH_TOKEN 설정됨)에서 "채점 중" 상태로 폴링하던 중에 화면을 이동하거나
@@ -210,6 +211,7 @@ export default function SubmitForm() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          grade: profile.grade,
           ban: profile.ban,
           no: profile.no,
           name: profile.name,
@@ -273,7 +275,16 @@ export default function SubmitForm() {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-4 gap-3">
+        <Field label="학년">
+          <input
+            value={profile.grade}
+            onChange={(e) => updateProfile({ grade: e.target.value })}
+            className="input"
+            placeholder="예: 3"
+            required
+          />
+        </Field>
         <Field label="반">
           <input
             value={profile.ban}
@@ -349,7 +360,7 @@ export default function SubmitForm() {
 
       <button
         type="submit"
-        disabled={loading || !unit || !textbookLink.trim()}
+        disabled={loading || !unit || !profile.grade.trim() || !textbookLink.trim()}
         className="mt-1 rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
       >
         {loading ? "AI가 질문을 살펴보는 중..." : "제출하기"}

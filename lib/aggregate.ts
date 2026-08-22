@@ -3,9 +3,29 @@
 // 로직을 그대로 옮긴 순수 함수들 (시트 접근 없음 - lib/sheets.ts가 읽어온 rows를 받아 계산만 함).
 import type { SubmissionRow, InquiryRecord } from "./types";
 
+// 반 표기를 "학년-반" 결합 형식으로 통일한다 - 같은 반 번호가 학년마다 따로
+// 존재할 수 있어서(1학년 1반과 2학년 1반은 다른 반) 학년 없이 반 번호만 쓰면
+// 서로 다른 반이 섞여 보인다. 학년 정보가 없는(구버전) 데이터는 예전 표기
+// 그대로("X반") 둔다 - 화면에 빈 학년을 억지로 채워 넣지 않는다.
+export function classLabel(grade: string, ban: string): string {
+  return grade ? `${grade}-${ban}반` : `${ban}반`;
+}
+
+// 학년(없으면 맨 뒤) → 반 번호 순 정렬 비교자. 학년/반이 관련된 모든 목록·표에서
+// 공유해서 쓴다(buildStudentLatest/buildBanStats/buildAllStudentsSummary).
+export function compareGradeBan(aGrade: string, aBan: string, bGrade: string, bBan: string): number {
+  const g = (grade: string) => (grade === "" ? Infinity : Number(grade) || 0);
+  const ga = g(aGrade);
+  const gb = g(bGrade);
+  // Infinity - Infinity은 NaN이라(둘 다 학년 미상일 때) 뺄셈 대신 직접 비교한다.
+  if (ga !== gb) return ga < gb ? -1 : 1;
+  return (Number(aBan) || 0) - (Number(bBan) || 0);
+}
+
 export interface StudentLatest {
   email: string;
   name: string;
+  grade: string;
   ban: string;
   no: string;
   unit: string;
@@ -24,6 +44,7 @@ export interface StudentLatest {
 }
 
 export interface BanStat {
+  grade: string;
   ban: string;
   total: number;
   approved: number;
@@ -44,6 +65,7 @@ export interface UnitStat {
 export interface AllStudentSummary {
   email: string;
   name: string;
+  grade: string;
   ban: string;
   no: string;
   totalCount: number;
@@ -75,6 +97,7 @@ function groupLatestBy(
       byKey.set(key, {
         email: row.email,
         name: row.name,
+        grade: row.grade,
         ban: row.ban,
         no: row.no,
         unit: row.unit,
@@ -108,6 +131,7 @@ function groupLatestBy(
 
     if (shouldReplace) {
       existing.name = row.name;
+      existing.grade = row.grade;
       existing.ban = row.ban;
       existing.no = row.no;
       existing.unit = row.unit;
@@ -127,12 +151,12 @@ function groupLatestBy(
   return byKey;
 }
 
-// 학생별 최신 상태: 이메일별 가장 최근 제출 1건, 반 → 번호 순 정렬.
+// 학생별 최신 상태: 이메일별 가장 최근 제출 1건, 학년 → 반 → 번호 순 정렬.
 export function buildStudentLatest(rows: SubmissionRow[]): StudentLatest[] {
   const byEmail = groupLatestBy(rows, (r) => r.email);
   return Array.from(byEmail.values()).sort((a, b) => {
-    const banDiff = (Number(a.ban) || 0) - (Number(b.ban) || 0);
-    if (banDiff !== 0) return banDiff;
+    const gradeBanDiff = compareGradeBan(a.grade, a.ban, b.grade, b.ban);
+    if (gradeBanDiff !== 0) return gradeBanDiff;
     return (Number(a.no) || 0) - (Number(b.no) || 0);
   });
 }
@@ -162,24 +186,38 @@ export function listUnitsByRecency(rows: SubmissionRow[]): string[] {
     .map(([unit]) => unit);
 }
 
-// 반별 현황: 반 번호별 총 제출 수 / 승인 수 / 승인율 / 평균 점수, 반 번호 오름차순.
+// 반별 현황: 학년+반 조합별 총 제출 수 / 승인 수 / 승인율 / 평균 점수, 학년 → 반 순
+// 오름차순. 학년이 없는 반은 같은 반 번호라도 따로 묶인다(반 번호만으로는 다른
+// 학년의 같은 번호 반과 구분이 안 되므로).
 export function buildBanStats(rows: SubmissionRow[]): BanStat[] {
-  const byBan = new Map<string, { total: number; approved: number; scoreSum: number; scoreCount: number }>();
+  const byClass = new Map<
+    string,
+    { grade: string; ban: string; total: number; approved: number; scoreSum: number; scoreCount: number }
+  >();
   for (const row of rows) {
     if (row.ban === "" || row.ban === null || row.ban === undefined) continue;
-    const acc = byBan.get(row.ban) || { total: 0, approved: 0, scoreSum: 0, scoreCount: 0 };
+    const key = `${row.grade}||${row.ban}`;
+    const acc = byClass.get(key) || {
+      grade: row.grade,
+      ban: row.ban,
+      total: 0,
+      approved: 0,
+      scoreSum: 0,
+      scoreCount: 0,
+    };
     acc.total += 1;
     if (row.approval === "승인") acc.approved += 1;
     if (typeof row.aiScore === "number") {
       acc.scoreSum += row.aiScore;
       acc.scoreCount += 1;
     }
-    byBan.set(row.ban, acc);
+    byClass.set(key, acc);
   }
-  return Array.from(byBan.entries())
-    .sort((a, b) => Number(a[0]) - Number(b[0]))
-    .map(([ban, b]) => ({
-      ban,
+  return Array.from(byClass.values())
+    .sort((a, b) => compareGradeBan(a.grade, a.ban, b.grade, b.ban))
+    .map((b) => ({
+      grade: b.grade,
+      ban: b.ban,
       total: b.total,
       approved: b.approved,
       approvalRate: b.total ? b.approved / b.total : 0,
@@ -232,12 +270,13 @@ export function buildUnitStats(rows: SubmissionRow[]): UnitStat[] {
 export function buildAllStudentsSummary(rows: SubmissionRow[]): AllStudentSummary[] {
   const byEmail = new Map<
     string,
-    { name: string; ban: string; no: string; totalCount: number; units: Set<string>; last: string }
+    { name: string; grade: string; ban: string; no: string; totalCount: number; units: Set<string>; last: string }
   >();
   for (const row of rows) {
     if (!row.email) continue;
     const acc = byEmail.get(row.email) || {
       name: row.name,
+      grade: row.grade,
       ban: row.ban,
       no: row.no,
       totalCount: 0,
@@ -249,6 +288,7 @@ export function buildAllStudentsSummary(rows: SubmissionRow[]): AllStudentSummar
     if (new Date(row.timestamp) > new Date(acc.last)) {
       acc.last = row.timestamp;
       acc.name = row.name;
+      acc.grade = row.grade;
       acc.ban = row.ban;
       acc.no = row.no;
     }
@@ -258,6 +298,7 @@ export function buildAllStudentsSummary(rows: SubmissionRow[]): AllStudentSummar
     .map(([email, a]) => ({
       email,
       name: a.name,
+      grade: a.grade,
       ban: a.ban,
       no: a.no,
       totalCount: a.totalCount,
@@ -265,8 +306,8 @@ export function buildAllStudentsSummary(rows: SubmissionRow[]): AllStudentSummar
       lastActivity: a.last,
     }))
     .sort((x, y) => {
-      const banDiff = (Number(x.ban) || 0) - (Number(y.ban) || 0);
-      if (banDiff !== 0) return banDiff;
+      const gradeBanDiff = compareGradeBan(x.grade, x.ban, y.grade, y.ban);
+      if (gradeBanDiff !== 0) return gradeBanDiff;
       return (Number(x.no) || 0) - (Number(y.no) || 0);
     });
 }
@@ -358,6 +399,7 @@ export function buildInquiryByEmail(records: InquiryRecord[]): Map<string, Inqui
 
 export interface LiveStudentStatus {
   email: string;
+  grade: string;
   ban: string;
   no: string;
   name: string;
@@ -380,6 +422,7 @@ export function buildLiveClassStatus(
       record && new Date(record.timestamp) > new Date(s.timestamp) ? record.timestamp : s.timestamp;
     return {
       email: s.email,
+      grade: s.grade,
       ban: s.ban,
       no: s.no,
       name: s.name,

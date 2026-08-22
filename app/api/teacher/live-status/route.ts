@@ -19,13 +19,14 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const unit = searchParams.get("unit") || "";
   const ban = searchParams.get("ban") || "";
+  const grade = searchParams.get("grade") ?? ""; // 학년 없는 반은 빈 문자열로 명시적으로 넘어온다
   if (!unit || !ban) {
     return NextResponse.json({ error: "unit과 ban이 필요합니다." }, { status: 400 });
   }
 
   const rows = await getAllSubmissions();
   const unitRows = rows.filter((r) => r.unit === unit);
-  const students = buildStudentLatest(unitRows).filter((s) => s.ban === ban);
+  const students = buildStudentLatest(unitRows).filter((s) => s.ban === ban && s.grade === grade);
 
   const records = await getAllInquiryRecords();
   const recordByMainTs = buildInquiryRecordByMainTimestamp(records);

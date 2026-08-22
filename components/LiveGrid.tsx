@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { inquiryStageBadgeClass } from "@/lib/aggregate";
+import { classLabel, inquiryStageBadgeClass } from "@/lib/aggregate";
 import type { LiveStudentStatus } from "@/lib/aggregate";
 
 const POLL_MS = 12000;
@@ -21,10 +21,12 @@ function timeAgoLabel(iso: string, now: number): string {
 // 해당 학생 카드를 열어서 앵커 이동).
 export default function LiveGrid({
   unit,
+  grade,
   ban,
   initialStudents,
 }: {
   unit: string;
+  grade: string;
   ban: string;
   initialStudents: LiveStudentStatus[];
 }) {
@@ -36,7 +38,9 @@ export default function LiveGrid({
     async function tick() {
       try {
         const res = await fetch(
-          `/api/teacher/live-status?unit=${encodeURIComponent(unit)}&ban=${encodeURIComponent(ban)}`
+          `/api/teacher/live-status?unit=${encodeURIComponent(unit)}&grade=${encodeURIComponent(
+            grade
+          )}&ban=${encodeURIComponent(ban)}`
         );
         if (res.ok && !cancelled) {
           const data = await res.json();
@@ -53,7 +57,7 @@ export default function LiveGrid({
       cancelled = true;
       clearInterval(id);
     };
-  }, [unit, ban]);
+  }, [unit, grade, ban]);
 
   if (students.length === 0) {
     return (
@@ -73,15 +77,15 @@ export default function LiveGrid({
         return (
           <Link
             key={s.email}
-            href={`/teacher?unit=${encodeURIComponent(unit)}&ban=${encodeURIComponent(
-              ban
-            )}&student=${encodeURIComponent(s.email)}#${encodeURIComponent(s.email)}`}
+            href={`/teacher?unit=${encodeURIComponent(unit)}&grade=${encodeURIComponent(
+              s.grade
+            )}&ban=${encodeURIComponent(ban)}&student=${encodeURIComponent(s.email)}#${encodeURIComponent(s.email)}`}
             className={`rounded-2xl border-2 bg-white p-5 shadow-sm transition hover:border-indigo-300 ${
               stuck ? "border-rose-400" : "border-zinc-200"
             }`}
           >
             <div className="text-2xl font-bold text-zinc-900">
-              {s.ban}반 {s.no}번
+              {classLabel(s.grade, s.ban)} {s.no}번
             </div>
             <div className="mt-0.5 truncate text-lg text-zinc-600">{s.name}</div>
             <span

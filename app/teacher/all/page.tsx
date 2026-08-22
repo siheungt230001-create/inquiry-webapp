@@ -12,6 +12,7 @@ import {
   buildStudentQuestionHistory,
   buildBanStats,
   buildInquiryByEmail,
+  classLabel,
   type BanStat,
 } from "@/lib/aggregate";
 import type { SubmissionRow } from "@/lib/types";
@@ -22,13 +23,13 @@ import type { SubmissionRow } from "@/lib/types";
 export default async function TeacherAllPage({
   searchParams,
 }: {
-  searchParams: Promise<{ ban?: string; student?: string }>;
+  searchParams: Promise<{ grade?: string; ban?: string; student?: string }>;
 }) {
   const session = await auth();
   if (!session?.user?.email) redirect("/login");
   if (!isTeacherEmail(session.user.email)) return <TeacherAccessDenied />;
 
-  const { ban: banParam, student: studentEmail } = await searchParams;
+  const { grade: gradeParam, ban: banParam, student: studentEmail } = await searchParams;
   const rows = await getAllSubmissions();
 
   return (
@@ -50,8 +51,8 @@ export default async function TeacherAllPage({
 
         {studentEmail ? (
           <StudentHistoryStage rows={rows} email={studentEmail} />
-        ) : banParam ? (
-          <StudentSummaryStage rows={rows} ban={banParam} />
+        ) : banParam !== undefined ? (
+          <StudentSummaryStage rows={rows} grade={gradeParam ?? ""} ban={banParam} />
         ) : (
           <BanListStage rows={rows} />
         )}
@@ -85,13 +86,13 @@ function BanListStage({ rows }: { rows: SubmissionRow[] }) {
               </thead>
               <tbody>
                 {bans.map((b: BanStat) => (
-                  <tr key={b.ban} className="border-b border-zinc-100 last:border-0 hover:bg-zinc-50">
+                  <tr key={`${b.grade}-${b.ban}`} className="border-b border-zinc-100 last:border-0 hover:bg-zinc-50">
                     <td className="px-4 py-2.5 font-medium text-zinc-900">
                       <Link
-                        href={`/teacher/all?ban=${encodeURIComponent(b.ban)}`}
+                        href={`/teacher/all?grade=${encodeURIComponent(b.grade)}&ban=${encodeURIComponent(b.ban)}`}
                         className="underline decoration-dotted underline-offset-2 hover:text-indigo-600"
                       >
-                        {b.ban}반
+                        {classLabel(b.grade, b.ban)}
                       </Link>
                     </td>
                     <td className="px-4 py-2.5">{b.total}</td>
@@ -127,14 +128,14 @@ function EmptyState({ children }: { children: React.ReactNode }) {
 }
 
 // ===== 2단계: 한 반의 학생 목록(전체 단원 합산) =====
-function StudentSummaryStage({ rows, ban }: { rows: SubmissionRow[]; ban: string }) {
-  const students = buildAllStudentsSummary(rows.filter((r) => r.ban === ban));
+function StudentSummaryStage({ rows, grade, ban }: { rows: SubmissionRow[]; grade: string; ban: string }) {
+  const students = buildAllStudentsSummary(rows.filter((r) => r.ban === ban && r.grade === grade));
   return (
     <>
       <div className="mt-6">
-        <Breadcrumb items={[{ label: "전체 보기", href: "/teacher/all" }, { label: `${ban}반` }]} />
+        <Breadcrumb items={[{ label: "전체 보기", href: "/teacher/all" }, { label: classLabel(grade, ban) }]} />
       </div>
-      <Section title={`${ban}반 학생 목록 (${students.length}명, 전체 단원 합산)`}>
+      <Section title={`${classLabel(grade, ban)} 학생 목록 (${students.length}명, 전체 단원 합산)`}>
         {students.length === 0 ? (
           <EmptyState>데이터 없음</EmptyState>
         ) : (
@@ -161,7 +162,7 @@ function StudentSummaryStage({ rows, ban }: { rows: SubmissionRow[]; ban: string
                         {s.name}
                       </Link>
                     </td>
-                    <td className="px-4 py-3">{s.ban}반</td>
+                    <td className="px-4 py-3">{classLabel(s.grade, s.ban)}</td>
                     <td className="px-4 py-3">{s.no}번</td>
                     <td className="px-4 py-3">{s.unitCount}개</td>
                     <td className="px-4 py-3">{s.totalCount}회</td>
@@ -181,7 +182,7 @@ function StudentSummaryStage({ rows, ban }: { rows: SubmissionRow[]; ban: string
 async function StudentHistoryStage({ rows, email }: { rows: SubmissionRow[]; email: string }) {
   const questions = buildStudentQuestionHistory(rows, email);
   if (questions.length === 0) notFound();
-  const { name, ban, no } = questions[0];
+  const { name, grade, ban, no } = questions[0];
 
   const allInquiryRecords = await getAllInquiryRecords();
   const studentInquiryRecords = buildInquiryByEmail(allInquiryRecords).get(email) || [];
@@ -193,12 +194,15 @@ async function StudentHistoryStage({ rows, email }: { rows: SubmissionRow[]; ema
         <Breadcrumb
           items={[
             { label: "전체 보기", href: "/teacher/all" },
-            { label: `${ban}반`, href: `/teacher/all?ban=${encodeURIComponent(ban)}` },
+            {
+              label: classLabel(grade, ban),
+              href: `/teacher/all?grade=${encodeURIComponent(grade)}&ban=${encodeURIComponent(ban)}`,
+            },
             { label: name },
           ]}
         />
       </div>
-      <Section title={`${ban}반 ${no}번 · ${name} — 질문 목록 (${questions.length}건)`}>
+      <Section title={`${classLabel(grade, ban)} ${no}번 · ${name} — 질문 목록 (${questions.length}건)`}>
         <div className="flex flex-col gap-2">
           {questions.map((q) => (
             <QuestionRecordCard
