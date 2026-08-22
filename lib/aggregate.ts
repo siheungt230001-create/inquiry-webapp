@@ -356,6 +356,39 @@ export function buildInquiryByEmail(records: InquiryRecord[]): Map<string, Inqui
   return map;
 }
 
+export interface LiveStudentStatus {
+  email: string;
+  ban: string;
+  no: string;
+  name: string;
+  stage: InquiryStage;
+  lastActivity: string; // ISO
+}
+
+// 실시간 현황판(app/teacher/live) 용 - 반 학생 전원의 현재 단계 + 마지막 활동 시각.
+// students는 buildStudentLatest가 이미 골라준 "학생별 최신 제출" 목록(반→번호 순
+// 정렬 유지). InquiryRecord.timestamp는 초안 자동저장 때마다 갱신되므로
+// (app/api/inquiry-writing/route.ts) 메인 질문 timestamp보다 최신이면 그게 진짜
+// "마지막 활동"이다.
+export function buildLiveClassStatus(
+  students: StudentLatest[],
+  recordByMainTs: Map<string, InquiryRecord>
+): LiveStudentStatus[] {
+  return students.map((s) => {
+    const record = recordByMainTs.get(s.timestamp);
+    const lastActivity =
+      record && new Date(record.timestamp) > new Date(s.timestamp) ? record.timestamp : s.timestamp;
+    return {
+      email: s.email,
+      ban: s.ban,
+      no: s.no,
+      name: s.name,
+      stage: inquiryStageOf(record),
+      lastActivity,
+    };
+  });
+}
+
 // 교사 대시보드 "탐구 글쓰기 기록" 섹션 - 선택된 단원/반으로 필터링(이미 최신순 정렬된 채로 옴).
 export function filterInquiryRecords(
   records: InquiryRecord[],

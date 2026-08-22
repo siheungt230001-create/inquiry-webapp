@@ -53,6 +53,8 @@ export interface SubmissionRow {
   feedback: string;
   processedAt: string;
   abuseFlag: string;
+  // 교사가 이 질문 카드에 직접 남기는 메모 - 학생에게는 노출 안 함(교사 전용).
+  teacherComment: string;
 }
 
 // 시트에 쓸 때 컬럼 순서 그대로 나열 (apps_script_자동화.gs COL과 반드시 일치시킬 것)
@@ -85,6 +87,7 @@ export const SHEET_COLUMNS: (keyof SubmissionRow)[] = [
   // 실제 시트 컬럼도 위치로만 매칭되므로 순서가 어긋나면 기존 행이 통째로 밀린다).
   "levelTrack",
   "levelBand",
+  "teacherComment",
 ];
 
 // "탐구_글쓰기_기록" 시트의 한 행 - 메인 질문 채점(SubmissionRow)과는 별개 탭.

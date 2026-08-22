@@ -1,6 +1,7 @@
 import { approvalBadgeClass, CRITERIA_ACCENTS } from "@/lib/badge";
 import { inquiryStageOf, inquiryStageBadgeClass } from "@/lib/aggregate";
 import { SubQuestionList, EssayDetailSection } from "@/components/InquiryEssayDetail";
+import TeacherCommentBox from "@/components/TeacherCommentBox";
 import type { InquiryRecord, SubmissionRow } from "@/lib/types";
 
 // "질문 만들기" 세부 채점 5개 타일 - app/teacher/page.tsx, app/teacher/all/page.tsx가 같이 쓴다.
@@ -98,6 +99,12 @@ export function QuestionRecordCard({
           <p className="text-xs font-medium text-zinc-500">종합 글쓰기</p>
           <div className="mt-1">
             <EssayDetailSection record={record} />
+          </div>
+        </div>
+        <div>
+          <p className="text-xs font-medium text-zinc-500">교사 코멘트</p>
+          <div className="mt-1">
+            <TeacherCommentBox email={q.email} timestamp={q.timestamp} initialComment={q.teacherComment} />
           </div>
         </div>
       </div>

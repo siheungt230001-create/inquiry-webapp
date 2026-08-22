@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-export default function TeacherModeTabs({ active }: { active: "unit" | "all" }) {
+export default function TeacherModeTabs({ active }: { active: "unit" | "all" | "live" }) {
   const tabClass = (isActive: boolean) =>
     `rounded-lg px-3 py-1.5 text-xs font-medium ${
       isActive ? "bg-zinc-900 text-white" : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
@@ -12,6 +12,9 @@ export default function TeacherModeTabs({ active }: { active: "unit" | "all" }) 
       </Link>
       <Link href="/teacher/all" className={tabClass(active === "all")}>
         전체 보기
+      </Link>
+      <Link href="/teacher/live" className={tabClass(active === "live")}>
+        실시간 현황판
       </Link>
     </div>
   );

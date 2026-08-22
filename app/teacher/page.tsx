@@ -27,13 +27,13 @@ import type { InquiryRecord, SubmissionRow } from "@/lib/types";
 export default async function TeacherPage({
   searchParams,
 }: {
-  searchParams: Promise<{ unit?: string; ban?: string }>;
+  searchParams: Promise<{ unit?: string; ban?: string; student?: string }>;
 }) {
   const session = await auth();
   if (!session?.user?.email) redirect("/login");
   if (!isTeacherEmail(session.user.email)) return <TeacherAccessDenied />;
 
-  const { unit: unitParam, ban: banParam } = await searchParams;
+  const { unit: unitParam, ban: banParam, student: studentEmail } = await searchParams;
   const rows = await getAllSubmissions();
   const units = listUnitsByRecency(rows);
   const selectedUnit = unitParam && units.includes(unitParam) ? unitParam : "";
@@ -60,7 +60,7 @@ export default async function TeacherPage({
         ) : !banParam ? (
           <BanStage unit={selectedUnit} unitRows={rows.filter((r) => r.unit === selectedUnit)} />
         ) : (
-          <StudentBanStage unit={selectedUnit} ban={banParam} allRows={rows} />
+          <StudentBanStage unit={selectedUnit} ban={banParam} allRows={rows} highlightEmail={studentEmail} />
         )}
 
       </div>
@@ -220,10 +220,12 @@ async function StudentBanStage({
   unit,
   ban,
   allRows,
+  highlightEmail,
 }: {
   unit: string;
   ban: string;
   allRows: SubmissionRow[];
+  highlightEmail?: string;
 }) {
   const unitRows = allRows.filter((r) => r.unit === unit);
   const students = buildStudentLatest(unitRows).filter((s) => s.ban === ban);
@@ -242,7 +244,12 @@ async function StudentBanStage({
         />
       </div>
       <Section title={`학생별 최신 상태 — ${unit} · ${ban}반 (${students.length}명)`}>
-        <StudentTable students={students} unitRows={unitRows} recordByMainTs={recordByMainTs} />
+        <StudentTable
+          students={students}
+          unitRows={unitRows}
+          recordByMainTs={recordByMainTs}
+          highlightEmail={highlightEmail}
+        />
       </Section>
     </>
   );
@@ -256,10 +263,12 @@ function StudentTable({
   students,
   unitRows,
   recordByMainTs,
+  highlightEmail,
 }: {
   students: StudentLatest[];
   unitRows: SubmissionRow[];
   recordByMainTs: Map<string, InquiryRecord>;
+  highlightEmail?: string;
 }) {
   if (students.length === 0) return <EmptyState>데이터 없음</EmptyState>;
   return (
@@ -267,7 +276,12 @@ function StudentTable({
       {students.map((s) => {
         const questions = buildStudentQuestionHistory(unitRows, s.email);
         return (
-          <details key={s.email} className="rounded-2xl border border-zinc-200 bg-white open:shadow-sm">
+          <details
+            key={s.email}
+            id={s.email}
+            open={s.email === highlightEmail}
+            className="rounded-2xl border border-zinc-200 bg-white open:shadow-sm"
+          >
             <summary className="flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-3">
               <span className="font-medium text-zinc-900">
                 {s.ban}반 {s.no}번 · {s.name}
