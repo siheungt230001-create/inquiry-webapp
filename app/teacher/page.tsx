@@ -3,21 +3,18 @@ import Link from "next/link";
 import { auth } from "@/auth";
 import { isTeacherEmail } from "@/lib/teacher-auth";
 import { getAllSubmissions, getAllInquiryRecords } from "@/lib/sheets";
-import { approvalBadgeClass, CRITERIA_ACCENTS } from "@/lib/badge";
+import { approvalBadgeClass } from "@/lib/badge";
 import TeacherAccessDenied from "@/components/TeacherAccessDenied";
 import Breadcrumb from "@/components/Breadcrumb";
 import TeacherModeTabs from "@/components/TeacherModeTabs";
-import { SubQuestionList, EssayDetailSection } from "@/components/InquiryEssayDetail";
+import { QuestionRecordCard } from "@/components/QuestionRecordCard";
 import {
   buildStudentLatest,
+  buildStudentQuestionHistory,
   buildBanStats,
   buildUnitStats,
   listUnitsByRecency,
-  filterInquiryRecords,
   buildInquiryRecordByMainTimestamp,
-  buildInquiryByEmail,
-  inquiryStageOf,
-  inquiryStageBadgeClass,
   type StudentLatest,
   type BanStat,
   type UnitStat,
@@ -232,8 +229,6 @@ async function StudentBanStage({
   const students = buildStudentLatest(unitRows).filter((s) => s.ban === ban);
   const allInquiryRecords = await getAllInquiryRecords();
   const recordByMainTs = buildInquiryRecordByMainTimestamp(allInquiryRecords);
-  const inquiryRecords = filterInquiryRecords(allInquiryRecords, unit, ban);
-  const inquiryByEmail = buildInquiryByEmail(inquiryRecords);
 
   return (
     <>
@@ -247,157 +242,67 @@ async function StudentBanStage({
         />
       </div>
       <Section title={`학생별 최신 상태 — ${unit} · ${ban}반 (${students.length}명)`}>
-        <StudentTable students={students} recordByMainTs={recordByMainTs} inquiryByEmail={inquiryByEmail} />
+        <StudentTable students={students} unitRows={unitRows} recordByMainTs={recordByMainTs} />
       </Section>
     </>
   );
 }
 
-function CriteriaGrid({ s }: { s: StudentLatest }) {
-  const values = [s.fact, s.causal, s.compare, s.sentence, s.integration];
-  return (
-    <dl className="grid grid-cols-5 gap-2 text-center text-xs">
-      {CRITERIA_ACCENTS.map((c, i) => (
-        <div
-          key={c.label}
-          className="rounded-lg border-t-2 bg-zinc-50 px-1.5 py-1.5"
-          style={{ borderColor: c.color }}
-        >
-          <dt style={c.textSafe ? { color: c.color } : undefined} className={c.textSafe ? undefined : "text-zinc-400"}>
-            {c.label}
-          </dt>
-          <dd className="mt-0.5 font-semibold text-zinc-800">{values[i] === "" ? "-" : values[i]}</dd>
-        </div>
-      ))}
-    </dl>
-  );
-}
-
-// 학생의 최신 메인 질문 제출에 이어지는 탐구 글쓰기 진행 상태 - record가 없으면
-// 아직 보조질문 단계로 넘어간 적 없다는 뜻(메인 질문만 제출됨).
-function ProgressBadge({ record }: { record: InquiryRecord | undefined }) {
-  const stage = inquiryStageOf(record);
-  return (
-    <span
-      className={`inline-block whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold text-white ${inquiryStageBadgeClass(stage)}`}
-    >
-      {stage}
-    </span>
-  );
-}
-
-// 학생 한 명의 탐구 글쓰기 기록들 - 펼친 행 안에서 시간순(최신순)으로, 질문 원문부터
-// 보조질문·종합 글쓰기 전체까지 이 카드 안에서 다 보인다(별도 페이지로 안 넘어감).
-function InquiryRecordList({ records }: { records: InquiryRecord[] }) {
-  if (records.length === 0) {
-    return <p className="text-xs text-zinc-400">아직 탐구 글쓰기 기록이 없어요 (보조질문 단계까지도 안 갔어요)</p>;
-  }
-  return (
-    <div className="flex flex-col gap-3">
-      {records.map((r) => (
-        <div key={r.timestamp} className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
-          <div className="flex items-start justify-between gap-3">
-            <p className="min-w-0 flex-1 whitespace-pre-wrap text-sm font-semibold text-zinc-900">
-              {r.mainQuestion}
-            </p>
-            <span className="shrink-0 whitespace-nowrap text-xs text-zinc-400">
-              {new Date(r.timestamp).toLocaleString("ko-KR")}
-            </span>
-          </div>
-
-          <div className="mt-3">
-            <p className="text-xs font-medium text-zinc-500">보조질문</p>
-            <div className="mt-1">
-              <SubQuestionList record={r} />
-            </div>
-          </div>
-
-          <div className="mt-3">
-            <p className="text-xs font-medium text-zinc-500">종합 글쓰기</p>
-            <div className="mt-1">
-              <EssayDetailSection record={r} />
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// 학생별 최신 상태 표 - 각 학생은 접힌 한 줄(요약)로 표시되고, 펼치면 세부 점수/AI
-// 피드백/그 학생의 탐구 글쓰기 기록까지 한 곳에서 다 보인다.
+// 학생별 최신 상태 표 - 각 학생은 접힌 한 줄(최신 질문 판정 요약)로 표시되고, 펼치면
+// 그 학생이 이 단원에 낸 제출 전체(1차/2차 등 다회차 포함)가 각각 펼쳐볼 수 있는
+// 카드로 나온다 - 예전엔 최신 1건만 보이고 나머지 회차는 "전체 보기"에서만 보였다.
 // <details>/<summary>는 기본이 접힌 상태라 반/학생이 많아져도 표가 안 길어진다.
 function StudentTable({
   students,
+  unitRows,
   recordByMainTs,
-  inquiryByEmail,
 }: {
   students: StudentLatest[];
+  unitRows: SubmissionRow[];
   recordByMainTs: Map<string, InquiryRecord>;
-  inquiryByEmail: Map<string, InquiryRecord[]>;
 }) {
   if (students.length === 0) return <EmptyState>데이터 없음</EmptyState>;
   return (
     <div className="flex flex-col gap-2">
-      {students.map((s) => (
-        <details key={s.email} className="rounded-2xl border border-zinc-200 bg-white open:shadow-sm">
-          <summary className="flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-3">
-            <span className="font-medium text-zinc-900">
-              {s.ban}반 {s.no}번 · {s.name}
-            </span>
-            {/* 최신 질문 자체의 AI 판정 - 아래 "탐구 글쓰기" 진행 상태와는 다른 값이다 */}
-            <span className="flex items-center gap-1.5">
-              <span className="text-[10px] text-zinc-400">질문 판정</span>
-              <span className="rounded-full bg-zinc-900 px-2.5 py-0.5 text-xs font-semibold text-white">
-                {s.level || "채점 대기중"}
+      {students.map((s) => {
+        const questions = buildStudentQuestionHistory(unitRows, s.email);
+        return (
+          <details key={s.email} className="rounded-2xl border border-zinc-200 bg-white open:shadow-sm">
+            <summary className="flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-3">
+              <span className="font-medium text-zinc-900">
+                {s.ban}반 {s.no}번 · {s.name}
               </span>
-              {s.score !== "" && <span className="text-xs text-zinc-500">{s.score}점</span>}
-              <span
-                className={`rounded-full px-2.5 py-0.5 text-xs font-semibold text-white ${approvalBadgeClass(
-                  s.approval
-                )}`}
-              >
-                {s.approval || "처리중"}
+              {/* 최신 질문 자체의 AI 판정 - 펼치면 보이는 회차별 판정과는 별개로 한눈에 보는 요약 */}
+              <span className="flex items-center gap-1.5">
+                <span className="text-[10px] text-zinc-400">최신 질문 판정</span>
+                <span className="rounded-full bg-zinc-900 px-2.5 py-0.5 text-xs font-semibold text-white">
+                  {s.level || "채점 대기중"}
+                </span>
+                {s.score !== "" && <span className="text-xs text-zinc-500">{s.score}점</span>}
+                <span
+                  className={`rounded-full px-2.5 py-0.5 text-xs font-semibold text-white ${approvalBadgeClass(
+                    s.approval
+                  )}`}
+                >
+                  {s.approval || "처리중"}
+                </span>
               </span>
-            </span>
-            <span className="h-4 w-px bg-zinc-200" aria-hidden />
-            {/* 승인된 질문의 후속 작업(보조질문→답변→종합 글쓰기) 진행 상태 - 질문 판정과
-                별개 축이라 승인/완료 점수가 나와도 여기는 "작성 중"일 수 있다(정상). */}
-            <span className="flex items-center gap-1.5">
-              <span className="text-[10px] text-zinc-400">탐구 글쓰기</span>
-              <ProgressBadge record={recordByMainTs.get(s.timestamp)} />
-            </span>
-            <span className="text-xs text-zinc-400">총 {s.count}회 제출</span>
-            <span className="ml-auto max-w-[45%] min-w-0 truncate text-xs text-zinc-500">{s.question}</span>
-          </summary>
+              <span className="text-xs text-zinc-400">총 {s.count}회 제출</span>
+              <span className="ml-auto max-w-[45%] min-w-0 truncate text-xs text-zinc-500">{s.question}</span>
+            </summary>
 
-          <div className="flex flex-col gap-4 border-t border-zinc-100 px-4 py-4">
-            <div>
-              <p className="text-xs font-medium text-zinc-500">질문 원문</p>
-              <p className="mt-1 whitespace-pre-wrap text-sm text-zinc-800">{s.question}</p>
+            <div className="flex flex-col gap-2 border-t border-zinc-100 px-4 py-4">
+              {questions.length === 0 ? (
+                <p className="text-xs text-zinc-400">아직 채점 완료된 제출이 없어요</p>
+              ) : (
+                questions.map((q) => (
+                  <QuestionRecordCard key={q.timestamp} q={q} record={recordByMainTs.get(q.timestamp)} />
+                ))
+              )}
             </div>
-
-            <div>
-              <p className="text-xs font-medium text-zinc-500">AI 피드백</p>
-              <p className="mt-1 whitespace-pre-wrap text-sm text-zinc-700">{s.feedback}</p>
-            </div>
-
-            <div>
-              <p className="text-xs font-medium text-zinc-500">세부 점수</p>
-              <div className="mt-1 max-w-md">
-                <CriteriaGrid s={s} />
-              </div>
-            </div>
-
-            <div>
-              <p className="text-xs font-medium text-zinc-500">탐구 글쓰기 기록</p>
-              <div className="mt-1">
-                <InquiryRecordList records={inquiryByEmail.get(s.email) || []} />
-              </div>
-            </div>
-          </div>
-        </details>
-      ))}
+          </details>
+        );
+      })}
     </div>
   );
 }

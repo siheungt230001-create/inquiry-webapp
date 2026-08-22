@@ -3,21 +3,18 @@ import Link from "next/link";
 import { auth } from "@/auth";
 import { isTeacherEmail } from "@/lib/teacher-auth";
 import { getAllSubmissions, getAllInquiryRecords } from "@/lib/sheets";
-import { approvalBadgeClass, CRITERIA_ACCENTS } from "@/lib/badge";
 import TeacherAccessDenied from "@/components/TeacherAccessDenied";
 import Breadcrumb from "@/components/Breadcrumb";
 import TeacherModeTabs from "@/components/TeacherModeTabs";
-import { SubQuestionList, EssayDetailSection } from "@/components/InquiryEssayDetail";
+import { QuestionRecordCard } from "@/components/QuestionRecordCard";
 import {
   buildAllStudentsSummary,
   buildStudentQuestionHistory,
   buildBanStats,
   buildInquiryByEmail,
-  inquiryStageOf,
-  inquiryStageBadgeClass,
   type BanStat,
 } from "@/lib/aggregate";
-import type { InquiryRecord, SubmissionRow } from "@/lib/types";
+import type { SubmissionRow } from "@/lib/types";
 
 // 단원을 가로지르는 종합 보기 - 1단계는 반 목록(전체 단원 합산), 반을 클릭하면 2단계로
 // 그 반 학생 목록, 학생을 클릭하면 3단계로 그 학생의 단원별 질문 이력이 나온다.
@@ -204,89 +201,16 @@ async function StudentHistoryStage({ rows, email }: { rows: SubmissionRow[]; ema
       <Section title={`${ban}반 ${no}번 · ${name} — 질문 목록 (${questions.length}건)`}>
         <div className="flex flex-col gap-2">
           {questions.map((q) => (
-            <details key={q.timestamp} className="rounded-2xl border border-zinc-200 bg-white open:shadow-sm">
-              <summary className="flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-3">
-                <span className="text-xs text-zinc-400">{q.unit}</span>
-                <span className="flex items-center gap-1.5">
-                  <span className="text-[10px] text-zinc-400">질문 판정</span>
-                  <span className="rounded-full bg-zinc-900 px-2.5 py-0.5 text-xs font-semibold text-white">
-                    {q.aiLevel || "채점 대기중"}
-                  </span>
-                  {q.aiScore !== "" && <span className="text-xs text-zinc-500">{q.aiScore}점</span>}
-                  <span
-                    className={`rounded-full px-2.5 py-0.5 text-xs font-semibold text-white ${approvalBadgeClass(
-                      q.approval
-                    )}`}
-                  >
-                    {q.approval || "처리중"}
-                  </span>
-                </span>
-                <span className="h-4 w-px bg-zinc-200" aria-hidden />
-                <span className="flex items-center gap-1.5">
-                  <span className="text-[10px] text-zinc-400">탐구 글쓰기</span>
-                  <ProgressBadge record={recordByMainTs.get(q.timestamp)} />
-                </span>
-                <span className="whitespace-nowrap text-xs text-zinc-400">
-                  {new Date(q.timestamp).toLocaleString("ko-KR")}
-                </span>
-                <span className="ml-auto max-w-[45%] min-w-0 truncate text-xs text-zinc-500">{q.question}</span>
-              </summary>
-
-              <div className="flex flex-col gap-4 border-t border-zinc-100 px-4 py-4">
-                <div>
-                  <p className="text-xs font-medium text-zinc-500">질문 원문</p>
-                  <p className="mt-1 whitespace-pre-wrap text-sm text-zinc-800">{q.question}</p>
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-zinc-500">세부 점수</p>
-                  <div className="mt-1 max-w-md">
-                    <CriteriaGrid values={[q.fact, q.causal, q.compare, q.sentence, q.integration]} />
-                  </div>
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-zinc-500">보조질문</p>
-                  <div className="mt-1">
-                    <SubQuestionList record={recordByMainTs.get(q.timestamp)} />
-                  </div>
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-zinc-500">종합 글쓰기</p>
-                  <div className="mt-1">
-                    <EssayDetailSection record={recordByMainTs.get(q.timestamp)} />
-                  </div>
-                </div>
-              </div>
-            </details>
+            <QuestionRecordCard
+              key={q.timestamp}
+              q={q}
+              record={recordByMainTs.get(q.timestamp)}
+              showUnit
+            />
           ))}
         </div>
       </Section>
     </>
-  );
-}
-
-function CriteriaGrid({ values }: { values: (number | "")[] }) {
-  return (
-    <dl className="grid grid-cols-5 gap-2 text-center text-xs">
-      {CRITERIA_ACCENTS.map((c, i) => (
-        <div key={c.label} className="rounded-lg border-t-2 bg-zinc-50 px-1.5 py-1.5" style={{ borderColor: c.color }}>
-          <dt style={c.textSafe ? { color: c.color } : undefined} className={c.textSafe ? undefined : "text-zinc-400"}>
-            {c.label}
-          </dt>
-          <dd className="mt-0.5 font-semibold text-zinc-800">{values[i] === "" ? "-" : values[i]}</dd>
-        </div>
-      ))}
-    </dl>
-  );
-}
-
-function ProgressBadge({ record }: { record: InquiryRecord | undefined }) {
-  const stage = inquiryStageOf(record);
-  return (
-    <span
-      className={`inline-block whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold text-white ${inquiryStageBadgeClass(stage)}`}
-    >
-      {stage}
-    </span>
   );
 }
 
