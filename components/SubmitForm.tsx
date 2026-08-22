@@ -161,7 +161,11 @@ export default function SubmitForm() {
   }
 
   const POLL_INTERVAL_MS = 3000;
-  const POLL_TIMEOUT_MS = 5 * 60 * 1000;
+  // 정상적인 채점은 몇 초~길어야 1분 안쪽(분당 15건 대기열이 밀려도)이면 끝난다 -
+  // 그보다 훨씬 긴 5분을 기다렸던 예전 값은, 큐 콜백이 애초에 안 오는 경우(예:
+  // Vercel 배포 보호가 콜백 URL을 막는 사고)에도 학생이 5분 내내 "기다려 주세요"만
+  // 보게 만들었다. 90초로 줄여서 실패를 더 빨리, 명확하게 알려준다.
+  const POLL_TIMEOUT_MS = 90 * 1000;
 
   function stopPolling() {
     if (pollTimeoutRef.current) clearTimeout(pollTimeoutRef.current);
@@ -171,7 +175,9 @@ export default function SubmitForm() {
   async function pollStatus(ts: string) {
     if (Date.now() - pollStartRef.current > POLL_TIMEOUT_MS) {
       stopPolling();
-      setError("채점이 너무 오래 걸리고 있어요. 잠시 후 이력에서 결과를 확인해 주세요.");
+      clearPendingSubmit();
+      setTimestamp(null);
+      setError("채점에 실패했어요. 아래에서 다시 시도해 주세요.");
       return;
     }
     try {
