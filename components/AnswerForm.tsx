@@ -17,6 +17,7 @@ interface EssayScores {
   introScore: number;
   bodyScore: number;
   conclusionScore: number;
+  factScore: number;
   totalScore: number;
 }
 
@@ -280,6 +281,7 @@ export default function AnswerForm({
         introScore: data.introScore,
         bodyScore: data.bodyScore,
         conclusionScore: data.conclusionScore,
+        factScore: data.factScore,
         totalScore: data.totalScore,
       });
     } catch {
@@ -313,6 +315,7 @@ export default function AnswerForm({
         introScore: data.introScore,
         bodyScore: data.bodyScore,
         conclusionScore: data.conclusionScore,
+        factScore: data.factScore,
         totalScore: data.totalScore,
       });
       setSubmitted(true);

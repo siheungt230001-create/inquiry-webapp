@@ -325,14 +325,39 @@ function EssaySection({ record }: { record?: InquiryRecord }) {
     );
   }
 
+  // factScore 컬럼이 도입되기 전에 채점된 행은 이 값이 항상 ""로 읽힌다(시트에 그
+  // 컬럼 자체가 없었으니까) - 그걸 "구버전 채점"의 판별 신호로 쓴다. 이런 행은 본론이
+  // 0~3점 기준으로 매겨져 있어서 새 4타일(서론/본론/결론/사실정확성, 본론 0~2.5)
+  // 레이아웃에 그대로 끼워 넣으면 숫자가 안 맞아 보인다.
+  const isLegacyScoring = record.factScore === "";
+
   return (
     <div className="flex flex-col gap-3">
-      <span className="w-fit rounded-full bg-zinc-900 px-2.5 py-0.5 text-xs font-semibold text-white">
-        총점 {record.totalScore} / 5.0점
-      </span>
-      <EssayScoreTiles scores={record} />
+      <div className="flex items-center gap-2">
+        <span className="rounded-full bg-zinc-900 px-2.5 py-0.5 text-xs font-semibold text-white">
+          총점 {record.totalScore} / 5.0점
+        </span>
+        {isLegacyScoring && (
+          <span className="rounded-full bg-zinc-400 px-2 py-0.5 text-[10px] font-medium text-white">
+            구버전 채점
+          </span>
+        )}
+      </div>
+      {isLegacyScoring ? (
+        <p className="text-xs text-zinc-400">
+          이 기록은 이전 채점 기준(본론 0~3점, 사실정확성 항목 없음)으로 매겨졌어요.
+          새 기준과 세부 점수를 직접 비교하려면 재채점이 필요해요.
+        </p>
+      ) : (
+        <EssayScoreTiles scores={record} />
+      )}
       <EssayBlock label="서론" text={record.intro} score={record.introScore} max={1} />
-      <EssayBlock label="본론" text={record.body} score={record.bodyScore} max={3} />
+      <EssayBlock
+        label="본론"
+        text={record.body}
+        score={record.bodyScore}
+        max={isLegacyScoring ? 3 : 2.5}
+      />
       <EssayBlock label="결론" text={record.conclusion} score={record.conclusionScore} max={1} />
       {record.comment && (
         <div className="rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-2">

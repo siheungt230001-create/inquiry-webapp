@@ -32,6 +32,7 @@ const NUMERIC_INQUIRY_COLUMNS = new Set<keyof InquiryRecord>([
   "bodyScore",
   "conclusionScore",
   "totalScore",
+  "factScore",
 ]);
 
 // ===== 데모 모드: 로컬 JSON 파일 저장소 =====
@@ -79,6 +80,12 @@ async function readDemoStore(): Promise<DemoStore> {
     const parsed = JSON.parse(raw) as DemoStore;
     // 이 필드가 생기기 전에 저장된 demo-store.json이 남아있을 수 있으니 채워준다.
     if (!parsed.inquiryRecords) parsed.inquiryRecords = [];
+    // factScore 도입 전 기록은 이 컬럼 자체가 없었다 - "구버전 채점" 판별에 쓰는
+    // record.factScore === "" 체크가 undefined에는 안 걸리니 여기서 미리 채워준다.
+    for (const r of parsed.inquiryRecords) {
+      if (r.factScore === undefined) r.factScore = "";
+      if (r.comment === undefined) r.comment = "";
+    }
     return parsed;
   } catch {
     const initial: DemoStore = { units: [SEED_UNIT], submissions: [], inquiryRecords: [] };
@@ -374,7 +381,7 @@ export async function upsertInquiryRecord(record: InquiryRecord): Promise<void> 
   const res = await withRetry(() =>
     sheets.spreadsheets.values.get({
       spreadsheetId: process.env.SPREADSHEET_ID,
-      range: `${INQUIRY_SHEET_NAME}!A2:Q`,
+      range: `${INQUIRY_SHEET_NAME}!A2:R`,
     })
   );
   const raw = res.data.values || [];
@@ -398,7 +405,7 @@ export async function upsertInquiryRecord(record: InquiryRecord): Promise<void> 
     await withRetry(() =>
       sheets.spreadsheets.values.update({
         spreadsheetId: process.env.SPREADSHEET_ID,
-        range: `${INQUIRY_SHEET_NAME}!A${sheetRow}:Q${sheetRow}`,
+        range: `${INQUIRY_SHEET_NAME}!A${sheetRow}:R${sheetRow}`,
         valueInputOption: "RAW",
         requestBody: { values },
       })
@@ -417,7 +424,7 @@ export async function getAllInquiryRecords(): Promise<InquiryRecord[]> {
   const res = await withRetry(() =>
     sheets.spreadsheets.values.get({
       spreadsheetId: process.env.SPREADSHEET_ID,
-      range: `${INQUIRY_SHEET_NAME}!A2:Q`,
+      range: `${INQUIRY_SHEET_NAME}!A2:R`,
     })
   );
   const rows = res.data.values || [];

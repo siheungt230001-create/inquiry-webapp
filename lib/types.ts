@@ -116,8 +116,8 @@ export interface InquiryRecord {
   intro: string;
   body: string;
   conclusion: string;
-  // 서론(0~1)/본론(0~3)/결론(0~1) - AI가 매긴 점수. total은 코드가 셋을 더해 계산한다
-  // (lib/subQuestionFlow.ts의 computeEssayTotal).
+  // 서론(0~1)/본론(0~2.5)/결론(0~1)/사실정확성(0~0.5) - AI가 매긴 점수. total은
+  // 코드가 넷을 더해 계산한다(lib/subQuestionFlow.ts의 computeEssayTotal).
   introScore: number | "";
   bodyScore: number | "";
   conclusionScore: number | "";
@@ -126,6 +126,10 @@ export interface InquiryRecord {
   // 확인할 수 있게 저장해둔다. 예전엔 계산만 하고 어디에도 저장 안 해서 화면에 낼 방법이
   // 없었다.
   comment: string;
+  // 사실정확성(0 또는 0.5) - factScore가 도입되기 전에 채점된 옛날 행은 이 컬럼이 아예
+  // 없어서 항상 ""로 읽힌다. 그 "" 자체를 "구버전 채점(본론 0~3 기준, 사실정확성 없음)"
+  // 판별 신호로 쓴다 - app/teacher/all/page.tsx, app/teacher/inquiry/[id]/page.tsx 참고.
+  factScore: number | "";
 }
 
 // 여기 새 컬럼을 추가할 땐 반드시 맨 끝에만 붙인다(중간 삽입 금지 - 실제 시트 컬럼도
@@ -148,4 +152,5 @@ export const INQUIRY_COLUMNS: (keyof InquiryRecord)[] = [
   "conclusionScore",
   "totalScore",
   "comment",
+  "factScore",
 ];

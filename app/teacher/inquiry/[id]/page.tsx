@@ -29,6 +29,11 @@ export default async function InquiryDetailPage({
     subQuestions = [];
   }
 
+  // factScore 컬럼 도입 전에 채점된 행은 이 값이 항상 ""로 읽힌다 - "구버전 채점"
+  // 판별 신호로 쓴다(app/teacher/all/page.tsx의 EssaySection과 동일 기준).
+  const isLegacyScoring = record.totalScore !== "" && record.factScore === "";
+  const bodyMax = isLegacyScoring ? 3 : 2.5;
+
   return (
     <div className="flex-1 bg-zinc-50 px-4 py-10">
       <div className="mx-auto max-w-xl">
@@ -48,16 +53,28 @@ export default async function InquiryDetailPage({
               총점 {record.totalScore} / 5.0점
             </span>
           )}
+          {isLegacyScoring && (
+            <span className="rounded-full bg-zinc-400 px-2 py-0.5 text-[10px] font-medium text-white">
+              구버전 채점
+            </span>
+          )}
         </div>
         <p className="mt-1 text-sm text-zinc-500">
           {record.ban}반 {record.no}번 · {record.name} · {record.unit} ·{" "}
           {new Date(record.timestamp).toLocaleString("ko-KR")}
         </p>
 
-        {record.totalScore !== "" && (
-          <div className="mt-3">
-            <EssayScoreTiles scores={record} />
-          </div>
+        {isLegacyScoring ? (
+          <p className="mt-3 text-xs text-zinc-400">
+            이 기록은 이전 채점 기준(본론 0~3점, 사실정확성 항목 없음)으로 매겨졌어요.
+            새 기준과 세부 점수를 직접 비교하려면 재채점이 필요해요.
+          </p>
+        ) : (
+          record.totalScore !== "" && (
+            <div className="mt-3">
+              <EssayScoreTiles scores={record} />
+            </div>
+          )
         )}
 
         <div className="mt-6 flex flex-col gap-4">
@@ -100,7 +117,7 @@ export default async function InquiryDetailPage({
             <div className="flex items-center justify-between">
               <div className="text-xs font-medium text-zinc-600">본론</div>
               {record.bodyScore !== "" && (
-                <span className="text-xs text-zinc-400">{record.bodyScore} / 3점</span>
+                <span className="text-xs text-zinc-400">{record.bodyScore} / {bodyMax}점</span>
               )}
             </div>
             <p className="mt-1 whitespace-pre-wrap text-sm text-zinc-800">
