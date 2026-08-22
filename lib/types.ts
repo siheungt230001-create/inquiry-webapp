@@ -107,8 +107,10 @@ export interface InquirySubQuestion {
   // 판정)와는 독립적인 축이라 필드를 따로 둔다.
   answerStatus?: "양호" | "수정 필요" | null;
   answerComment?: string;
-  // 답을 어디서 찾았는지(교과서 쪽수, 자료명 등) - 선택 입력. 이 필드가 생기기 전에
-  // 저장된 옛날 항목은 그냥 undefined로 읽힌다.
+  // 답을 어디서 찾았는지(교과서 쪽수, 자료명 등) - SubAnswersForm에서 답을 적은 항목은
+  // 필수로 강제한다(화면단 검증). 타입은 optional로 두는데, 이 필드가 생기기 전에
+  // 저장된 옛날 항목은 그냥 undefined로 읽히기 때문 - 그런 레코드까지 강제로 채울
+  // 방법은 없으니 표시 쪽(SubQuestionList)에서는 없으면 그냥 안 보여준다.
   source?: string;
 }
 

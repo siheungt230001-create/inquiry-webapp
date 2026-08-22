@@ -68,7 +68,7 @@ export default function SubAnswersForm({
   const router = useRouter();
   const [approvedItems, setApprovedItems] = useState<ApprovedItem[]>([]);
   const [answers, setAnswers] = useState<string[]>(() => SUB_QUESTION_CARDS.map(() => ""));
-  // 답을 어디서 찾았는지(교과서 쪽수, 자료명 등) - 답변마다 하나씩, 선택 입력.
+  // 답을 어디서 찾았는지(교과서 쪽수, 자료명 등) - 답변마다 하나씩, 답을 적은 항목은 필수.
   const [sources, setSources] = useState<string[]>(() => SUB_QUESTION_CARDS.map(() => ""));
   // "수정 필요"거나 아직 판정 안 받은 보조질문도 그대로 들고 있어야, 답변 자동 저장 시
   // subQuestionsJson을 통째로 덮어쓰면서 그 항목들 내용을 날려버리지 않는다.
@@ -204,6 +204,12 @@ export default function SubAnswersForm({
   }
 
   const filledAnswerCount = approvedItems.filter((item) => answers[item.index]?.trim()).length;
+  // 답을 적은 항목은 출처도 반드시 있어야 다음 단계로 넘어갈 수 있다 - 아직 답을
+  // 안 적은 항목까지 출처를 요구하면(쓸 답이 없는데 출처만 강제) 앞뒤가 안 맞으므로
+  // 답이 채워진 항목에 한해서만 출처 필수로 본다.
+  const missingSourceItems = approvedItems.filter(
+    (item) => answers[item.index]?.trim() && !sources[item.index]?.trim()
+  );
 
   async function handleCheckAnswers() {
     setChecking(true);
@@ -341,12 +347,25 @@ export default function SubAnswersForm({
                 className="input mt-2 min-h-[90px]"
                 placeholder="이 질문에 대해 찾은 내용이나 생각을 적어보세요"
               />
-              <input
-                value={sources[item.index] ?? ""}
-                onChange={(e) => updateSource(item.index, e.target.value)}
-                className="input mt-2 text-xs"
-                placeholder="출처 (선택) - 예: 교과서 32쪽, ○○ 자료"
-              />
+              {(() => {
+                const sourceMissing = answers[item.index]?.trim() && !sources[item.index]?.trim();
+                return (
+                  <>
+                    <label className="mt-2 block text-xs font-medium text-zinc-600">
+                      출처 <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      value={sources[item.index] ?? ""}
+                      onChange={(e) => updateSource(item.index, e.target.value)}
+                      className={`input mt-1 text-xs ${sourceMissing ? "border-rose-400" : ""}`}
+                      placeholder="예: 교과서 32쪽, ○○ 자료"
+                    />
+                    {sourceMissing && (
+                      <p className="mt-1 text-xs text-rose-600">출처를 입력해주세요</p>
+                    )}
+                  </>
+                );
+              })()}
               {comment && (
                 <p
                   className={`mt-2 text-sm ${
@@ -383,9 +402,12 @@ export default function SubAnswersForm({
 
       <button
         onClick={goToAnswer}
-        className="rounded-lg border border-zinc-300 px-4 py-2.5 text-sm font-medium text-zinc-800 hover:bg-zinc-50"
+        disabled={missingSourceItems.length > 0}
+        className="rounded-lg border border-zinc-300 px-4 py-2.5 text-sm font-medium text-zinc-800 hover:bg-zinc-50 disabled:opacity-50 disabled:hover:bg-white"
       >
-        종합 답안 쓰기 →
+        {missingSourceItems.length > 0
+          ? `출처를 입력해주세요 (${missingSourceItems.length}개 남음)`
+          : "종합 답안 쓰기 →"}
       </button>
 
       <style jsx global>{`
