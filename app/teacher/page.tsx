@@ -7,6 +7,7 @@ import { approvalBadgeClass, CRITERIA_ACCENTS } from "@/lib/badge";
 import TeacherAccessDenied from "@/components/TeacherAccessDenied";
 import Breadcrumb from "@/components/Breadcrumb";
 import TeacherModeTabs from "@/components/TeacherModeTabs";
+import { SubQuestionList, EssayDetailSection } from "@/components/InquiryEssayDetail";
 import {
   buildStudentLatest,
   buildBanStats,
@@ -285,35 +286,41 @@ function ProgressBadge({ record }: { record: InquiryRecord | undefined }) {
   );
 }
 
-// 학생 한 명의 탐구 글쓰기 기록들 - 펼친 행 안에서 시간순(최신순)으로 보여준다.
+// 학생 한 명의 탐구 글쓰기 기록들 - 펼친 행 안에서 시간순(최신순)으로, 질문 원문부터
+// 보조질문·종합 글쓰기 전체까지 이 카드 안에서 다 보인다(별도 페이지로 안 넘어감).
 function InquiryRecordList({ records }: { records: InquiryRecord[] }) {
   if (records.length === 0) {
     return <p className="text-xs text-zinc-400">아직 탐구 글쓰기 기록이 없어요 (보조질문 단계까지도 안 갔어요)</p>;
   }
   return (
-    <ul className="flex flex-col gap-1.5">
+    <div className="flex flex-col gap-3">
       {records.map((r) => (
-        <li key={r.timestamp}>
-          <Link
-            href={`/teacher/inquiry/${encodeURIComponent(r.timestamp)}`}
-            className="flex items-center justify-between gap-3 rounded-lg border border-zinc-100 bg-zinc-50 px-3 py-2 text-xs hover:bg-zinc-100"
-          >
-            <span className="min-w-0 flex-1 truncate text-zinc-700">{r.mainQuestion}</span>
-            <span className="flex shrink-0 items-center gap-2 text-zinc-400">
-              {r.totalScore === "" ? (
-                <span className="rounded-full bg-amber-500 px-2 py-0.5 font-semibold text-white">진행중</span>
-              ) : (
-                <span className="rounded-full bg-zinc-900 px-2 py-0.5 font-semibold text-white">
-                  {r.totalScore}/5.0점
-                </span>
-              )}
-              <span className="whitespace-nowrap">{new Date(r.timestamp).toLocaleString("ko-KR")}</span>
-              <span className="text-indigo-600">보기 →</span>
+        <div key={r.timestamp} className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4">
+          <div className="flex items-start justify-between gap-3">
+            <p className="min-w-0 flex-1 whitespace-pre-wrap text-sm font-semibold text-zinc-900">
+              {r.mainQuestion}
+            </p>
+            <span className="shrink-0 whitespace-nowrap text-xs text-zinc-400">
+              {new Date(r.timestamp).toLocaleString("ko-KR")}
             </span>
-          </Link>
-        </li>
+          </div>
+
+          <div className="mt-3">
+            <p className="text-xs font-medium text-zinc-500">보조질문</p>
+            <div className="mt-1">
+              <SubQuestionList record={r} />
+            </div>
+          </div>
+
+          <div className="mt-3">
+            <p className="text-xs font-medium text-zinc-500">종합 글쓰기</p>
+            <div className="mt-1">
+              <EssayDetailSection record={r} />
+            </div>
+          </div>
+        </div>
       ))}
-    </ul>
+    </div>
   );
 }
 

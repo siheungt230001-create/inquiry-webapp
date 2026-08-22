@@ -9,7 +9,7 @@ export interface EssayScoreValues {
 
 // "질문 만들기" 결과 카드(components/SubmitForm.tsx의 ResultCard 세부 채점)와 같은 톤 -
 // 항목별 강조색 배지 타일. components/AnswerForm.tsx(학생이 보는 화면)와
-// app/teacher/inquiry/[id]/page.tsx, app/teacher/all/page.tsx(교사 화면)가 같이 쓴다.
+// components/InquiryEssayDetail.tsx(교사 화면 인라인 카드)가 같이 쓴다.
 export default function EssayScoreTiles({ scores }: { scores: EssayScoreValues }) {
   const values = [scores.introScore, scores.bodyScore, scores.conclusionScore, scores.factScore];
   return (

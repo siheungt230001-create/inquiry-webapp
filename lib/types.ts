@@ -128,7 +128,7 @@ export interface InquiryRecord {
   comment: string;
   // 사실정확성(0 또는 0.5) - factScore가 도입되기 전에 채점된 옛날 행은 이 컬럼이 아예
   // 없어서 항상 ""로 읽힌다. 그 "" 자체를 "구버전 채점(본론 0~3 기준, 사실정확성 없음)"
-  // 판별 신호로 쓴다 - app/teacher/all/page.tsx, app/teacher/inquiry/[id]/page.tsx 참고.
+  // 판별 신호로 쓴다 - components/InquiryEssayDetail.tsx의 EssayDetailSection 참고.
   factScore: number | "";
 }
 

@@ -7,7 +7,7 @@ import { approvalBadgeClass, CRITERIA_ACCENTS } from "@/lib/badge";
 import TeacherAccessDenied from "@/components/TeacherAccessDenied";
 import Breadcrumb from "@/components/Breadcrumb";
 import TeacherModeTabs from "@/components/TeacherModeTabs";
-import EssayScoreTiles from "@/components/EssayScoreTiles";
+import { SubQuestionList, EssayDetailSection } from "@/components/InquiryEssayDetail";
 import {
   buildAllStudentsSummary,
   buildStudentQuestionHistory,
@@ -17,7 +17,7 @@ import {
   inquiryStageBadgeClass,
   type BanStat,
 } from "@/lib/aggregate";
-import type { InquiryRecord, InquirySubQuestion, SubmissionRow } from "@/lib/types";
+import type { InquiryRecord, SubmissionRow } from "@/lib/types";
 
 // 단원을 가로지르는 종합 보기 - 1단계는 반 목록(전체 단원 합산), 반을 클릭하면 2단계로
 // 그 반 학생 목록, 학생을 클릭하면 3단계로 그 학생의 단원별 질문 이력이 나온다.
@@ -252,7 +252,7 @@ async function StudentHistoryStage({ rows, email }: { rows: SubmissionRow[]; ema
                 <div>
                   <p className="text-xs font-medium text-zinc-500">종합 글쓰기</p>
                   <div className="mt-1">
-                    <EssaySection record={recordByMainTs.get(q.timestamp)} />
+                    <EssayDetailSection record={recordByMainTs.get(q.timestamp)} />
                   </div>
                 </div>
               </div>
@@ -276,118 +276,6 @@ function CriteriaGrid({ values }: { values: (number | "")[] }) {
         </div>
       ))}
     </dl>
-  );
-}
-
-// InquiryRecord.subQuestionsJson을 파싱해서 보조질문(+학생 답) 목록을 순서대로 보여준다 -
-// "세부 점수" 바로 아래, "종합 글쓰기"보다 위에 독립된 섹션으로 둔다(둘 중 어디 소속도
-// 아니라서 - 보조질문은 종합 글쓰기 제출 전에도 이미 존재하는 별개 단계다).
-function SubQuestionList({ record }: { record?: InquiryRecord }) {
-  if (!record) {
-    return <p className="text-xs text-zinc-400">아직 보조질문 단계로 넘어가지 않았어요</p>;
-  }
-  let subQuestions: InquirySubQuestion[] = [];
-  try {
-    subQuestions = JSON.parse(record.subQuestionsJson);
-  } catch {
-    subQuestions = [];
-  }
-  if (subQuestions.length === 0) {
-    return <p className="text-xs text-zinc-400">아직 작성한 보조질문이 없어요</p>;
-  }
-  return (
-    <ul className="flex flex-col gap-2">
-      {subQuestions.map((s, i) => (
-        <li key={i} className="rounded-lg border border-zinc-100 bg-zinc-50 px-3 py-2 text-xs">
-          <div className="text-zinc-700">
-            <span className="text-zinc-400">[{s.label}]</span> {s.question}
-          </div>
-          <div className="mt-0.5 text-zinc-500">{s.answer ? s.answer : "(답을 안 씀)"}</div>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-// 그 질문에 이어지는 종합 글쓰기(탐구_글쓰기_기록) 내용을 펼친 자리에 바로 보여준다 -
-// 총점/세부 점수 타일/서론·본론·결론 전체 텍스트까지 이 카드 안에서 다 보이므로 별도
-// 상세 페이지로 보내는 링크는 두지 않는다.
-function EssaySection({ record }: { record?: InquiryRecord }) {
-  if (!record) {
-    return <p className="text-xs text-zinc-400">아직 보조질문 단계로 넘어가지 않았어요</p>;
-  }
-
-  if (record.totalScore === "") {
-    return (
-      <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
-        보조질문 작성 중이에요 (아직 종합 글쓰기 제출 전)
-      </p>
-    );
-  }
-
-  // factScore 컬럼이 도입되기 전에 채점된 행은 이 값이 항상 ""로 읽힌다(시트에 그
-  // 컬럼 자체가 없었으니까) - 그걸 "구버전 채점"의 판별 신호로 쓴다. 이런 행은 본론이
-  // 0~3점 기준으로 매겨져 있어서 새 4타일(서론/본론/결론/사실정확성, 본론 0~2.5)
-  // 레이아웃에 그대로 끼워 넣으면 숫자가 안 맞아 보인다.
-  const isLegacyScoring = record.factScore === "";
-
-  return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center gap-2">
-        <span className="rounded-full bg-zinc-900 px-2.5 py-0.5 text-xs font-semibold text-white">
-          총점 {record.totalScore} / 5.0점
-        </span>
-        {isLegacyScoring && (
-          <span className="rounded-full bg-zinc-400 px-2 py-0.5 text-[10px] font-medium text-white">
-            구버전 채점
-          </span>
-        )}
-      </div>
-      {isLegacyScoring ? (
-        <p className="text-xs text-zinc-400">
-          이 기록은 이전 채점 기준(본론 0~3점, 사실정확성 항목 없음)으로 매겨졌어요.
-          새 기준과 세부 점수를 직접 비교하려면 재채점이 필요해요.
-        </p>
-      ) : (
-        <EssayScoreTiles scores={record} />
-      )}
-      <EssayBlock label="서론" text={record.intro} score={record.introScore} max={1} />
-      <EssayBlock
-        label="본론"
-        text={record.body}
-        score={record.bodyScore}
-        max={isLegacyScoring ? 3 : 2.5}
-      />
-      <EssayBlock label="결론" text={record.conclusion} score={record.conclusionScore} max={1} />
-      {record.comment && (
-        <div className="rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-2">
-          <p className="text-xs font-medium text-indigo-700">AI 피드백 (감점 사유)</p>
-          <p className="mt-1 whitespace-pre-wrap text-xs text-indigo-900">{record.comment}</p>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function EssayBlock({
-  label,
-  text,
-  score,
-  max,
-}: {
-  label: string;
-  text: string;
-  score: number | "";
-  max: number;
-}) {
-  return (
-    <div className="rounded-lg border border-zinc-100 bg-zinc-50 px-3 py-2">
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-zinc-600">{label}</span>
-        {score !== "" && <span className="text-xs text-zinc-400">{score} / {max}점</span>}
-      </div>
-      <p className="mt-1 whitespace-pre-wrap text-sm text-zinc-800">{text || "(작성 안 함)"}</p>
-    </div>
   );
 }
 
