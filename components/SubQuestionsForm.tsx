@@ -18,6 +18,16 @@ function statusStorageKey(timestamp: string) {
   return `subqStatus:${timestamp}`;
 }
 
+// 답변/답변 판정은 이 화면(보조질문 만들기) 소관이 아니라 SubAnswersForm이 쓰는
+// 값이지만, saveDraft가 여기서도 같이 저장을 호출하므로 기존 값을 읽어와 그대로
+// 실어 보내야 한다 - 안 그러면 여기서 저장할 때마다 답변이 빈 문자열로 덮어써진다.
+function answersStorageKey(timestamp: string) {
+  return `subAnswers:${timestamp}`;
+}
+function answerStatusStorageKey(timestamp: string) {
+  return `subAnswerStatus:${timestamp}`;
+}
+
 function saveJson(key: string, value: unknown) {
   try {
     window.sessionStorage.setItem(key, JSON.stringify(value));
@@ -52,6 +62,20 @@ function loadComments(timestamp: string): (SubQuestionCheckResult | null)[] {
     // 저장된 값이 깨졌으면 그냥 빈 값으로 시작
   }
   return SUB_QUESTION_CARDS.map(() => null);
+}
+
+function loadCardArray<T>(key: string, fallback: T): T[] {
+  if (typeof window === "undefined") return SUB_QUESTION_CARDS.map(() => fallback);
+  try {
+    const saved = window.sessionStorage.getItem(key);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length === SUB_QUESTION_CARDS.length) return parsed;
+    }
+  } catch {
+    // 저장된 값이 깨졌으면 그냥 기본값으로 시작
+  }
+  return SUB_QUESTION_CARDS.map(() => fallback);
 }
 
 export default function SubQuestionsForm({
@@ -116,12 +140,19 @@ export default function SubQuestionsForm({
   // 있게 한다. 실패해도 부가 기능이라 화면 흐름은 막지 않는다.
   async function saveDraft(nextValues: string[], nextComments: (SubQuestionCheckResult | null)[]) {
     try {
+      const answers = loadCardArray<string>(answersStorageKey(timestamp), "");
+      const answerStatuses = loadCardArray<SubQuestionCheckResult | null>(
+        answerStatusStorageKey(timestamp),
+        null
+      );
       const items = SUB_QUESTION_CARDS.map((card, i) => ({
         label: card.label,
         question: nextValues[i],
-        answer: "",
+        answer: answers[i] ?? "",
         status: nextComments[i]?.status ?? null,
         comment: nextComments[i]?.comment ?? "",
+        answerStatus: answerStatuses[i]?.status ?? null,
+        answerComment: answerStatuses[i]?.comment ?? "",
       })).filter((_, i) => nextValues[i]?.trim());
       await fetch("/api/inquiry-writing", {
         method: "POST",

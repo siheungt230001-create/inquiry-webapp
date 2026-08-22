@@ -37,6 +37,9 @@ function subQuestionsStatusKey(timestamp: string) {
 function subAnswersKey(timestamp: string) {
   return `subAnswers:${timestamp}`;
 }
+function subAnswerStatusKey(timestamp: string) {
+  return `subAnswerStatus:${timestamp}`;
+}
 
 function essayKey(timestamp: string) {
   return `essay:${timestamp}`;
@@ -74,11 +77,13 @@ interface FullSubQuestion {
   answer: string;
   status: SubQuestionCheckResult["status"] | null;
   comment: string;
+  answerStatus: SubQuestionCheckResult["status"] | null;
+  answerComment: string;
 }
 
-// sessionStorage 세 키(subq/subqStatus/subAnswers)를 합쳐서 카드별 전체 상태를 만든다.
-// "양호" 아닌 항목도 그대로 들고 있어야, 이 화면에서 자동 저장할 때 subQuestionsJson을
-// 통째로 덮어쓰면서 그 항목들 내용을 날려버리지 않는다.
+// sessionStorage 네 키(subq/subqStatus/subAnswers/subAnswerStatus)를 합쳐서 카드별 전체
+// 상태를 만든다. "양호" 아닌 항목이나 답변 판정도 그대로 들고 있어야, 이 화면에서 자동
+// 저장할 때 subQuestionsJson을 통째로 덮어쓰면서 그 항목들 내용을 날려버리지 않는다.
 function loadFullSubQuestions(timestamp: string): FullSubQuestion[] {
   const values = loadJson<string[]>(
     subQuestionsKey(timestamp),
@@ -95,12 +100,19 @@ function loadFullSubQuestions(timestamp: string): FullSubQuestion[] {
     SUB_QUESTION_CARDS.map(() => ""),
     isCardLengthArray
   );
+  const answerStatuses = loadJson<(SubQuestionCheckResult | null)[]>(
+    subAnswerStatusKey(timestamp),
+    SUB_QUESTION_CARDS.map(() => null),
+    isCardLengthArray
+  );
   return SUB_QUESTION_CARDS.map((card, i) => ({
     label: card.label,
     question: values[i] ?? "",
     answer: answers[i] ?? "",
     status: statuses[i]?.status ?? null,
     comment: statuses[i]?.comment ?? "",
+    answerStatus: answerStatuses[i]?.status ?? null,
+    answerComment: answerStatuses[i]?.comment ?? "",
   }));
 }
 
@@ -175,6 +187,8 @@ export default function AnswerForm({
           answer: serverItems[i]?.answer ?? "",
           status: serverItems[i]?.status ?? null,
           comment: serverItems[i]?.comment ?? "",
+          answerStatus: serverItems[i]?.answerStatus ?? null,
+          answerComment: serverItems[i]?.answerComment ?? "",
         }));
         const nextEssay: Essay = {
           intro: data.record.intro ?? "",
@@ -211,6 +225,8 @@ export default function AnswerForm({
           answer: item.answer,
           status: item.status,
           comment: item.comment,
+          answerStatus: item.answerStatus,
+          answerComment: item.answerComment,
         }));
       fetch("/api/inquiry-writing", {
         method: "POST",

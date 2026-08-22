@@ -97,6 +97,10 @@ export interface InquirySubQuestion {
   // 답변 대상으로 다시 골라내야 하므로 subQuestionsJson 안에 같이 저장한다.
   status?: "양호" | "수정 필요" | null;
   comment?: string;
+  // 보조질문 "답변" 내용에 대한 별도 AI 판정 - 위 status/comment(질문 자체의 구조
+  // 판정)와는 독립적인 축이라 필드를 따로 둔다.
+  answerStatus?: "양호" | "수정 필요" | null;
+  answerComment?: string;
 }
 
 export interface InquiryRecord {
