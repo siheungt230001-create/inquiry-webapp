@@ -10,7 +10,16 @@ import type { SubmissionRow } from "@/lib/types";
 // QSTASH_TOKEN이 설정돼 있으면(Upstash QStash 계정 연결됨) 채점을 큐에 태워서
 // Gemini 무료 티어 분당 한도를 안 넘기게 한다. 없으면 지금까지처럼 그 자리에서
 // 바로 채점한다(lib/sheets.ts의 DEMO_MODE와 같은 자동 폴백 패턴).
-const QUEUE_MODE = Boolean(process.env.QSTASH_TOKEN);
+//
+// `next dev`(NODE_ENV=development)에서는 QSTASH_TOKEN이 어쩌다 설정돼 있어도
+// 큐를 절대 안 쓴다 - QStash 워커가 채점 결과를 돌려주려면 getAppUrl()이 반환하는
+// 주소로 콜백해야 하는데, 로컬은 외부(Upstash)에서 도달 불가능한 주소라 콜백이
+// 영원히 안 온다. "제출이 접수됐어요..." 화면에서 안 넘어가고 몇 분이고 멈춰있던
+// 사고가 이 경로로 여러 번 났다(토큰을 QStash 자체 테스트하려고 잠깐 켜뒀다가
+// 실수로 로컬에서 실제 제출까지 걸려버린 경우). 실제 QStash 큐 동작을 로컬에서
+// 확인하고 싶으면 배포(Preview/Production)에서 테스트할 것.
+const QUEUE_MODE =
+  Boolean(process.env.QSTASH_TOKEN) && process.env.NODE_ENV !== "development";
 
 function getAppUrl(): string {
   if (process.env.APP_URL) return process.env.APP_URL;
