@@ -489,7 +489,7 @@ function ScoreBreakdown({ scores }: { scores: EssayScores }) {
           총점 {scores.totalScore} / 5.0점
         </span>
       </div>
-      <div className="mt-3">
+      <div className="mt-3 max-w-md">
         <EssayScoreTiles scores={scores} />
       </div>
     </div>

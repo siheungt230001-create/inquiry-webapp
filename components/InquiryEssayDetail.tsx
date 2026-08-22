@@ -92,7 +92,9 @@ export function EssayDetailSection({ record }: { record?: InquiryRecord }) {
           새 기준과 세부 점수를 직접 비교하려면 재채점이 필요해요.
         </p>
       ) : (
-        <EssayScoreTiles scores={record} />
+        <div className="max-w-md">
+          <EssayScoreTiles scores={record} />
+        </div>
       )}
       <EssayBlock label="서론" text={record.intro} score={record.introScore} max={1} />
       <EssayBlock
