@@ -91,8 +91,15 @@ export async function POST(request: Request) {
   // conclusion도 지금 화면에 있는 값을 그대로 저장해야 새로고침·재접속 시 이어 쓸 수 있다
   // (예전엔 여기서 항상 빈 문자열로 덮어써서 종합 글쓰기 초안이 저장 안 됐다).
   // 교사 화면은 totalScore가 ""인 걸로 "진행중"과 "완료"를 구분한다
-  // (lib/aggregate.ts의 buildInquiryProgressMap).
+  // (lib/aggregate.ts의 inquiryStageOf).
   if (draft) {
+    // 점수 필드는 여기서 절대 비우지 않는다 - SubAnswersForm/AnswerForm의 자동 저장(debounce)이
+    // "제출하기"로 이미 채점 끝난 뒤에도 같은 행에 draft:true로 다시 저장할 수 있는데(그
+    // 화면을 다시 열거나 탭이 열려있는 상태에서), 여기서 무조건 ""로 덮어쓰면 방금 매긴
+    // 점수가 통째로 사라진다(실제 사고 사례: 학생이 제출까지 했는데 대시보드엔 "작성중"으로
+    // 보임). 이미 채점된 값이 있으면 그대로 들고 간다 - 재채점은 오직 아래 최종 제출
+    // 경로(draft:false)에서만 일어난다.
+    const existing = await getInquiryRecord(email, mainQuestionTimestamp);
     const record: InquiryRecord = {
       timestamp: new Date().toISOString(),
       email,
@@ -106,10 +113,10 @@ export async function POST(request: Request) {
       intro,
       body: bodyText,
       conclusion,
-      introScore: "",
-      bodyScore: "",
-      conclusionScore: "",
-      totalScore: "",
+      introScore: existing?.introScore ?? "",
+      bodyScore: existing?.bodyScore ?? "",
+      conclusionScore: existing?.conclusionScore ?? "",
+      totalScore: existing?.totalScore ?? "",
     };
     try {
       await upsertInquiryRecord(record);
