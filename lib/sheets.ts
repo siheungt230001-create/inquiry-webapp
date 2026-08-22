@@ -130,6 +130,18 @@ async function withRetry<T>(fn: () => Promise<T>, maxAttempts = 3): Promise<T> {
   throw new Error("알 수 없는 오류로 모든 재시도가 실패했습니다.");
 }
 
+// ===== 짧은 TTL 메모리 캐시 =====
+// getAllSubmissions/getAllInquiryRecords는 호출될 때마다 시트 전체를 새로 읽어온다.
+// 실시간 현황판(app/teacher/live)이 10~15초마다 이 둘을 폴링하고, 교사 대시보드
+// 페이지 전환도 매번 같은 걸 새로 읽다 보니 짧은 시간에 중복 읽기가 쌓여
+// Google Sheets API 왕복(+ 429 걸리면 withRetry의 초 단위 백오프)이 체감 지연으로
+// 이어졌다. 실시간 현황판도 완전 실시간일 필요는 없는 화면이라, 결과를 몇 초만
+// 재사용해도 문제없다 - 쓰기(appendSubmission/update*/upsertInquiryRecord) 직후엔
+// 캐시를 바로 비워서 방금 쓴 내용이 오래된 캐시에 가려지는 일은 없게 한다.
+const CACHE_TTL_MS = 8000;
+let submissionsCache: { value: SubmissionRow[]; expiresAt: number } | null = null;
+let inquiryRecordsCache: { value: InquiryRecord[]; expiresAt: number } | null = null;
+
 // ===== 실제 Google Sheets 클라이언트 (서비스 계정) =====
 function getSheetsClient() {
   const rawKey = process.env.GOOGLE_SERVICE_ACCOUNT_KEY as string;
@@ -218,15 +230,21 @@ export async function appendSubmission(row: SubmissionRow): Promise<void> {
       requestBody: { values },
     })
   );
+  submissionsCache = null; // 방금 쓴 행이 다음 읽기에 바로 반영되게 캐시를 비운다
 }
 
 // 제출_판정_로그 전체 행 (최신순 정렬). 교사 대시보드/우수질문 목록이 공유해서 씀.
+// 데모 모드는 로컬 파일 읽기라 이미 빠르니 캐시 없이 그대로 둔다 - 캐시는 실제 Sheets
+// API 왕복 비용이 있는 경로에서만 의미 있다.
 export async function getAllSubmissions(): Promise<SubmissionRow[]> {
   if (DEMO_MODE) {
     const store = await readDemoStore();
     return [...store.submissions].sort(
       (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     );
+  }
+  if (submissionsCache && submissionsCache.expiresAt > Date.now()) {
+    return submissionsCache.value;
   }
   const sheets = getSheetsClient();
   const res = await withRetry(() =>
@@ -246,9 +264,11 @@ export async function getAllSubmissions(): Promise<SubmissionRow[]> {
     });
     return obj as unknown as SubmissionRow;
   });
-  return parsed.sort(
+  const sorted = parsed.sort(
     (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
   );
+  submissionsCache = { value: sorted, expiresAt: Date.now() + CACHE_TTL_MS };
+  return sorted;
 }
 
 export async function getSubmissionsByEmail(email: string): Promise<SubmissionRow[]> {
@@ -316,6 +336,7 @@ export async function updateSubmissionApproval(
       requestBody: { values: [[approval]] },
     })
   );
+  submissionsCache = null;
   return true;
 }
 
@@ -359,6 +380,7 @@ export async function updateTeacherComment(
       requestBody: { values: [[comment]] },
     })
   );
+  submissionsCache = null;
   return true;
 }
 
@@ -411,6 +433,7 @@ export async function updateSubmissionResult(
       requestBody: { values },
     })
   );
+  submissionsCache = null;
   return true;
 }
 
@@ -471,6 +494,7 @@ export async function upsertInquiryRecord(record: InquiryRecord): Promise<void> 
       })
     );
   }
+  inquiryRecordsCache = null;
 }
 
 export async function getAllInquiryRecords(): Promise<InquiryRecord[]> {
@@ -479,6 +503,9 @@ export async function getAllInquiryRecords(): Promise<InquiryRecord[]> {
     return [...store.inquiryRecords].sort(
       (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
     );
+  }
+  if (inquiryRecordsCache && inquiryRecordsCache.expiresAt > Date.now()) {
+    return inquiryRecordsCache.value;
   }
   const sheets = getSheetsClient();
   const res = await withRetry(() =>
@@ -496,9 +523,11 @@ export async function getAllInquiryRecords(): Promise<InquiryRecord[]> {
     });
     return obj as unknown as InquiryRecord;
   });
-  return parsed.sort(
+  const sorted = parsed.sort(
     (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
   );
+  inquiryRecordsCache = { value: sorted, expiresAt: Date.now() + CACHE_TTL_MS };
+  return sorted;
 }
 
 // 학생이 특정 메인 질문에 대해 지금까지 작성한 탐구 글쓰기 기록(진행중/완료 둘 다)을
