@@ -122,8 +122,14 @@ export interface InquiryRecord {
   bodyScore: number | "";
   conclusionScore: number | "";
   totalScore: number | "";
+  // 종합 글쓰기 채점 시 Gemini가 준 코멘트(왜 이 점수인지) - 교사가 감점 이유를 바로
+  // 확인할 수 있게 저장해둔다. 예전엔 계산만 하고 어디에도 저장 안 해서 화면에 낼 방법이
+  // 없었다.
+  comment: string;
 }
 
+// 여기 새 컬럼을 추가할 땐 반드시 맨 끝에만 붙인다(중간 삽입 금지 - 실제 시트 컬럼도
+// 위치로만 매칭되므로 순서가 어긋나면 기존 행이 통째로 밀린다).
 export const INQUIRY_COLUMNS: (keyof InquiryRecord)[] = [
   "timestamp",
   "email",
@@ -141,4 +147,5 @@ export const INQUIRY_COLUMNS: (keyof InquiryRecord)[] = [
   "bodyScore",
   "conclusionScore",
   "totalScore",
+  "comment",
 ];

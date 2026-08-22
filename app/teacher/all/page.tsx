@@ -334,6 +334,12 @@ function EssaySection({ record }: { record?: InquiryRecord }) {
       <EssayBlock label="서론" text={record.intro} score={record.introScore} max={1} />
       <EssayBlock label="본론" text={record.body} score={record.bodyScore} max={3} />
       <EssayBlock label="결론" text={record.conclusion} score={record.conclusionScore} max={1} />
+      {record.comment && (
+        <div className="rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-2">
+          <p className="text-xs font-medium text-indigo-700">AI 피드백 (감점 사유)</p>
+          <p className="mt-1 whitespace-pre-wrap text-xs text-indigo-900">{record.comment}</p>
+        </div>
+      )}
     </div>
   );
 }

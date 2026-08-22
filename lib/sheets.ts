@@ -374,7 +374,7 @@ export async function upsertInquiryRecord(record: InquiryRecord): Promise<void> 
   const res = await withRetry(() =>
     sheets.spreadsheets.values.get({
       spreadsheetId: process.env.SPREADSHEET_ID,
-      range: `${INQUIRY_SHEET_NAME}!A2:P`,
+      range: `${INQUIRY_SHEET_NAME}!A2:Q`,
     })
   );
   const raw = res.data.values || [];
@@ -398,7 +398,7 @@ export async function upsertInquiryRecord(record: InquiryRecord): Promise<void> 
     await withRetry(() =>
       sheets.spreadsheets.values.update({
         spreadsheetId: process.env.SPREADSHEET_ID,
-        range: `${INQUIRY_SHEET_NAME}!A${sheetRow}:P${sheetRow}`,
+        range: `${INQUIRY_SHEET_NAME}!A${sheetRow}:Q${sheetRow}`,
         valueInputOption: "RAW",
         requestBody: { values },
       })
@@ -417,7 +417,7 @@ export async function getAllInquiryRecords(): Promise<InquiryRecord[]> {
   const res = await withRetry(() =>
     sheets.spreadsheets.values.get({
       spreadsheetId: process.env.SPREADSHEET_ID,
-      range: `${INQUIRY_SHEET_NAME}!A2:P`,
+      range: `${INQUIRY_SHEET_NAME}!A2:Q`,
     })
   );
   const rows = res.data.values || [];

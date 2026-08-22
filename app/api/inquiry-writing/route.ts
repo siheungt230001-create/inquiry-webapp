@@ -45,6 +45,7 @@ export async function GET(request: Request) {
       bodyScore: record.bodyScore,
       conclusionScore: record.conclusionScore,
       totalScore: record.totalScore,
+      comment: record.comment,
     },
   });
 }
@@ -117,6 +118,7 @@ export async function POST(request: Request) {
       bodyScore: existing?.bodyScore ?? "",
       conclusionScore: existing?.conclusionScore ?? "",
       totalScore: existing?.totalScore ?? "",
+      comment: existing?.comment ?? "",
     };
     try {
       await upsertInquiryRecord(record);
@@ -169,6 +171,7 @@ export async function POST(request: Request) {
     bodyScore: scoreResult.bodyScore,
     conclusionScore: scoreResult.conclusionScore,
     totalScore: computeEssayTotal(scoreResult),
+    comment: scoreResult.comment,
   };
 
   try {
