@@ -7,6 +7,7 @@ import { approvalBadgeClass, CRITERIA_ACCENTS } from "@/lib/badge";
 import TeacherAccessDenied from "@/components/TeacherAccessDenied";
 import Breadcrumb from "@/components/Breadcrumb";
 import TeacherModeTabs from "@/components/TeacherModeTabs";
+import EssayScoreTiles from "@/components/EssayScoreTiles";
 import {
   buildAllStudentsSummary,
   buildStudentQuestionHistory,
@@ -237,13 +238,15 @@ async function StudentHistoryStage({ rows, email }: { rows: SubmissionRow[]; ema
                   <p className="mt-1 whitespace-pre-wrap text-sm text-zinc-800">{q.question}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-zinc-500">AI 피드백</p>
-                  <p className="mt-1 whitespace-pre-wrap text-sm text-zinc-700">{q.feedback}</p>
-                </div>
-                <div>
                   <p className="text-xs font-medium text-zinc-500">세부 점수</p>
                   <div className="mt-1 max-w-md">
                     <CriteriaGrid values={[q.fact, q.causal, q.compare, q.sentence, q.integration]} />
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-zinc-500">보조질문</p>
+                  <div className="mt-1">
+                    <SubQuestionList record={recordByMainTs.get(q.timestamp)} />
                   </div>
                 </div>
                 <div>
@@ -276,67 +279,58 @@ function CriteriaGrid({ values }: { values: (number | "")[] }) {
   );
 }
 
-// 그 질문에 이어지는 종합 글쓰기(탐구_글쓰기_기록) 내용을 펼친 자리에 바로 보여준다 -
-// 링크 목록이 아니라 서론/본론/결론과 점수를 그 자리에서 읽을 수 있게(2단계면 보조질문만).
-function EssaySection({ record }: { record?: InquiryRecord }) {
+// InquiryRecord.subQuestionsJson을 파싱해서 보조질문(+학생 답) 목록을 순서대로 보여준다 -
+// "세부 점수" 바로 아래, "종합 글쓰기"보다 위에 독립된 섹션으로 둔다(둘 중 어디 소속도
+// 아니라서 - 보조질문은 종합 글쓰기 제출 전에도 이미 존재하는 별개 단계다).
+function SubQuestionList({ record }: { record?: InquiryRecord }) {
   if (!record) {
     return <p className="text-xs text-zinc-400">아직 보조질문 단계로 넘어가지 않았어요</p>;
   }
-
   let subQuestions: InquirySubQuestion[] = [];
   try {
     subQuestions = JSON.parse(record.subQuestionsJson);
   } catch {
     subQuestions = [];
   }
+  if (subQuestions.length === 0) {
+    return <p className="text-xs text-zinc-400">아직 작성한 보조질문이 없어요</p>;
+  }
+  return (
+    <ul className="flex flex-col gap-2">
+      {subQuestions.map((s, i) => (
+        <li key={i} className="rounded-lg border border-zinc-100 bg-zinc-50 px-3 py-2 text-xs">
+          <div className="text-zinc-700">
+            <span className="text-zinc-400">[{s.label}]</span> {s.question}
+          </div>
+          <div className="mt-0.5 text-zinc-500">{s.answer ? s.answer : "(답을 안 씀)"}</div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+// 그 질문에 이어지는 종합 글쓰기(탐구_글쓰기_기록) 내용을 펼친 자리에 바로 보여준다 -
+// 총점/세부 점수 타일/서론·본론·결론 전체 텍스트까지 이 카드 안에서 다 보이므로 별도
+// 상세 페이지로 보내는 링크는 두지 않는다.
+function EssaySection({ record }: { record?: InquiryRecord }) {
+  if (!record) {
+    return <p className="text-xs text-zinc-400">아직 보조질문 단계로 넘어가지 않았어요</p>;
+  }
 
   if (record.totalScore === "") {
     return (
-      <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
-        <p className="font-medium">보조질문 작성 중이에요 (아직 종합 글쓰기 제출 전)</p>
-        {subQuestions.length > 0 && (
-          <ul className="mt-2 flex flex-col gap-1">
-            {subQuestions.map((s, i) => (
-              <li key={i}>
-                <span className="text-amber-500">[{s.label}]</span> {s.question}
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+      <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
+        보조질문 작성 중이에요 (아직 종합 글쓰기 제출 전)
+      </p>
     );
   }
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center gap-2">
-        <span className="rounded-full bg-zinc-900 px-2.5 py-0.5 text-xs font-semibold text-white">
-          총점 {record.totalScore} / 5.0점
-        </span>
-        <Link
-          href={`/teacher/inquiry/${encodeURIComponent(record.timestamp)}`}
-          className="text-xs text-indigo-600 hover:underline"
-        >
-          전체 보기 →
-        </Link>
-      </div>
-      {subQuestions.length > 0 && (
-        <div className="rounded-lg border border-zinc-100 bg-zinc-50 px-3 py-2">
-          <p className="text-xs text-zinc-400">보조질문과 답</p>
-          <ul className="mt-1 flex flex-col gap-2">
-            {subQuestions.map((s, i) => (
-              <li key={i} className="text-xs">
-                <div className="text-zinc-700">
-                  <span className="text-zinc-400">[{s.label}]</span> {s.question}
-                </div>
-                <div className="mt-0.5 text-zinc-500">
-                  {s.answer ? s.answer : "(답을 안 씀)"}
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      <span className="w-fit rounded-full bg-zinc-900 px-2.5 py-0.5 text-xs font-semibold text-white">
+        총점 {record.totalScore} / 5.0점
+      </span>
+      <EssayScoreTiles scores={record} />
       <EssayBlock label="서론" text={record.intro} score={record.introScore} max={1} />
       <EssayBlock label="본론" text={record.body} score={record.bodyScore} max={3} />
       <EssayBlock label="결론" text={record.conclusion} score={record.conclusionScore} max={1} />
