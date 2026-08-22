@@ -107,6 +107,9 @@ export interface InquirySubQuestion {
   // 판정)와는 독립적인 축이라 필드를 따로 둔다.
   answerStatus?: "양호" | "수정 필요" | null;
   answerComment?: string;
+  // 답을 어디서 찾았는지(교과서 쪽수, 자료명 등) - 선택 입력. 이 필드가 생기기 전에
+  // 저장된 옛날 항목은 그냥 undefined로 읽힌다.
+  source?: string;
 }
 
 export interface InquiryRecord {

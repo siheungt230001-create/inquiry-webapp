@@ -24,6 +24,7 @@ export function SubQuestionList({ record }: { record?: InquiryRecord }) {
             <span className="text-zinc-400">[{s.label}]</span> {s.question}
           </div>
           <div className="mt-0.5 text-zinc-500">{s.answer ? s.answer : "(답을 안 씀)"}</div>
+          {s.source && <div className="mt-0.5 text-[11px] text-zinc-400">출처: {s.source}</div>}
         </li>
       ))}
     </ul>

@@ -20,6 +20,9 @@ function answersKey(timestamp: string) {
 function answerStatusKey(timestamp: string) {
   return `subAnswerStatus:${timestamp}`;
 }
+function answerSourceKey(timestamp: string) {
+  return `subAnswerSource:${timestamp}`;
+}
 
 function loadJson<T>(key: string, fallback: T, isValidShape?: (v: unknown) => boolean): T {
   if (typeof window === "undefined") return fallback;
@@ -65,6 +68,8 @@ export default function SubAnswersForm({
   const router = useRouter();
   const [approvedItems, setApprovedItems] = useState<ApprovedItem[]>([]);
   const [answers, setAnswers] = useState<string[]>(() => SUB_QUESTION_CARDS.map(() => ""));
+  // 답을 어디서 찾았는지(교과서 쪽수, 자료명 등) - 답변마다 하나씩, 선택 입력.
+  const [sources, setSources] = useState<string[]>(() => SUB_QUESTION_CARDS.map(() => ""));
   // "수정 필요"거나 아직 판정 안 받은 보조질문도 그대로 들고 있어야, 답변 자동 저장 시
   // subQuestionsJson을 통째로 덮어쓰면서 그 항목들 내용을 날려버리지 않는다.
   const [allValues, setAllValues] = useState<string[]>(() => SUB_QUESTION_CARDS.map(() => ""));
@@ -83,7 +88,8 @@ export default function SubAnswersForm({
     values: string[],
     statuses: (SubQuestionCheckResult | null)[],
     answersValue: string[],
-    answerStatuses: (SubQuestionCheckResult | null)[]
+    answerStatuses: (SubQuestionCheckResult | null)[],
+    sourcesValue: string[]
   ) {
     const items: ApprovedItem[] = [];
     SUB_QUESTION_CARDS.forEach((card, i) => {
@@ -96,6 +102,7 @@ export default function SubAnswersForm({
     setAllValues(values);
     setAllStatuses(statuses);
     setAnswerComments(answerStatuses);
+    setSources(sourcesValue);
   }
 
   // sessionStorage에 값이 있으면(같은 탭에서 이어서 들어온 경우) 그걸 우선 쓰고, 비어
@@ -121,9 +128,14 @@ export default function SubAnswersForm({
       SUB_QUESTION_CARDS.map(() => null),
       isCardLengthArray
     );
+    const sources = loadJson<string[]>(
+      answerSourceKey(timestamp),
+      SUB_QUESTION_CARDS.map(() => ""),
+      isCardLengthArray
+    );
 
     if (values.some((v) => v.trim())) {
-      applyItemsToState(values, statuses, answers, answerStatuses);
+      applyItemsToState(values, statuses, answers, answerStatuses, sources);
       setLoaded(true);
       return;
     }
@@ -143,6 +155,7 @@ export default function SubAnswersForm({
           status?: SubQuestionCheckResult["status"] | null;
           answerStatus?: SubQuestionCheckResult["status"] | null;
           answerComment?: string;
+          source?: string;
         }[];
         const nextValues = SUB_QUESTION_CARDS.map((_, i) => serverItems[i]?.question ?? "");
         const nextStatuses = SUB_QUESTION_CARDS.map((_, i) =>
@@ -154,11 +167,13 @@ export default function SubAnswersForm({
             ? { status: serverItems[i].answerStatus!, comment: serverItems[i]?.answerComment ?? "" }
             : null
         );
-        applyItemsToState(nextValues, nextStatuses, nextAnswers, nextAnswerStatuses);
+        const nextSources = SUB_QUESTION_CARDS.map((_, i) => serverItems[i]?.source ?? "");
+        applyItemsToState(nextValues, nextStatuses, nextAnswers, nextAnswerStatuses, nextSources);
         saveJson(valuesKey(timestamp), nextValues);
         saveJson(statusKey(timestamp), nextStatuses);
         saveJson(answersKey(timestamp), nextAnswers);
         saveJson(answerStatusKey(timestamp), nextAnswerStatuses);
+        saveJson(answerSourceKey(timestamp), nextSources);
         setLoaded(true);
       })
       .catch(() => setLoaded(true));
@@ -179,6 +194,13 @@ export default function SubAnswersForm({
       setAnswerComments(nextComments);
       saveJson(answerStatusKey(timestamp), nextComments);
     }
+  }
+
+  function updateSource(index: number, text: string) {
+    const next = [...sources];
+    next[index] = text;
+    setSources(next);
+    saveJson(answerSourceKey(timestamp), next);
   }
 
   const filledAnswerCount = approvedItems.filter((item) => answers[item.index]?.trim()).length;
@@ -233,6 +255,7 @@ export default function SubAnswersForm({
           comment: allStatuses[i]?.comment ?? "",
           answerStatus: answerComments[i]?.status ?? null,
           answerComment: answerComments[i]?.comment ?? "",
+          source: approvedItems.some((a) => a.index === i) ? sources[i] ?? "" : "",
         }))
         .filter((_, i) => allValues[i]?.trim());
       fetch("/api/inquiry-writing", {
@@ -243,7 +266,7 @@ export default function SubAnswersForm({
         // 무시 - 자동 저장은 부가 기능, 실패해도 화면 흐름은 막지 않는다
       });
     },
-    [answers, loaded, approvedItems, allValues, allStatuses, answerComments],
+    [answers, sources, loaded, approvedItems, allValues, allStatuses, answerComments],
     800
   );
 
@@ -317,6 +340,12 @@ export default function SubAnswersForm({
                 onChange={(e) => updateAnswer(item.index, e.target.value)}
                 className="input mt-2 min-h-[90px]"
                 placeholder="이 질문에 대해 찾은 내용이나 생각을 적어보세요"
+              />
+              <input
+                value={sources[item.index] ?? ""}
+                onChange={(e) => updateSource(item.index, e.target.value)}
+                className="input mt-2 text-xs"
+                placeholder="출처 (선택) - 예: 교과서 32쪽, ○○ 자료"
               />
               {comment && (
                 <p

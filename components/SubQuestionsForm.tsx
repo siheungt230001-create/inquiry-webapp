@@ -18,14 +18,17 @@ function statusStorageKey(timestamp: string) {
   return `subqStatus:${timestamp}`;
 }
 
-// 답변/답변 판정은 이 화면(보조질문 만들기) 소관이 아니라 SubAnswersForm이 쓰는
+// 답변/답변 판정/출처는 이 화면(보조질문 만들기) 소관이 아니라 SubAnswersForm이 쓰는
 // 값이지만, saveDraft가 여기서도 같이 저장을 호출하므로 기존 값을 읽어와 그대로
-// 실어 보내야 한다 - 안 그러면 여기서 저장할 때마다 답변이 빈 문자열로 덮어써진다.
+// 실어 보내야 한다 - 안 그러면 여기서 저장할 때마다 답변/출처가 빈 문자열로 덮어써진다.
 function answersStorageKey(timestamp: string) {
   return `subAnswers:${timestamp}`;
 }
 function answerStatusStorageKey(timestamp: string) {
   return `subAnswerStatus:${timestamp}`;
+}
+function answerSourceStorageKey(timestamp: string) {
+  return `subAnswerSource:${timestamp}`;
 }
 
 function saveJson(key: string, value: unknown) {
@@ -145,6 +148,7 @@ export default function SubQuestionsForm({
         answerStatusStorageKey(timestamp),
         null
       );
+      const sources = loadCardArray<string>(answerSourceStorageKey(timestamp), "");
       const items = SUB_QUESTION_CARDS.map((card, i) => ({
         label: card.label,
         question: nextValues[i],
@@ -153,6 +157,7 @@ export default function SubQuestionsForm({
         comment: nextComments[i]?.comment ?? "",
         answerStatus: answerStatuses[i]?.status ?? null,
         answerComment: answerStatuses[i]?.comment ?? "",
+        source: sources[i] ?? "",
       })).filter((_, i) => nextValues[i]?.trim());
       await fetch("/api/inquiry-writing", {
         method: "POST",
