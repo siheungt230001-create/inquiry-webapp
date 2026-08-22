@@ -127,9 +127,11 @@ export function buildStudentLatest(rows: SubmissionRow[]): StudentLatest[] {
 
 // 한 학생이 낸 메인 질문 전부(단원 안 가리고, 묶지 않고) - 최신순. "전체 보기"의 학생
 // 상세 화면에서 질문 목록으로 보여준다(같은 단원 재제출도 각각 별도 항목으로 나온다).
+// 채점이 아직 안 끝난 행(status가 "대기중"이거나 아직 완료가 아닌 경우, aiLevel이
+// 비어있음)은 뺀다 - 교사가 보기엔 판정·점수가 없는 빈 카드일 뿐이라 목록만 지저분해진다.
 export function buildStudentQuestionHistory(rows: SubmissionRow[], email: string): SubmissionRow[] {
   return rows
-    .filter((r) => r.email === email)
+    .filter((r) => r.email === email && r.aiLevel !== "")
     .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 }
 
