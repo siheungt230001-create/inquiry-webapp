@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import { SUB_QUESTION_CARDS } from "@/lib/constants";
 import type { SubQuestionCheckResult } from "@/lib/subQuestionFlow";
 import { useDebouncedEffect } from "@/lib/useDebouncedEffect";
-import { ESSAY_ACCENTS } from "@/lib/badge";
 import AutoTextarea from "./AutoTextarea";
+import EssayScoreTiles from "./EssayScoreTiles";
 
 interface Essay {
   intro: string;
@@ -474,10 +474,10 @@ export default function AnswerForm({
 }
 
 // "질문 만들기" 결과 카드(components/SubmitForm.tsx의 ResultCard)와 같은 톤 -
-// 항목별 강조색 배지 + 상단에 눈에 띄는 총점. 서론/본론/결론 본문 자체는 이 컴포넌트
-// 밖(AnswerForm의 textarea)에 그대로 있고, 여긴 채점 결과 표시만 담당한다.
+// 항목별 강조색 배지 타일(EssayScoreTiles) + 상단에 눈에 띄는 총점. 서론/본론/결론
+// 본문 자체는 이 컴포넌트 밖(AnswerForm의 textarea)에 그대로 있고, 여긴 채점 결과
+// 표시만 담당한다.
 function ScoreBreakdown({ scores }: { scores: EssayScores }) {
-  const values = [scores.introScore, scores.bodyScore, scores.conclusionScore];
   return (
     <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
       <div className="flex items-center justify-between gap-2">
@@ -486,25 +486,9 @@ function ScoreBreakdown({ scores }: { scores: EssayScores }) {
           총점 {scores.totalScore} / 5.0점
         </span>
       </div>
-      <dl className="mt-3 grid grid-cols-3 gap-2">
-        {ESSAY_ACCENTS.map((c, i) => (
-          <div
-            key={c.label}
-            className="rounded-lg border-t-2 bg-zinc-50 px-2 py-2 text-center"
-            style={{ borderColor: c.color }}
-          >
-            <dt className="flex items-center justify-center gap-1.5 text-xs">
-              <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: c.color }} />
-              <span style={c.textSafe ? { color: c.color } : undefined} className={c.textSafe ? undefined : "text-zinc-500"}>
-                {c.label}
-              </span>
-            </dt>
-            <dd className="mt-1 text-sm font-semibold text-zinc-800">
-              {values[i]} / {c.max}
-            </dd>
-          </div>
-        ))}
-      </dl>
+      <div className="mt-3">
+        <EssayScoreTiles scores={scores} />
+      </div>
     </div>
   );
 }

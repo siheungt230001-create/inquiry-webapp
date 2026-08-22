@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { isTeacherEmail } from "@/lib/teacher-auth";
 import { getAllInquiryRecords } from "@/lib/sheets";
 import TeacherAccessDenied from "@/components/TeacherAccessDenied";
+import EssayScoreTiles from "@/components/EssayScoreTiles";
 import type { InquirySubQuestion } from "@/lib/types";
 
 export default async function InquiryDetailPage({
@@ -52,6 +53,12 @@ export default async function InquiryDetailPage({
           {record.ban}반 {record.no}번 · {record.name} · {record.unit} ·{" "}
           {new Date(record.timestamp).toLocaleString("ko-KR")}
         </p>
+
+        {record.totalScore !== "" && (
+          <div className="mt-3">
+            <EssayScoreTiles scores={record} />
+          </div>
+        )}
 
         <div className="mt-6 flex flex-col gap-4">
           <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
