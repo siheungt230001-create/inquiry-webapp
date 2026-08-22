@@ -94,7 +94,19 @@ function groupLatestBy(
       continue;
     }
     existing.count += 1;
-    if (new Date(row.timestamp) > new Date(existing.timestamp)) {
+
+    // 채점 완료(aiLevel 있음)된 것 중 가장 최근 걸 표시용으로 쓴다 - "대기중"/"오류"인
+    // 더 최근 제출이 있어도 화면엔 그 학생의 최근 "완료"된 제출을 대신 보여준다(교사가
+    // 요청한 필터링: 판정 안 난 제출은 카드에 안 뜨게). 완료된 게 하나도 없으면 어쩔
+    // 수 없이 가장 최근 미완료 행을 쓴다 - 이땐 "채점 대기중" 표시가 실제로 맞는 정보다.
+    // rows 순서는(정렬 여부와 무관하게) 신뢰하지 않고 항상 timestamp를 직접 비교한다.
+    const rowIsGraded = row.aiLevel !== "";
+    const existingIsGraded = existing.level !== "";
+    const isNewer = new Date(row.timestamp) > new Date(existing.timestamp);
+    const shouldReplace =
+      rowIsGraded !== existingIsGraded ? rowIsGraded : isNewer;
+
+    if (shouldReplace) {
       existing.name = row.name;
       existing.ban = row.ban;
       existing.no = row.no;
