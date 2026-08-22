@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { gradeSubmission } from "@/lib/gradeSubmission";
-import { getSubmissionsByEmail, updateSubmissionResult } from "@/lib/sheets";
+import { getSubmissionsByEmail, updateSubmissionResult, upsertStudentProfile } from "@/lib/sheets";
 
 // 이미 제출한 메인 질문을 고치는 화면(components/EditQuestionForm.tsx)용 - 같은
 // 행(email+timestamp)을 그대로 덮어쓴다. 새 행으로 취급하면 이미 진행 중인 보조질문/
@@ -71,6 +71,10 @@ export async function POST(request: Request) {
   if (!existing) {
     return NextResponse.json({ error: "해당 제출을 찾을 수 없습니다." }, { status: 404 });
   }
+
+  // 여기서 고친 학년/반/번호/이름도 프로필에 그대로 반영한다 - "질문 만들기" 화면의
+  // 최초 제출과 이 수정 화면 둘 다 같은 프로필을 갱신하게 맞춘 것.
+  await upsertStudentProfile({ email, grade, ban, no, name }).catch(() => {});
 
   // 채점 결과에 영향을 주는 값(질문/단원/예상 레벨) 중 하나라도 바뀌었으면 옛 채점은
   // 더 이상 유효하지 않으니 다시 채점한다 - 학년/반/번호/이름만 고친 경우는 그대로 둔다.

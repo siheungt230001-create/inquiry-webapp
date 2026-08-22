@@ -1,8 +1,8 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { google } from "googleapis";
-import type { SubmissionRow, InquiryRecord } from "./types";
-import { SHEET_COLUMNS, INQUIRY_COLUMNS } from "./types";
+import type { SubmissionRow, InquiryRecord, StudentProfile } from "./types";
+import { SHEET_COLUMNS, INQUIRY_COLUMNS, STUDENT_PROFILE_COLUMNS } from "./types";
 
 // ===== 실행 모드 =====
 // GOOGLE_SERVICE_ACCOUNT_KEY와 SPREADSHEET_ID가 둘 다 설정돼 있으면 실제 Google Sheets에
@@ -15,6 +15,7 @@ const DEMO_MODE =
 const UNIT_SHEET_NAME = "단원_자료";
 const LOG_SHEET_NAME = "제출_판정_로그";
 const INQUIRY_SHEET_NAME = "탐구_글쓰기_기록";
+const STUDENT_PROFILE_SHEET_NAME = "학생_프로필";
 
 // SubmissionRow에서 number | "" 타입인 컬럼들. types.ts와 반드시 일치시킬 것.
 const NUMERIC_COLUMNS = new Set<keyof SubmissionRow>([
@@ -42,6 +43,7 @@ interface DemoStore {
   units: { title: string; readingText: string }[];
   submissions: SubmissionRow[];
   inquiryRecords: InquiryRecord[];
+  studentProfiles: StudentProfile[];
 }
 
 const SEED_UNIT = {
@@ -90,9 +92,10 @@ async function readDemoStore(): Promise<DemoStore> {
       if (s.teacherComment === undefined) s.teacherComment = "";
       if (s.grade === undefined) s.grade = "";
     }
+    if (!parsed.studentProfiles) parsed.studentProfiles = [];
     return parsed;
   } catch {
-    const initial: DemoStore = { units: [SEED_UNIT], submissions: [], inquiryRecords: [] };
+    const initial: DemoStore = { units: [SEED_UNIT], submissions: [], inquiryRecords: [], studentProfiles: [] };
     await fs.mkdir(path.dirname(DEMO_FILE), { recursive: true });
     await fs.writeFile(DEMO_FILE, JSON.stringify(initial, null, 2));
     return initial;
@@ -543,6 +546,79 @@ export async function getInquiryRecord(
       (r) => r.email === email && r.mainQuestionTimestamp === mainQuestionTimestamp
     ) ?? null
   );
+}
+
+// ===== 학생 프로필 (로그인 계정별 최근 학년/반/번호/이름 기억) =====
+
+export async function getStudentProfile(email: string): Promise<StudentProfile | null> {
+  if (DEMO_MODE) {
+    const store = await readDemoStore();
+    return store.studentProfiles.find((p) => p.email === email) ?? null;
+  }
+  const sheets = getSheetsClient();
+  const res = await withRetry(() =>
+    sheets.spreadsheets.values.get({
+      spreadsheetId: process.env.SPREADSHEET_ID,
+      range: `${STUDENT_PROFILE_SHEET_NAME}!A2:F`,
+    })
+  );
+  const rows = res.data.values || [];
+  const row = rows.find((r) => r[0] === email);
+  if (!row) return null;
+  const obj: Record<string, unknown> = {};
+  STUDENT_PROFILE_COLUMNS.forEach((key, i) => {
+    obj[key] = row[i] ?? "";
+  });
+  return obj as unknown as StudentProfile;
+}
+
+// 학년/반/번호/이름을 새로 제출하거나 수정할 때마다 호출해서 "다음 로그인 때 미리
+// 채워줄" 값을 최신으로 유지한다(app/api/submit/route.ts, app/api/submit/edit/route.ts).
+// email당 한 행만 유지 - 있으면 그 자리에서 덮어쓰고, 없으면 새로 추가한다.
+export async function upsertStudentProfile(
+  profile: Pick<StudentProfile, "email" | "grade" | "ban" | "no" | "name">
+): Promise<void> {
+  const record: StudentProfile = { ...profile, updatedAt: new Date().toISOString() };
+  if (DEMO_MODE) {
+    const store = await readDemoStore();
+    const idx = store.studentProfiles.findIndex((p) => p.email === profile.email);
+    if (idx === -1) store.studentProfiles.push(record);
+    else store.studentProfiles[idx] = record;
+    await writeDemoStore(store);
+    return;
+  }
+  const sheets = getSheetsClient();
+  const res = await withRetry(() =>
+    sheets.spreadsheets.values.get({
+      spreadsheetId: process.env.SPREADSHEET_ID,
+      range: `${STUDENT_PROFILE_SHEET_NAME}!A2:F`,
+    })
+  );
+  const raw = res.data.values || [];
+  const idx = raw.findIndex((r) => r[0] === profile.email);
+  const values = [STUDENT_PROFILE_COLUMNS.map((key) => record[key] ?? "")];
+
+  if (idx === -1) {
+    await withRetry(() =>
+      sheets.spreadsheets.values.append({
+        spreadsheetId: process.env.SPREADSHEET_ID,
+        range: `${STUDENT_PROFILE_SHEET_NAME}!A1`,
+        valueInputOption: "RAW",
+        insertDataOption: "INSERT_ROWS",
+        requestBody: { values },
+      })
+    );
+  } else {
+    const sheetRow = idx + 2; // 1행은 헤더
+    await withRetry(() =>
+      sheets.spreadsheets.values.update({
+        spreadsheetId: process.env.SPREADSHEET_ID,
+        range: `${STUDENT_PROFILE_SHEET_NAME}!A${sheetRow}:F${sheetRow}`,
+        valueInputOption: "RAW",
+        requestBody: { values },
+      })
+    );
+  }
 }
 
 export function isDemoMode(): boolean {

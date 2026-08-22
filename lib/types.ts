@@ -165,3 +165,25 @@ export const INQUIRY_COLUMNS: (keyof InquiryRecord)[] = [
   "comment",
   "factScore",
 ];
+
+// "학생_프로필" 시트의 한 행 - 로그인 계정(email)마다 최근 입력한 학년/반/번호/이름을
+// 기억해서, 다음에 같은 계정으로 들어왔을 때 제출 폼에 미리 채워주는 용도. 잠기지는
+// 않으니 학생이 그 자리에서 계속 고칠 수 있고, 새로 제출/수정할 때마다 최신 값으로
+// 갱신된다(app/api/submit/route.ts, app/api/submit/edit/route.ts).
+export interface StudentProfile {
+  email: string;
+  grade: string;
+  ban: string;
+  no: string;
+  name: string;
+  updatedAt: string;
+}
+
+export const STUDENT_PROFILE_COLUMNS: (keyof StudentProfile)[] = [
+  "email",
+  "grade",
+  "ban",
+  "no",
+  "name",
+  "updatedAt",
+];

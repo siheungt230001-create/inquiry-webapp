@@ -6,8 +6,6 @@ import type { GradingResult } from "@/lib/types";
 import { approvalBadgeClass, CRITERIA_ACCENTS } from "@/lib/badge";
 import AutoTextarea from "./AutoTextarea";
 
-const PROFILE_KEY = "inquiry-webapp-profile";
-
 interface Profile {
   grade: string;
   ban: string;
@@ -15,16 +13,7 @@ interface Profile {
   name: string;
 }
 
-function loadProfile(): Profile {
-  if (typeof window === "undefined") return { grade: "", ban: "", no: "", name: "" };
-  try {
-    const saved = window.localStorage.getItem(PROFILE_KEY);
-    if (saved) return { grade: "", ...JSON.parse(saved) } as Profile;
-  } catch {
-    // 저장된 값이 없거나 깨졌으면 그냥 빈 값으로 시작
-  }
-  return { grade: "", ban: "", no: "", name: "" };
-}
+const EMPTY_PROFILE: Profile = { grade: "", ban: "", no: "", name: "" };
 
 // 큐 모드(QSTASH_TOKEN 설정됨)에서 "채점 중" 상태로 폴링하던 중에 화면을 이동하거나
 // 새로고침하면 이 컴포넌트가 통째로 다시 마운트되면서 question 등 state가 초기화돼,
@@ -70,7 +59,7 @@ function clearPendingSubmit() {
 
 export default function SubmitForm() {
   const [units, setUnits] = useState<string[]>([]);
-  const [profile, setProfile] = useState<Profile>(loadProfile);
+  const [profile, setProfile] = useState<Profile>(EMPTY_PROFILE);
   const [unit, setUnit] = useState("");
   const [question, setQuestion] = useState("");
   const [selfLevel, setSelfLevel] = useState(SELF_LEVEL_LIST[0]);
@@ -103,6 +92,20 @@ export default function SubmitForm() {
         }
       })
       .catch(() => setError("단원 목록을 불러오지 못했습니다."));
+  }, []);
+
+  // 로그인 계정에 저장된 학년/반/번호/이름을 불러와 미리 채운다(app/api/profile) -
+  // 잠기는 건 아니라서 학생이 그 자리에서 계속 고칠 수 있다. 값이 없으면(첫 로그인)
+  // 빈 채로 둔다.
+  useEffect(() => {
+    fetch("/api/profile")
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.profile) setProfile(data.profile);
+      })
+      .catch(() => {
+        // 못 불러와도 빈 폼으로 계속 진행 - 어차피 매번 직접 입력하던 것과 같은 상태다
+      });
   }, []);
 
   // 마운트 시 "채점 대기 중"인 제출이 있으면 폼과 폴링 상태를 복구한다.
@@ -154,9 +157,7 @@ export default function SubmitForm() {
   }
 
   function updateProfile(next: Partial<Profile>) {
-    const merged = { ...profile, ...next };
-    setProfile(merged);
-    localStorage.setItem(PROFILE_KEY, JSON.stringify(merged));
+    setProfile((prev) => ({ ...prev, ...next }));
   }
 
   const POLL_INTERVAL_MS = 3000;

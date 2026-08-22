@@ -3,7 +3,7 @@ import { Client as QStashClient } from "@upstash/qstash";
 import { auth } from "@/auth";
 import { gradeSubmission } from "@/lib/gradeSubmission";
 import { GEMINI_RATE_LIMIT_PER_MINUTE } from "@/lib/gemini";
-import { appendSubmission, checkAbuseFlag, getSubmissionsByEmail } from "@/lib/sheets";
+import { appendSubmission, checkAbuseFlag, getSubmissionsByEmail, upsertStudentProfile } from "@/lib/sheets";
 import { formatRound } from "@/lib/constants";
 import type { SubmissionRow } from "@/lib/types";
 
@@ -74,6 +74,11 @@ export async function POST(request: Request) {
   }
 
   const round = formatRound(priorSubmissions.filter((r) => r.unit === unit).length + 1);
+
+  // 다음 로그인 때 학년/반/번호/이름을 미리 채워주기 위해 프로필도 같이 저장한다 -
+  // 부가 기능이라 실패해도 제출 자체는 막지 않는다. await하는 이유: 서버리스 환경에서
+  // 응답을 먼저 반환해버리면 백그라운드로 남겨둔 이 호출이 중간에 끊길 수 있다.
+  await upsertStudentProfile({ email, grade, ban, no, name: studentName }).catch(() => {});
 
   const baseRow: SubmissionRow = {
     timestamp,
