@@ -25,6 +25,48 @@ function loadProfile(): Profile {
   return { ban: "", no: "", name: "" };
 }
 
+// 큐 모드(QSTASH_TOKEN 설정됨)에서 "채점 중" 상태로 폴링하던 중에 화면을 이동하거나
+// 새로고침하면 이 컴포넌트가 통째로 다시 마운트되면서 question 등 state가 초기화돼,
+// 방금 제출한 질문이 사라진 것처럼 보이는 게 버그의 원인이었다. 제출 직후 이 값을
+// 저장해두고 마운트 시 우선 여기서 복구한다(sessionStorage라 탭 안에서는 새로고침에도
+// 살아남는다). 탭을 닫았다 열었거나 다른 기기라 이것도 비어 있으면 서버(가장 최근
+// 제출이 아직 "대기중"인지)로 한 번 더 확인한다.
+const PENDING_SUBMIT_KEY = "pendingSubmit";
+
+interface PendingSubmit {
+  timestamp: string;
+  question: string;
+  unit: string;
+  selfLevel: string;
+  textbookLink: string;
+}
+
+function savePendingSubmit(p: PendingSubmit) {
+  try {
+    window.sessionStorage.setItem(PENDING_SUBMIT_KEY, JSON.stringify(p));
+  } catch {
+    // 사생활 보호 모드 등에서 sessionStorage 쓰기가 막혀 있어도 화면은 계속 동작하게 둔다
+  }
+}
+
+function loadPendingSubmit(): PendingSubmit | null {
+  try {
+    const saved = window.sessionStorage.getItem(PENDING_SUBMIT_KEY);
+    if (saved) return JSON.parse(saved) as PendingSubmit;
+  } catch {
+    // 저장된 값이 깨졌으면 그냥 없는 것으로 취급
+  }
+  return null;
+}
+
+function clearPendingSubmit() {
+  try {
+    window.sessionStorage.removeItem(PENDING_SUBMIT_KEY);
+  } catch {
+    // 무시
+  }
+}
+
 export default function SubmitForm() {
   const [units, setUnits] = useState<string[]>([]);
   const [profile, setProfile] = useState<Profile>(loadProfile);
@@ -54,11 +96,61 @@ export default function SubmitForm() {
       .then((data) => {
         if (data.units) {
           setUnits(data.units);
-          if (data.units.length > 0) setUnit(data.units[0]);
+          // 복구된 제출이 이미 unit을 채워놨을 수 있으니, 비어있을 때만 첫 단원으로 기본
+          // 선택한다 - 여기서 무조건 덮어쓰면 아래 복구 effect가 채운 값이 지워진다.
+          if (data.units.length > 0) setUnit((prev) => prev || data.units[0]);
         }
       })
       .catch(() => setError("단원 목록을 불러오지 못했습니다."));
   }, []);
+
+  // 마운트 시 "채점 대기 중"인 제출이 있으면 폼과 폴링 상태를 복구한다.
+  useEffect(() => {
+    const local = loadPendingSubmit();
+    if (local) {
+      resumePending(local.timestamp, local.question, local.unit, local.selfLevel, local.textbookLink);
+      return;
+    }
+    let cancelled = false;
+    fetch("/api/submit/status")
+      .then((r) => r.json())
+      .then((data) => {
+        if (cancelled || data.status !== "대기중") return;
+        const pending: PendingSubmit = {
+          timestamp: data.timestamp,
+          question: data.question,
+          unit: data.unit,
+          selfLevel: data.selfLevel,
+          textbookLink: data.textbookLink,
+        };
+        savePendingSubmit(pending);
+        resumePending(pending.timestamp, pending.question, pending.unit, pending.selfLevel, pending.textbookLink);
+      })
+      .catch(() => {
+        // 서버에서 못 불러와도 그냥 빈 폼으로 시작 - 원래도 첫 제출인 학생은 이 상태다
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function resumePending(
+    ts: string,
+    q: string,
+    u: string,
+    level: string,
+    link: string
+  ) {
+    setQuestion(q);
+    setUnit(u);
+    setSelfLevel(level);
+    setTextbookLink(link);
+    setTimestamp(ts);
+    setPolling(true);
+    pollStartRef.current = Date.now();
+    pollStatus(ts);
+  }
 
   function updateProfile(next: Partial<Profile>) {
     const merged = { ...profile, ...next };
@@ -90,12 +182,14 @@ export default function SubmitForm() {
       }
       if (data.status === "완료") {
         stopPolling();
+        clearPendingSubmit();
         setResult(data.result as GradingResult);
         setTimestamp(ts);
         return;
       }
       if (data.status === "오류") {
         stopPolling();
+        clearPendingSubmit();
         setError("채점 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
         return;
       }
@@ -129,10 +223,12 @@ export default function SubmitForm() {
       if (!res.ok) {
         setError(data.error || "알 수 없는 오류가 발생했습니다.");
       } else if (data.queued) {
-        setTimestamp(data.timestamp as string);
+        const ts = data.timestamp as string;
+        setTimestamp(ts);
         setPolling(true);
         pollStartRef.current = Date.now();
-        pollStatus(data.timestamp as string);
+        savePendingSubmit({ timestamp: ts, question, unit, selfLevel, textbookLink });
+        pollStatus(ts);
       } else {
         setResult(data.result as GradingResult);
         setTimestamp(data.timestamp as string);
@@ -162,6 +258,7 @@ export default function SubmitForm() {
         question={question}
         timestamp={timestamp}
         onReset={() => {
+          clearPendingSubmit();
           setResult(null);
           setTimestamp(null);
           setQuestion("");
