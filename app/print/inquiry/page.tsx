@@ -113,6 +113,10 @@ export default async function PrintInquiryPage({
         @page { size: A4; margin: 12mm 14mm; }
         @media print {
           * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+          /* text 크기·padding·margin·gap 유틸리티가 전부 rem 기준이라, 인쇄 시
+             루트 글자 크기 하나만 줄이면 화면용 크기 전체가 비례해서
+             옛 PDF 버전 정도의 밀도로 같이 줄어든다. */
+          html { font-size: 10px; }
         }
       `}</style>
 
