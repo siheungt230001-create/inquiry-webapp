@@ -4,7 +4,9 @@
 완전히 동일한 웹앱 버전입니다. Next.js(App Router) + Google Sheets(데이터 저장) +
 Google 로그인 + Gemini API로 만들어졌습니다.
 
-자세한 설정 절차는 `SETUP.md`를 보세요. 아래는 빠른 시작만 정리한 것입니다.
+기존 Apps Script 시트를 그대로 이어서 쓰려면 `SETUP.md`, 다른 학교/교사가
+완전히 새 사본으로 쓰려면 `INSTALL_GUIDE.md`를 보세요. 아래는 빠른 시작만
+정리한 것입니다.
 
 ## 지금 바로 체험해보기 (설정 없이)
 
