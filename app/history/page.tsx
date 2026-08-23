@@ -1,14 +1,18 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/auth";
-import { getSubmissionsByEmail } from "@/lib/sheets";
+import { getSubmissionsByEmail, getAllInquiryRecords } from "@/lib/sheets";
 import { approvalBadgeClass } from "@/lib/badge";
+import { buildInquiryRecordByMainTimestamp } from "@/lib/aggregate";
+import PdfDownloadButton from "@/components/PdfDownloadButton";
 
 export default async function HistoryPage() {
   const session = await auth();
   if (!session?.user?.email) redirect("/login");
 
   const rows = await getSubmissionsByEmail(session.user.email);
+  const inquiryRecords = await getAllInquiryRecords();
+  const recordByMainTs = buildInquiryRecordByMainTimestamp(inquiryRecords);
   const approvedCount = rows.filter((r) => r.approval === "승인").length;
   // "종합 글쓰기로 돌아가기" 상단 링크는 가장 최근 제출 건(rows는 최신순 정렬)을 기준으로 함.
   const latest = rows[0];
@@ -65,6 +69,8 @@ export default async function HistoryPage() {
               const essayHref = `/submit/answer?ts=${encodeURIComponent(r.timestamp)}&q=${encodeURIComponent(r.question)}`;
               const essayLabel =
                 r.approval === "승인" ? "종합 글쓰기로 이동 →" : "종합 글쓰기 다시 작성하기 →";
+              const record = recordByMainTs.get(r.timestamp);
+              const essayCompleted = record && record.totalScore !== "";
               return (
                 <div key={i} className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
                   <div className="text-xs text-zinc-400">
@@ -101,6 +107,7 @@ export default async function HistoryPage() {
                         {essayLabel}
                       </Link>
                     )}
+                    {essayCompleted && <PdfDownloadButton timestamp={r.timestamp} />}
                   </div>
                 </div>
               );
