@@ -1,7 +1,6 @@
 import { approvalBadgeClass, CRITERIA_ACCENTS } from "@/lib/badge";
 import { inquiryStageOf, inquiryStageBadgeClass } from "@/lib/aggregate";
 import { SubQuestionList, EssayDetailSection } from "@/components/InquiryEssayDetail";
-import TeacherCommentBox from "@/components/TeacherCommentBox";
 import PdfDownloadButton from "@/components/PdfDownloadButton";
 import type { InquiryRecord, SubmissionRow } from "@/lib/types";
 
@@ -106,12 +105,6 @@ export function QuestionRecordCard({
               <PdfDownloadButton timestamp={q.timestamp} />
             </div>
           )}
-        </div>
-        <div>
-          <p className="text-xs font-medium text-zinc-500">교사 코멘트</p>
-          <div className="mt-1">
-            <TeacherCommentBox email={q.email} timestamp={q.timestamp} initialComment={q.teacherComment} />
-          </div>
         </div>
       </div>
     </details>

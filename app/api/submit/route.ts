@@ -108,7 +108,6 @@ export async function POST(request: Request) {
     feedback: "",
     processedAt: "",
     abuseFlag: "",
-    teacherComment: "",
   };
 
   if (QUEUE_MODE) {

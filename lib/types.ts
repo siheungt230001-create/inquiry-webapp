@@ -55,8 +55,6 @@ export interface SubmissionRow {
   feedback: string;
   processedAt: string;
   abuseFlag: string;
-  // 교사가 이 질문 카드에 직접 남기는 메모 - 학생에게는 노출 안 함(교사 전용).
-  teacherComment: string;
 }
 
 // 시트에 쓸 때 컬럼 순서 그대로 나열 (apps_script_자동화.gs COL과 반드시 일치시킬 것)
@@ -85,11 +83,10 @@ export const SHEET_COLUMNS: (keyof SubmissionRow)[] = [
   "feedback",
   "processedAt",
   "abuseFlag",
-  // 여기 두 개는 기존 데이터 안 깨지게 반드시 맨 끝에만 추가한다(중간 삽입 금지 -
+  // 여기부터는 기존 데이터 안 깨지게 반드시 맨 끝에만 추가한다(중간 삽입 금지 -
   // 실제 시트 컬럼도 위치로만 매칭되므로 순서가 어긋나면 기존 행이 통째로 밀린다).
   "levelTrack",
   "levelBand",
-  "teacherComment",
   "grade",
 ];
 

@@ -89,7 +89,6 @@ async function readDemoStore(): Promise<DemoStore> {
       if (r.comment === undefined) r.comment = "";
     }
     for (const s of parsed.submissions) {
-      if (s.teacherComment === undefined) s.teacherComment = "";
       if (s.grade === undefined) s.grade = "";
     }
     if (!parsed.studentProfiles) parsed.studentProfiles = [];
@@ -253,7 +252,7 @@ export async function getAllSubmissions(): Promise<SubmissionRow[]> {
   const res = await withRetry(() =>
     sheets.spreadsheets.values.get({
       spreadsheetId: process.env.SPREADSHEET_ID,
-      range: `${LOG_SHEET_NAME}!A2:AB`,
+      range: `${LOG_SHEET_NAME}!A2:AA`,
     })
   );
   const rows = res.data.values || [];
@@ -280,7 +279,7 @@ export async function getSubmissionsByEmail(email: string): Promise<SubmissionRo
 }
 
 // 스프레드시트 열 문자(A, B, ... Z, AA, AB, ...)로 변환 - 컬럼이 26개(Z)를 넘어가면
-// String.fromCharCode(65+n) 방식은 깨지므로(teacherComment가 27번째 열/AA) 자릿수를
+// String.fromCharCode(65+n) 방식은 깨지므로(SHEET_COLUMNS가 26개를 넘음) 자릿수를
 // 제대로 계산한다.
 function sheetColumnLetter(index0: number): string {
   let n = index0 + 1;
@@ -294,7 +293,6 @@ function sheetColumnLetter(index0: number): string {
 }
 
 const APPROVAL_COLUMN_LETTER = sheetColumnLetter(SHEET_COLUMNS.indexOf("approval"));
-const TEACHER_COMMENT_COLUMN_LETTER = sheetColumnLetter(SHEET_COLUMNS.indexOf("teacherComment"));
 
 // 학생이 "질문 제출하기"로 최종 확정할 때 기존 행의 approval 칸만 제자리에서
 // 덮어쓴다 (email+timestamp로 행을 특정 - appendSubmission이 매번 새 timestamp로
@@ -322,7 +320,7 @@ export async function updateSubmissionApproval(
   const res = await withRetry(() =>
     sheets.spreadsheets.values.get({
       spreadsheetId: process.env.SPREADSHEET_ID,
-      range: `${LOG_SHEET_NAME}!A2:AB`,
+      range: `${LOG_SHEET_NAME}!A2:AA`,
     })
   );
   const raw = res.data.values || [];
@@ -337,50 +335,6 @@ export async function updateSubmissionApproval(
       range: `${LOG_SHEET_NAME}!${APPROVAL_COLUMN_LETTER}${sheetRow}`,
       valueInputOption: "RAW",
       requestBody: { values: [[approval]] },
-    })
-  );
-  submissionsCache = null;
-  return true;
-}
-
-// 교사가 학생 질문 카드에 남기는 메모 - updateSubmissionApproval과 같은 방식으로
-// 해당 행의 teacherComment 칸만 제자리에서 덮어쓴다.
-export async function updateTeacherComment(
-  email: string,
-  timestamp: string,
-  comment: string
-): Promise<boolean> {
-  if (DEMO_MODE) {
-    const store = await readDemoStore();
-    const row = store.submissions.find(
-      (s) => s.email === email && s.timestamp === timestamp
-    );
-    if (!row) return false;
-    row.teacherComment = comment;
-    await writeDemoStore(store);
-    return true;
-  }
-  const sheets = getSheetsClient();
-  const emailCol = SHEET_COLUMNS.indexOf("email");
-  const timestampCol = SHEET_COLUMNS.indexOf("timestamp");
-  const res = await withRetry(() =>
-    sheets.spreadsheets.values.get({
-      spreadsheetId: process.env.SPREADSHEET_ID,
-      range: `${LOG_SHEET_NAME}!A2:AB`,
-    })
-  );
-  const raw = res.data.values || [];
-  const idx = raw.findIndex(
-    (r) => r[emailCol] === email && r[timestampCol] === timestamp
-  );
-  if (idx === -1) return false;
-  const sheetRow = idx + 2; // 1행은 헤더
-  await withRetry(() =>
-    sheets.spreadsheets.values.update({
-      spreadsheetId: process.env.SPREADSHEET_ID,
-      range: `${LOG_SHEET_NAME}!${TEACHER_COMMENT_COLUMN_LETTER}${sheetRow}`,
-      valueInputOption: "RAW",
-      requestBody: { values: [[comment]] },
     })
   );
   submissionsCache = null;
@@ -411,7 +365,7 @@ export async function updateSubmissionResult(
   const res = await withRetry(() =>
     sheets.spreadsheets.values.get({
       spreadsheetId: process.env.SPREADSHEET_ID,
-      range: `${LOG_SHEET_NAME}!A2:AB`,
+      range: `${LOG_SHEET_NAME}!A2:AA`,
     })
   );
   const raw = res.data.values || [];
@@ -431,7 +385,7 @@ export async function updateSubmissionResult(
   await withRetry(() =>
     sheets.spreadsheets.values.update({
       spreadsheetId: process.env.SPREADSHEET_ID,
-      range: `${LOG_SHEET_NAME}!A${sheetRow}:AB${sheetRow}`,
+      range: `${LOG_SHEET_NAME}!A${sheetRow}:AA${sheetRow}`,
       valueInputOption: "RAW",
       requestBody: { values },
     })
