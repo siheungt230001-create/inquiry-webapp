@@ -67,7 +67,7 @@ function EssayText({
   max: number;
 }) {
   return (
-    <div className="mb-3 rounded-lg border border-zinc-100 bg-zinc-50 px-3 py-2 print:bg-white print:border-zinc-300">
+    <div className="mb-1.5 rounded-lg border border-zinc-100 bg-zinc-50 px-3 py-1.5 print:bg-white print:border-zinc-300">
       <div className="flex items-center justify-between">
         <span className="text-sm font-semibold text-zinc-700">{label}</span>
         {score !== "" && (
@@ -76,7 +76,7 @@ function EssayText({
           </span>
         )}
       </div>
-      <p className="mt-1 whitespace-pre-wrap text-sm text-zinc-800">{text || "(작성 안 함)"}</p>
+      <p className="mt-0.5 whitespace-pre-wrap text-sm text-zinc-800">{text || "(작성 안 함)"}</p>
     </div>
   );
 }
@@ -109,7 +109,7 @@ export default async function PrintInquiryPage({
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-8 print:max-w-none print:px-0 print:py-0">
-      <style>{`@page { size: A4; margin: 18mm 16mm; }`}</style>
+      <style>{`@page { size: A4; margin: 12mm 14mm; }`}</style>
 
       <div className="mb-6 flex items-center justify-between gap-3 print:hidden">
         <p className="text-xs text-zinc-500">
@@ -119,29 +119,29 @@ export default async function PrintInquiryPage({
       </div>
 
       <p className="text-xs text-zinc-400">{row.unit}</p>
-      <p className="mb-3 text-xs text-zinc-400">
+      <p className="mb-1.5 text-xs text-zinc-400">
         {row.grade}학년 {row.ban}반 {row.no}번 · {row.name}
       </p>
-      <h1 className="mb-4 text-lg font-bold text-zinc-900">{row.question}</h1>
+      <h1 className="mb-2.5 text-lg font-bold text-zinc-900">{row.question}</h1>
 
       {scope === "full" && (
         <>
-          <h2 className="mb-2 mt-4 text-sm font-bold text-zinc-700">세부 점수</h2>
+          <h2 className="mb-1.5 mt-2.5 text-sm font-bold text-zinc-700">세부 점수</h2>
           <div className="max-w-md">
             <CriteriaGrid values={[row.fact, row.causal, row.compare, row.sentence, row.integration]} />
           </div>
 
-          <h2 className="mb-2 mt-5 text-sm font-bold text-zinc-700">보조질문</h2>
+          <h2 className="mb-1.5 mt-3 text-sm font-bold text-zinc-700">보조질문</h2>
           <SubQuestionList record={record} />
         </>
       )}
 
-      <h2 className="mb-2 mt-5 text-sm font-bold text-zinc-700">종합 글쓰기</h2>
+      <h2 className="mb-1.5 mt-3 text-sm font-bold text-zinc-700">종합 글쓰기</h2>
       {scope === "full" && (
         <>
-          <p className="mb-2 text-base font-bold text-zinc-900">총점 {record.totalScore} / 5.0점</p>
+          <p className="mb-1.5 text-base font-bold text-zinc-900">총점 {record.totalScore} / 5.0점</p>
           {!isLegacyScoring && (
-            <div className="mb-3 max-w-md">
+            <div className="mb-1.5 max-w-md">
               <EssayScoreTiles scores={record} />
             </div>
           )}
@@ -157,7 +157,7 @@ export default async function PrintInquiryPage({
       />
 
       {scope === "full" && record.comment && (
-        <div className="mt-3 rounded-lg bg-indigo-50 px-3 py-2 print:border print:border-indigo-200">
+        <div className="mt-1.5 rounded-lg bg-indigo-50 px-3 py-1.5 print:border print:border-indigo-200">
           <p className="text-xs font-medium text-indigo-700">AI 피드백</p>
           <p className="mt-1 whitespace-pre-wrap text-xs text-indigo-900">{record.comment}</p>
         </div>
