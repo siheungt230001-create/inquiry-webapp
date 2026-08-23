@@ -67,7 +67,7 @@ function EssayText({
   max: number;
 }) {
   return (
-    <div className="mb-1.5 rounded-lg border border-zinc-100 bg-zinc-50 px-3 py-1.5 print:bg-white print:border-zinc-300">
+    <div className="mb-1.5 rounded-lg border border-zinc-100 bg-zinc-50 px-3 py-1.5">
       <div className="flex items-center justify-between">
         <span className="text-sm font-semibold text-zinc-700">{label}</span>
         {score !== "" && (
@@ -109,7 +109,12 @@ export default async function PrintInquiryPage({
 
   return (
     <div className="mx-auto max-w-2xl px-6 py-8 print:max-w-none print:px-0 print:py-0">
-      <style>{`@page { size: A4; margin: 12mm 14mm; }`}</style>
+      <style>{`
+        @page { size: A4; margin: 12mm 14mm; }
+        @media print {
+          * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        }
+      `}</style>
 
       <div className="mb-6 flex items-center justify-between gap-3 print:hidden">
         <p className="text-xs text-zinc-500">
@@ -157,7 +162,7 @@ export default async function PrintInquiryPage({
       />
 
       {scope === "full" && record.comment && (
-        <div className="mt-1.5 rounded-lg bg-indigo-50 px-3 py-1.5 print:border print:border-indigo-200">
+        <div className="mt-1.5 rounded-lg bg-indigo-50 px-3 py-1.5">
           <p className="text-xs font-medium text-indigo-700">AI 피드백</p>
           <p className="mt-1 whitespace-pre-wrap text-xs text-indigo-900">{record.comment}</p>
         </div>
