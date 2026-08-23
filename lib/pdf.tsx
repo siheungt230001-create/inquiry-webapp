@@ -8,7 +8,7 @@ import {
   Font,
   renderToBuffer,
 } from "@react-pdf/renderer";
-import { CRITERIA_ACCENTS } from "./badge";
+import { CRITERIA_ACCENTS, ESSAY_ACCENTS } from "./badge";
 import type { InquiryRecord, InquirySubQuestion, SubmissionRow } from "./types";
 
 // 한글이 안 나오는 기본 폰트(Helvetica 등)라 반드시 한글 지원 폰트를 등록해야 한다.
@@ -101,6 +101,22 @@ function parseSubQuestions(json: string): InquirySubQuestion[] {
   }
 }
 
+function EssayScoreTiles({ record }: { record: InquiryRecord }) {
+  const values = [record.introScore, record.bodyScore, record.conclusionScore, record.factScore];
+  return (
+    <View style={styles.criteriaRow}>
+      {ESSAY_ACCENTS.map((c, i) => (
+        <View key={c.label} style={[styles.criteriaTile, { borderTopColor: c.color }]}>
+          <Text style={styles.criteriaLabel}>{c.label}</Text>
+          <Text style={styles.criteriaValue}>
+            {values[i] === "" ? "-" : values[i]} / {c.max}
+          </Text>
+        </View>
+      ))}
+    </View>
+  );
+}
+
 function CriteriaScores({ row }: { row: SubmissionRow }) {
   const values = [row.fact, row.causal, row.compare, row.sentence, row.integration];
   return (
@@ -186,7 +202,10 @@ export async function generateInquiryPdf(
 
         <Text style={styles.sectionTitle}>종합 글쓰기</Text>
         {scope === "full" && (
-          <Text style={styles.totalScore}>총점 {record.totalScore} / 5.0점</Text>
+          <>
+            <Text style={styles.totalScore}>총점 {record.totalScore} / 5.0점</Text>
+            {!isLegacyScoring && <EssayScoreTiles record={record} />}
+          </>
         )}
         <EssayBlock
           label="서론"
