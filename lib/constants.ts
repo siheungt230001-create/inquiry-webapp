@@ -14,11 +14,12 @@ export function formatRound(submissionNumber: number): string {
 }
 
 // 보조질문 만들기(2단계) 카드 5개 - hint가 null인 카드("기타")는 빈칸 템플릿 없이
-// 자유롭게 쓰는 칸. accent는 카드 성격별 파스텔 보더 색(globals.css의 .card-* 클래스).
+// 자유롭게 쓰는 칸. 카드 테두리 색은 질문 유형이 아니라 AI 판정 상태 기준(양호=민트,
+// 수정 필요=피치, 미판정=무색)이라 여기엔 색 정보를 두지 않는다.
 export const SUB_QUESTION_CARDS = [
-  { key: "cause", label: "원인·배경형", hint: "○○은 왜 ~했을까?", accent: "card-mint" },
-  { key: "effect", label: "결과·영향형", hint: "○○ 이후 ~는 어떻게 달라졌을까?", accent: "card-lavender" },
-  { key: "compare", label: "비교·대안형", hint: "그 당시 ○○ 말고 다른 방법은 없었을까?", accent: "card-peach" },
-  { key: "perspective", label: "인물 입장형", hint: "○○의 입장에서는 왜 그런 선택을 했을까?", accent: "card-pink" },
-  { key: "free", label: "기타 (자유롭게 쓰기)", hint: null, accent: "" },
+  { key: "cause", label: "원인·배경형", hint: "○○은 왜 ~했을까?" },
+  { key: "effect", label: "결과·영향형", hint: "○○ 이후 ~는 어떻게 달라졌을까?" },
+  { key: "compare", label: "비교·대안형", hint: "그 당시 ○○ 말고 다른 방법은 없었을까?" },
+  { key: "perspective", label: "인물 입장형", hint: "○○의 입장에서는 왜 그런 선택을 했을까?" },
+  { key: "free", label: "기타 (자유롭게 쓰기)", hint: null },
 ] as const;

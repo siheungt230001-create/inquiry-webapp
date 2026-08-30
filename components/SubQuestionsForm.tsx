@@ -244,9 +244,11 @@ export default function SubQuestionsForm({
 
       {SUB_QUESTION_CARDS.map((card, i) => {
         const comment = comments[i];
+        const statusAccent =
+          comment?.status === "양호" ? "card-mint" : comment?.status === "수정 필요" ? "card-peach" : "";
 
         return (
-          <div key={card.key} className={`card p-5 ${card.accent}`}>
+          <div key={card.key} className={`card p-5 ${statusAccent}`}>
             <div className="flex items-center gap-2">
               <span className="text-sm font-semibold text-[var(--color-ink)]">{card.label}</span>
               {comment?.status === "양호" && (

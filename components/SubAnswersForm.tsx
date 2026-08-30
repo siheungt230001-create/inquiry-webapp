@@ -320,10 +320,11 @@ export default function SubAnswersForm({
       ) : (
         approvedItems.map((item) => {
           const comment = answerComments[item.index];
-          const accent = SUB_QUESTION_CARDS[item.index]?.accent || "";
+          const statusAccent =
+            comment?.status === "양호" ? "card-mint" : comment?.status === "수정 필요" ? "card-peach" : "";
 
           return (
-            <div key={item.index} className={`card p-5 ${accent}`}>
+            <div key={item.index} className={`card p-5 ${statusAccent}`}>
               <div className="flex items-center gap-2">
                 <span className="text-xs font-medium text-[var(--color-ink-muted)]">{item.label}</span>
                 {comment?.status === "양호" && (
