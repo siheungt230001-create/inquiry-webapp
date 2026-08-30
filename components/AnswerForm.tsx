@@ -42,6 +42,9 @@ function subAnswersKey(timestamp: string) {
 function subAnswerStatusKey(timestamp: string) {
   return `subAnswerStatus:${timestamp}`;
 }
+function subAnswerSourceKey(timestamp: string) {
+  return `subAnswerSource:${timestamp}`;
+}
 
 function essayKey(timestamp: string) {
   return `essay:${timestamp}`;
@@ -81,6 +84,26 @@ interface FullSubQuestion {
   comment: string;
   answerStatus: SubQuestionCheckResult["status"] | null;
   answerComment: string;
+  source: string;
+}
+
+// 서버에 저장할 형태로 변환 - 아직 안 쓴 카드(question 빈칸)는 뺀다. 초안 자동 저장과
+// "제출하기" 둘 다 이 함수를 써야, 제출 시점에 다른 모양(예전엔 label/question/answer만
+// 있는 SubQA)으로 보내서 status/comment/answerStatus/answerComment/source가 통째로
+// 사라지는 사고가 재발하지 않는다.
+function toPersistedItems(full: FullSubQuestion[]) {
+  return full
+    .filter((item) => item.question.trim())
+    .map((item) => ({
+      label: item.label,
+      question: item.question,
+      answer: item.answer,
+      status: item.status,
+      comment: item.comment,
+      answerStatus: item.answerStatus,
+      answerComment: item.answerComment,
+      source: item.source,
+    }));
 }
 
 // sessionStorage 네 키(subq/subqStatus/subAnswers/subAnswerStatus)를 합쳐서 카드별 전체
@@ -107,6 +130,11 @@ function loadFullSubQuestions(timestamp: string): FullSubQuestion[] {
     SUB_QUESTION_CARDS.map(() => null),
     isCardLengthArray
   );
+  const sources = loadJson<string[]>(
+    subAnswerSourceKey(timestamp),
+    SUB_QUESTION_CARDS.map(() => ""),
+    isCardLengthArray
+  );
   return SUB_QUESTION_CARDS.map((card, i) => ({
     label: card.label,
     question: values[i] ?? "",
@@ -115,6 +143,7 @@ function loadFullSubQuestions(timestamp: string): FullSubQuestion[] {
     comment: statuses[i]?.comment ?? "",
     answerStatus: answerStatuses[i]?.status ?? null,
     answerComment: answerStatuses[i]?.comment ?? "",
+    source: sources[i] ?? "",
   }));
 }
 
@@ -198,6 +227,7 @@ export default function AnswerForm({
           comment: serverItems[i]?.comment ?? "",
           answerStatus: serverItems[i]?.answerStatus ?? null,
           answerComment: serverItems[i]?.answerComment ?? "",
+          source: serverItems[i]?.source ?? "",
         }));
         const nextEssay: Essay = {
           intro: data.record.intro ?? "",
@@ -226,17 +256,7 @@ export default function AnswerForm({
         fullSubQuestions.some((item) => item.question.trim()) ||
         Object.values(essay).some((v) => v.trim());
       if (!hasAnyContent) return;
-      const payloadItems = fullSubQuestions
-        .filter((item) => item.question.trim())
-        .map((item) => ({
-          label: item.label,
-          question: item.question,
-          answer: item.answer,
-          status: item.status,
-          comment: item.comment,
-          answerStatus: item.answerStatus,
-          answerComment: item.answerComment,
-        }));
+      const payloadItems = toPersistedItems(fullSubQuestions);
       fetch("/api/inquiry-writing", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -309,7 +329,7 @@ export default function AnswerForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           mainQuestionTimestamp: timestamp,
-          subQuestions: subQAs,
+          subQuestions: toPersistedItems(fullSubQuestions),
           intro: essay.intro,
           body: essay.body,
           conclusion: essay.conclusion,
