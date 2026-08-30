@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { getInquiryRecord, getSubmissionsByEmail, upsertInquiryRecord } from "@/lib/sheets";
+import { getAllInquiryRecords, getInquiryRecord, getSubmissionsByEmail, upsertInquiryRecord } from "@/lib/sheets";
+import { isTeacherEmail } from "@/lib/teacher-auth";
 import { callGeminiGeneric } from "@/lib/gemini";
 import {
   buildEssayFeedbackPrompt,
@@ -24,7 +25,11 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "ts가 필요합니다." }, { status: 400 });
   }
 
-  const record = await getInquiryRecord(session.user.email, ts);
+  // 학생 본인 기록은 그대로 조회하고, 교사 계정이면(print 페이지와 같은 규칙) 소유자가
+  // 아니어도 조회를 허용한다 - 대시보드에서 학생 ts를 열어 진행 상황을 확인하는 용도.
+  const record = isTeacherEmail(session.user.email)
+    ? (await getAllInquiryRecords()).find((r) => r.mainQuestionTimestamp === ts) ?? null
+    : await getInquiryRecord(session.user.email, ts);
   if (!record) {
     return NextResponse.json({ record: null });
   }
