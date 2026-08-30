@@ -7,6 +7,7 @@ import {
   computeEssayTotal,
   type EssayFeedbackResult,
 } from "@/lib/subQuestionFlow";
+import { hashEssayInputs, rememberEssayFeedback } from "@/lib/essayFeedbackCache";
 
 export async function POST(request: Request) {
   const session = await auth();
@@ -15,21 +16,28 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json();
-  const { mainQuestion, subQuestions, intro, body: bodyText, conclusion } = body || {};
+  const { mainQuestionTimestamp, mainQuestion, subQuestions, intro, body: bodyText, conclusion } = body || {};
 
   if (!mainQuestion) {
     return NextResponse.json({ error: "메인 질문이 필요합니다." }, { status: 400 });
   }
 
+  const subQuestionsArr = Array.isArray(subQuestions) ? subQuestions : [];
   try {
     const prompt = buildEssayFeedbackPrompt(
       mainQuestion,
-      Array.isArray(subQuestions) ? subQuestions : [],
+      subQuestionsArr,
       intro || "",
       bodyText || "",
       conclusion || ""
     );
     const result = await callGeminiGeneric<EssayFeedbackResult>(prompt, ESSAY_RESPONSE_SCHEMA);
+    // 제출 시점에 글이 하나도 안 바뀌었으면 이 결과를 그대로 재사용한다 (app/api/inquiry-writing
+    // 참고) - mainQuestionTimestamp가 없으면(옛 클라이언트) 그냥 캐시를 건너뛴다.
+    if (mainQuestionTimestamp) {
+      const hash = hashEssayInputs(mainQuestion, subQuestionsArr, intro || "", bodyText || "", conclusion || "");
+      rememberEssayFeedback(`${session.user.email}:${mainQuestionTimestamp}`, hash, result);
+    }
     return NextResponse.json({ ...result, totalScore: computeEssayTotal(result) });
   } catch (err) {
     const message = (err as Error).message;

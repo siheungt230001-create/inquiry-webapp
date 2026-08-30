@@ -8,6 +8,7 @@ import {
   computeEssayTotal,
   type EssayFeedbackResult,
 } from "@/lib/subQuestionFlow";
+import { hashEssayInputs, recallEssayFeedback, rememberEssayFeedback } from "@/lib/essayFeedbackCache";
 import type { InquiryRecord, InquirySubQuestion } from "@/lib/types";
 
 // 학생이 이 화면(보조질문/보조질문 답/종합 글쓰기)에 다시 들어왔을 때 sessionStorage가
@@ -144,22 +145,32 @@ export async function POST(request: Request) {
   // 달라졌을 수 있고, 아예 안 눌렀을 수도 있어서 클라이언트가 보낸 점수는 신뢰하지 않는다.
   const formattedSubQuestions = items.map((s) => (s.answer ? `${s.question} → ${s.answer}` : s.question));
 
-  let scoreResult: EssayFeedbackResult;
-  try {
-    const scorePrompt = buildEssayFeedbackPrompt(
-      mainRow.question,
-      formattedSubQuestions,
-      intro,
-      bodyText,
-      conclusion
-    );
-    scoreResult = await callGeminiGeneric<EssayFeedbackResult>(scorePrompt, ESSAY_RESPONSE_SCHEMA);
-  } catch (err) {
-    const message = (err as Error).message;
-    return NextResponse.json(
-      { error: `채점 중 오류가 발생했습니다: ${message}` },
-      { status: 502 }
-    );
+  // "AI 피드백 받기"(app/api/essay-feedback) 이후 글을 하나도 안 고치고 그대로 제출하면
+  // 그때 채점 결과를 그대로 쓴다 - 매번 다시 Gemini를 부르면 중복 호출(비용/분당 호출
+  // 한도)일 뿐 아니라 온도(temperature) 때문에 같은 글에 다른 점수가 나올 수도 있었다.
+  // 점수는 여전히 클라이언트를 안 믿는다 - 캐시는 서버가 계산한 해시가 일치할 때만 맞고,
+  // 캐시에 든 값도 실제로 Gemini가 채점한 결과 그대로다.
+  const inputHash = hashEssayInputs(mainRow.question, formattedSubQuestions, intro, bodyText, conclusion);
+  const cacheKey = `${email}:${mainQuestionTimestamp}`;
+  let scoreResult = recallEssayFeedback(cacheKey, inputHash);
+  if (!scoreResult) {
+    try {
+      const scorePrompt = buildEssayFeedbackPrompt(
+        mainRow.question,
+        formattedSubQuestions,
+        intro,
+        bodyText,
+        conclusion
+      );
+      scoreResult = await callGeminiGeneric<EssayFeedbackResult>(scorePrompt, ESSAY_RESPONSE_SCHEMA);
+      rememberEssayFeedback(cacheKey, inputHash, scoreResult);
+    } catch (err) {
+      const message = (err as Error).message;
+      return NextResponse.json(
+        { error: `채점 중 오류가 발생했습니다: ${message}` },
+        { status: 502 }
+      );
+    }
   }
 
   const record: InquiryRecord = {

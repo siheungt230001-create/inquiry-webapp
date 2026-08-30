@@ -266,6 +266,7 @@ export default function AnswerForm({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          mainQuestionTimestamp: timestamp,
           mainQuestion,
           subQuestions: subQAs.map((s) => s.answer ? `${s.question} → ${s.answer}` : s.question),
           intro: essay.intro,
