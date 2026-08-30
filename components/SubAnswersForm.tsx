@@ -93,7 +93,9 @@ export default function SubAnswersForm({
   ) {
     const items: ApprovedItem[] = [];
     SUB_QUESTION_CARDS.forEach((card, i) => {
-      if (statuses[i]?.status === "양호" && values[i]?.trim()) {
+      // "양호"뿐 아니라 "수정 필요" 피드백을 받고 안 고친 질문도 답변 단계로 넘긴다 -
+      // AI 코멘트를 아예 안 받은(statuses[i] null) 질문만 걸러낸다.
+      if (statuses[i] && values[i]?.trim()) {
         items.push({ index: i, label: card.label, text: values[i] });
       }
     });
@@ -303,7 +305,7 @@ export default function SubAnswersForm({
       {approvedItems.length === 0 ? (
         <div className="rounded-2xl border border-zinc-200 bg-white p-5 text-center shadow-sm">
           <p className="text-sm text-zinc-500">
-            아직 &quot;양호&quot; 판정을 받은 보조질문이 없어요.
+            아직 AI 코멘트를 받은 보조질문이 없어요.
           </p>
           <Link
             href={`/submit/sub-questions?ts=${encodeURIComponent(timestamp)}&q=${encodeURIComponent(mainQuestion)}`}

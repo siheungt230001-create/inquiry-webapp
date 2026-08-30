@@ -37,7 +37,7 @@ export default async function SubAnswersPage({
         </div>
         <h1 className="text-xl font-semibold text-zinc-900">보조질문 답 쓰기</h1>
         <p className="mt-1 text-sm text-zinc-500">
-          "양호" 판정을 받은 보조질문마다 답을 찾아 적어보세요.
+          AI 코멘트를 받은 보조질문마다 답을 찾아 적어보세요. "수정 필요" 질문은 그대로 답해도 되고, 앞 화면에서 다듬고 와도 돼요.
         </p>
         <div className="mt-6">
           <SubAnswersForm timestamp={ts} mainQuestion={q} readingText={readingText} />
