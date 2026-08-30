@@ -60,10 +60,12 @@ export default function SubAnswersForm({
   timestamp,
   mainQuestion,
   readingText,
+  unit,
 }: {
   timestamp: string;
   mainQuestion: string;
   readingText: string;
+  unit: string;
 }) {
   const router = useRouter();
   const [approvedItems, setApprovedItems] = useState<ApprovedItem[]>([]);
@@ -280,7 +282,7 @@ export default function SubAnswersForm({
 
   function goToAnswer() {
     router.push(
-      `/submit/answer?ts=${encodeURIComponent(timestamp)}&q=${encodeURIComponent(mainQuestion)}`
+      `/submit/answer?ts=${encodeURIComponent(timestamp)}&q=${encodeURIComponent(mainQuestion)}&unit=${encodeURIComponent(unit)}`
     );
   }
 

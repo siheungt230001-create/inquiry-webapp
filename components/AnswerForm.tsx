@@ -117,10 +117,12 @@ function loadFullSubQuestions(timestamp: string): FullSubQuestion[] {
   }));
 }
 
-// "양호" 판정을 받고(2단계) 답까지 적은(보조질문 답 쓰기 단계) 것만 참고 자료로 보여준다.
+// AI 코멘트를 받고("양호"든 "수정 필요"든, 3단계에서 고치지 않고 넘어와도) 답까지 적은
+// 것만 참고 자료로 보여준다 - "양호"만 걸러내면 수정 안 하고 답을 쓴 질문이 여기서 통째로
+// 빠져버린다.
 function toApprovedSubQAs(full: FullSubQuestion[]): SubQA[] {
   return full
-    .filter((item) => item.status === "양호" && item.question.trim())
+    .filter((item) => item.status && item.question.trim())
     .map((item) => ({ label: item.label, question: item.question, answer: item.answer }));
 }
 

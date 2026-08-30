@@ -17,7 +17,7 @@ export default async function HistoryPage() {
   // "종합 글쓰기로 돌아가기" 상단 링크는 가장 최근 제출 건(rows는 최신순 정렬)을 기준으로 함.
   const latest = rows[0];
   const latestEssayHref = latest
-    ? `/submit/answer?ts=${encodeURIComponent(latest.timestamp)}&q=${encodeURIComponent(latest.question)}`
+    ? `/submit/answer?ts=${encodeURIComponent(latest.timestamp)}&q=${encodeURIComponent(latest.question)}&unit=${encodeURIComponent(latest.unit)}`
     : null;
 
   return (
@@ -66,7 +66,7 @@ export default async function HistoryPage() {
                 r.approval === "승인" ||
                 r.approval === "재제출" ||
                 r.approval === "제출완료(미승인)";
-              const essayHref = `/submit/answer?ts=${encodeURIComponent(r.timestamp)}&q=${encodeURIComponent(r.question)}`;
+              const essayHref = `/submit/answer?ts=${encodeURIComponent(r.timestamp)}&q=${encodeURIComponent(r.question)}&unit=${encodeURIComponent(r.unit)}`;
               const essayLabel =
                 r.approval === "승인" ? "종합 글쓰기로 이동 →" : "종합 글쓰기 다시 작성하기 →";
               const record = recordByMainTs.get(r.timestamp);
