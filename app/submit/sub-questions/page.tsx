@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/auth";
+import { isTeacherEmail } from "@/lib/teacher-auth";
 import SubQuestionsForm from "@/components/SubQuestionsForm";
 import { ArrowLeftIcon } from "@/components/icons";
 
@@ -31,7 +32,12 @@ export default async function SubQuestionsPage({
           메인 질문을 여러 각도로 쪼개 보세요. 최소 3개를 채우면 AI 코멘트를 받을 수 있어요.
         </p>
         <div className="mt-6">
-          <SubQuestionsForm timestamp={ts} mainQuestion={q} unit={unit || ""} />
+          <SubQuestionsForm
+            timestamp={ts}
+            mainQuestion={q}
+            unit={unit || ""}
+            isTeacherView={isTeacherEmail(session.user?.email)}
+          />
         </div>
       </div>
     </div>

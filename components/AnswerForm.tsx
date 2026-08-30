@@ -141,9 +141,11 @@ function loadEssay(timestamp: string): Essay {
 export default function AnswerForm({
   timestamp,
   mainQuestion,
+  isTeacherView = false,
 }: {
   timestamp: string;
   mainQuestion: string;
+  isTeacherView?: boolean;
 }) {
   const [subQAs, setSubQAs] = useState<SubQA[]>([]);
   const [fullSubQuestions, setFullSubQuestions] = useState<FullSubQuestion[]>([]);
@@ -163,9 +165,12 @@ export default function AnswerForm({
   useEffect(() => {
     const localFull = loadFullSubQuestions(timestamp);
     const localEssay = loadEssay(timestamp);
+    // 교사가 다른 학생의 ts를 열람할 땐 sessionStorage를 신뢰하지 않는다 - 자세한 이유는
+    // SubAnswersForm의 같은 분기 주석 참고.
     const hasLocalData =
-      localFull.some((item) => item.question.trim()) ||
-      Object.values(localEssay).some((v) => v.trim());
+      !isTeacherView &&
+      (localFull.some((item) => item.question.trim()) ||
+        Object.values(localEssay).some((v) => v.trim()));
 
     if (hasLocalData) {
       setFullSubQuestions(localFull);
@@ -209,7 +214,7 @@ export default function AnswerForm({
     return () => {
       cancelled = true;
     };
-  }, [timestamp]);
+  }, [timestamp, isTeacherView]);
 
   // 서론/본론/결론을 쓰는 동안 타이핑이 잠깐 멈추면 서버에도 초안을 저장한다 - "제출하기"를
   // 누르기 전까지는 서버 저장이 아예 없어서, sessionStorage만 지워지면(탭 닫기 등) 종합

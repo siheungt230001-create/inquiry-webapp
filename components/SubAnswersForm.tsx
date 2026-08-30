@@ -62,11 +62,13 @@ export default function SubAnswersForm({
   mainQuestion,
   readingText,
   unit,
+  isTeacherView = false,
 }: {
   timestamp: string;
   mainQuestion: string;
   readingText: string;
   unit: string;
+  isTeacherView?: boolean;
 }) {
   const router = useRouter();
   const [approvedItems, setApprovedItems] = useState<ApprovedItem[]>([]);
@@ -139,7 +141,11 @@ export default function SubAnswersForm({
       isCardLengthArray
     );
 
-    if (values.some((v) => v.trim())) {
+    // 교사가 다른 학생의 ts를 열람할 땐 sessionStorage를 절대 신뢰하지 않는다 - 같은
+    // 브라우저로 여러 학생 기록을 오가다 보면 예전에(혹은 다른 ts를 보다가) 남은 값이
+    // 이 ts 것처럼 섞여 보일 수 있고, 그러면 아래 fetch 자체가 아예 안 나가서 서버의
+    // 최신 데이터를 영영 못 본다. 학생 본인이 자기 진행 상황을 이어 쓸 때만 로컬을 쓴다.
+    if (!isTeacherView && values.some((v) => v.trim())) {
       applyItemsToState(values, statuses, answers, answerStatuses, sources);
       setLoaded(true);
       return;
@@ -185,7 +191,7 @@ export default function SubAnswersForm({
     return () => {
       cancelled = true;
     };
-  }, [timestamp]);
+  }, [timestamp, isTeacherView]);
 
   function updateAnswer(index: number, text: string) {
     const next = [...answers];

@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/auth";
 import { getGroundingTextForUnit } from "@/lib/sheets";
+import { isTeacherEmail } from "@/lib/teacher-auth";
 import SubAnswersForm from "@/components/SubAnswersForm";
 import { ArrowLeftIcon } from "@/components/icons";
 
@@ -44,7 +45,13 @@ export default async function SubAnswersPage({
           AI 코멘트를 받은 보조질문마다 답을 찾아 적어보세요. &quot;수정 필요&quot; 질문은 그대로 답해도 되고, 앞 화면에서 다듬고 와도 돼요.
         </p>
         <div className="mt-6">
-          <SubAnswersForm timestamp={ts} mainQuestion={q} readingText={readingText} unit={unit} />
+          <SubAnswersForm
+            timestamp={ts}
+            mainQuestion={q}
+            readingText={readingText}
+            unit={unit}
+            isTeacherView={isTeacherEmail(session.user?.email)}
+          />
         </div>
       </div>
     </div>

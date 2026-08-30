@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/auth";
+import { isTeacherEmail } from "@/lib/teacher-auth";
 import AnswerForm from "@/components/AnswerForm";
 import { ArrowLeftIcon } from "@/components/icons";
 
@@ -45,7 +46,7 @@ export default async function AnswerPage({
           서론-본론-결론 순서로 메인 질문에 대한 나의 답을 정리해보세요.
         </p>
         <div className="mt-6">
-          <AnswerForm timestamp={ts} mainQuestion={q} />
+          <AnswerForm timestamp={ts} mainQuestion={q} isTeacherView={isTeacherEmail(session.user?.email)} />
         </div>
       </div>
     </div>

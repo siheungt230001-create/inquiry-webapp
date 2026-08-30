@@ -86,10 +86,12 @@ export default function SubQuestionsForm({
   timestamp,
   mainQuestion,
   unit,
+  isTeacherView = false,
 }: {
   timestamp: string;
   mainQuestion: string;
   unit: string;
+  isTeacherView?: boolean;
 }) {
   const router = useRouter();
   const [values, setValues] = useState<string[]>(() => SUB_QUESTION_CARDS.map(() => ""));
@@ -106,7 +108,9 @@ export default function SubQuestionsForm({
   useEffect(() => {
     const localValues = loadValues(timestamp);
     const localComments = loadComments(timestamp);
-    const hasLocalData = localValues.some((v) => v.trim());
+    // 교사가 다른 학생의 ts를 열람할 땐 sessionStorage를 신뢰하지 않는다 - 자세한 이유는
+    // SubAnswersForm의 같은 분기 주석 참고.
+    const hasLocalData = !isTeacherView && localValues.some((v) => v.trim());
     if (hasLocalData) {
       setValues(localValues);
       setComments(localComments);
@@ -137,7 +141,7 @@ export default function SubQuestionsForm({
     return () => {
       cancelled = true;
     };
-  }, [timestamp]);
+  }, [timestamp, isTeacherView]);
 
   // 진행 상황(보조질문 + AI 판정)을 서버에 남긴다 - 다음 단계로 넘어갈 때뿐 아니라 AI
   // 코멘트를 받은 직후에도 저장해서, 학생이 그대로 탭을 닫아도 다시 들어왔을 때 이어 쓸 수
