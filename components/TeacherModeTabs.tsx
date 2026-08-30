@@ -2,8 +2,10 @@ import Link from "next/link";
 
 export default function TeacherModeTabs({ active }: { active: "unit" | "all" | "live" }) {
   const tabClass = (isActive: boolean) =>
-    `rounded-lg px-3 py-1.5 text-xs font-medium ${
-      isActive ? "bg-zinc-900 text-white" : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
+    `rounded-full px-3 py-1.5 text-xs font-semibold ${
+      isActive
+        ? "bg-[var(--color-lavender-deep)] text-white"
+        : "bg-[var(--color-cream-200)] text-[var(--color-ink-soft)] hover:bg-[var(--color-lavender)]"
     }`;
   return (
     <div className="flex items-center gap-2">

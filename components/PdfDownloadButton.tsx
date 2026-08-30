@@ -14,34 +14,30 @@ export default function PdfDownloadButton({ timestamp }: { timestamp: string }) 
 
   return (
     <div className="relative inline-block">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="rounded-lg border border-zinc-300 px-3 py-1.5 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
-      >
+      <button type="button" onClick={() => setOpen((v) => !v)} className="btn-secondary !px-3 !py-1.5 !text-xs">
         PDF 다운로드
       </button>
       {open && (
-        <div className="absolute left-0 z-10 mt-1 w-60 overflow-hidden rounded-lg border border-zinc-200 bg-white shadow-lg">
+        <div className="card absolute left-0 z-10 mt-1 w-60 overflow-hidden !rounded-2xl p-0">
           <a
             href={`${base}&scope=full`}
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => setOpen(false)}
-            className="block px-3 py-2 hover:bg-zinc-50"
+            className="block px-3 py-2 hover:bg-[var(--color-cream-50)]"
           >
-            <div className="text-sm font-medium text-zinc-800">전체 다운로드</div>
-            <div className="text-xs text-zinc-400">세부 점수·보조질문·AI 코멘트 포함 (새 탭에서 인쇄 → PDF로 저장)</div>
+            <div className="text-sm font-medium text-[var(--color-ink)]">전체 다운로드</div>
+            <div className="text-xs text-[var(--color-ink-muted)]">세부 점수·보조질문·AI 코멘트 포함 (새 탭에서 인쇄 → PDF로 저장)</div>
           </a>
           <a
             href={`${base}&scope=simple`}
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => setOpen(false)}
-            className="block border-t border-zinc-100 px-3 py-2 hover:bg-zinc-50"
+            className="block border-t border-[var(--color-cream-200)] px-3 py-2 hover:bg-[var(--color-cream-50)]"
           >
-            <div className="text-sm font-medium text-zinc-800">간단 다운로드</div>
-            <div className="text-xs text-zinc-400">글(서론·본론·결론)만 깔끔하게 (새 탭에서 인쇄 → PDF로 저장)</div>
+            <div className="text-sm font-medium text-[var(--color-ink)]">간단 다운로드</div>
+            <div className="text-xs text-[var(--color-ink-muted)]">글(서론·본론·결론)만 깔끔하게 (새 탭에서 인쇄 → PDF로 저장)</div>
           </a>
         </div>
       )}

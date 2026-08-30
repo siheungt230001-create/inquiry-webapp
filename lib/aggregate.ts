@@ -383,9 +383,9 @@ export function inquiryStageOf(record: InquiryRecord | undefined): InquiryStage 
 }
 
 export function inquiryStageBadgeClass(stage: InquiryStage): string {
-  if (stage === "종합 글쓰기 완료") return "bg-emerald-500";
-  if (stage === "메인 질문만 제출됨") return "bg-zinc-400";
-  return "bg-amber-500";
+  if (stage === "종합 글쓰기 완료") return "badge badge-done";
+  if (stage === "메인 질문만 제출됨") return "badge badge-pending";
+  return "badge badge-progress";
 }
 
 // 학생별 최신 상태 표의 각 행을 펼쳤을 때 보여줄 탐구 글쓰기 기록들 - 이메일별로 묶는다.

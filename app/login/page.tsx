@@ -5,10 +5,10 @@ export default function LoginPage() {
   const misconfigured = isOAuthMisconfigured();
 
   return (
-    <div className="flex flex-1 items-center justify-center px-4">
-      <div className="w-full max-w-sm rounded-2xl border border-zinc-200 bg-white p-8 shadow-sm">
-        <h1 className="text-xl font-semibold text-zinc-900">역사 탐구 질문 코치</h1>
-        <p className="mt-1 text-sm text-zinc-500">
+    <div className="flex flex-1 items-center justify-center bg-pastel-gradient px-4">
+      <div className="card w-full max-w-sm p-8">
+        <h1 className="font-heading text-2xl text-[var(--color-ink)]">역사 탐구 질문 코치</h1>
+        <p className="mt-1 text-sm text-[var(--color-ink-soft)]">
           {misconfigured
             ? "로그인을 준비하는 중이에요. 잠시 후 다시 시도해 주세요."
             : demo
@@ -33,22 +33,15 @@ export default function LoginPage() {
             }}
             className="mt-6 flex flex-col gap-3"
           >
-            <input
-              name="name"
-              placeholder="이름 (선택)"
-              className="rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-500"
-            />
+            <input name="name" placeholder="이름 (선택)" className="input" />
             <input
               name="email"
               type="email"
               required
               placeholder="이메일 (예: student1@test.com)"
-              className="rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-500"
+              className="input"
             />
-            <button
-              type="submit"
-              className="mt-1 rounded-lg bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-700"
-            >
+            <button type="submit" className="btn-primary mt-1">
               데모로 시작하기
             </button>
             <p className="mt-2 text-xs text-amber-600">
@@ -64,10 +57,7 @@ export default function LoginPage() {
             }}
             className="mt-6"
           >
-            <button
-              type="submit"
-              className="flex w-full items-center justify-center gap-2 rounded-lg border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-800 hover:bg-zinc-50"
-            >
+            <button type="submit" className="btn-secondary flex w-full items-center justify-center gap-2">
               Google 계정으로 로그인
             </button>
           </form>

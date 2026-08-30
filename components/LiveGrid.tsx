@@ -61,7 +61,7 @@ export default function LiveGrid({
 
   if (students.length === 0) {
     return (
-      <div className="rounded-2xl border border-dashed border-zinc-200 bg-white px-4 py-6 text-center text-sm text-zinc-400">
+      <div className="rounded-2xl border border-dashed border-[var(--color-ink-muted)]/40 bg-white px-4 py-6 text-center text-sm text-[var(--color-ink-muted)]">
         데이터 없음
       </div>
     );
@@ -80,22 +80,18 @@ export default function LiveGrid({
             href={`/teacher?unit=${encodeURIComponent(unit)}&grade=${encodeURIComponent(
               s.grade
             )}&ban=${encodeURIComponent(ban)}&student=${encodeURIComponent(s.email)}#${encodeURIComponent(s.email)}`}
-            className={`rounded-2xl border-2 bg-white p-5 shadow-sm transition hover:border-indigo-300 ${
-              stuck ? "border-rose-400" : "border-zinc-200"
+            className={`card p-5 transition hover:border-[var(--color-lavender)] ${
+              stuck ? "!border-[var(--color-pink-deep)]" : ""
             }`}
           >
-            <div className="text-2xl font-bold text-zinc-900">
+            <div className="text-2xl font-bold text-[var(--color-ink)]">
               {classLabel(s.grade, s.ban)} {s.no}번
             </div>
-            <div className="mt-0.5 truncate text-lg text-zinc-600">{s.name}</div>
-            <span
-              className={`mt-3 inline-block rounded-full px-3 py-1.5 text-sm font-semibold text-white ${inquiryStageBadgeClass(
-                s.stage
-              )}`}
-            >
+            <div className="mt-0.5 truncate text-lg text-[var(--color-ink-soft)]">{s.name}</div>
+            <span className={`mt-3 !text-sm !px-3 !py-1.5 ${inquiryStageBadgeClass(s.stage)}`}>
               {s.stage}
             </span>
-            <div className="mt-2 text-sm text-zinc-400">
+            <div className="mt-2 text-sm text-[var(--color-ink-muted)]">
               {now === null ? "" : timeAgoLabel(s.lastActivity, now)}
             </div>
           </Link>

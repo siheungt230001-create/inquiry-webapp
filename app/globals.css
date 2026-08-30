@@ -3,26 +3,116 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+
+  --color-cream-50: #FFF6EE;
+  --color-cream-100: #FDF0F5;
+  --color-cream-200: #F3EEFC;
+  --color-ink: #5B4636;
+  --color-ink-soft: #B08A78;
+  --color-ink-muted: #C79A87;
+  --color-peach: #FFB4A2;
+  --color-pink: #FF8FA3;
+  --color-pink-deep: #E8607A;
+  --color-mint: #C9EFD9;
+  --color-mint-deep: #3F9463;
+  --color-lavender: #E4D6F7;
+  --color-lavender-deep: #8A5FC7;
+  --color-badge-bg: #FFE3D6;
+  --color-badge-text: #D8703F;
+  --radius-card: 26px;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-gowun-dodum);
+  --font-heading: var(--font-jua);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+body {
+  background: var(--color-cream-100);
+  color: var(--color-ink);
+  font-family: var(--font-sans), -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "Malgun Gothic", "맑은 고딕", Roboto, Arial, sans-serif;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", "Malgun Gothic", "맑은 고딕",
-    Roboto, Arial, sans-serif;
+.font-heading {
+  font-family: var(--font-heading), var(--font-sans);
 }
+
+/* 학생 화면 배경 - 위에서 아래로 크림 → 핑크 → 라벤더로 은은하게 흐르는 그라디언트 */
+.bg-pastel-gradient {
+  background: linear-gradient(180deg, #FFF6EE 0%, #FDF0F5 55%, #F3EEFC 100%);
+}
+
+/* 교사 대시보드는 데이터 밀도가 높아 톤만 맞추고 눈은 편하게 - 옅은 단색 */
+.bg-teacher-shell {
+  background: #FFFBF7;
+}
+
+.card {
+  background: #ffffff;
+  border-radius: var(--radius-card);
+  border: 2px solid transparent;
+  box-shadow: 0 10px 24px -12px rgba(200, 150, 170, 0.35);
+}
+.card-mint { border-color: var(--color-mint); }
+.card-lavender { border-color: var(--color-lavender); }
+.card-peach { border-color: var(--color-peach); }
+.card-pink { border-color: var(--color-pink); }
+
+.input {
+  width: 100%;
+  border-radius: 14px;
+  border: 1px solid #F0D9CE;
+  background: #FBF9F4;
+  padding: 0.6rem 0.9rem;
+  font-size: 0.875rem;
+  color: var(--color-ink);
+  outline: none;
+}
+.input::placeholder { color: #C9BCAF; }
+.input:focus { border-color: var(--color-pink); }
+.input-invalid { border-color: var(--color-pink-deep); }
+
+.btn-primary {
+  border-radius: 999px;
+  background: linear-gradient(90deg, #FFB4A2, #FF8FA3);
+  color: #ffffff;
+  font-weight: 600;
+  padding: 0.65rem 1.25rem;
+  font-size: 0.875rem;
+  text-align: center;
+  box-shadow: 0 10px 18px -8px rgba(232, 96, 122, 0.5);
+  transition: opacity 0.15s ease;
+}
+.btn-primary:hover { opacity: 0.92; }
+.btn-primary:disabled { opacity: 0.5; box-shadow: none; }
+
+.btn-secondary {
+  border-radius: 999px;
+  border: 1.5px solid var(--color-peach);
+  background: #ffffff;
+  color: var(--color-ink);
+  font-weight: 600;
+  padding: 0.6rem 1.2rem;
+  font-size: 0.875rem;
+  text-align: center;
+  transition: background-color 0.15s ease;
+}
+.btn-secondary:hover { background: var(--color-cream-50); }
+.btn-secondary:disabled { opacity: 0.5; }
+
+.badge {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 0.2rem 0.7rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.badge-done { background: var(--color-mint); color: var(--color-mint-deep); }
+.badge-progress { background: var(--color-badge-bg); color: var(--color-badge-text); }
+.badge-pending { background: #ECE4DD; color: #8A7A6E; }
+.badge-level { background: var(--color-lavender-deep); color: #ffffff; }

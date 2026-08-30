@@ -21,13 +21,13 @@ export default function EssayScoreTiles({ scores }: { scores: EssayScoreValues }
       {ESSAY_ACCENTS.map((c, i) => (
         <div
           key={c.label}
-          className="rounded-lg border-t-2 bg-zinc-50 px-1.5 py-1.5"
+          className="rounded-lg border-t-2 bg-[var(--color-cream-50)] px-1.5 py-1.5"
           style={{ borderColor: c.color }}
         >
-          <dt style={c.textSafe ? { color: c.color } : undefined} className={c.textSafe ? undefined : "text-zinc-400"}>
+          <dt style={c.textSafe ? { color: c.color } : undefined} className={c.textSafe ? undefined : "text-[var(--color-ink-muted)]"}>
             {c.label}
           </dt>
-          <dd className="mt-0.5 font-semibold text-zinc-800">
+          <dd className="mt-0.5 font-semibold text-[var(--color-ink)]">
             {values[i] === "" ? "-" : values[i]} / {c.max}
           </dd>
         </div>

@@ -6,6 +6,7 @@ import type { SubQuestionCheckResult } from "@/lib/subQuestionFlow";
 import { useDebouncedEffect } from "@/lib/useDebouncedEffect";
 import AutoTextarea from "./AutoTextarea";
 import EssayScoreTiles from "./EssayScoreTiles";
+import { QuestionIcon } from "./icons";
 
 interface Essay {
   intro: string;
@@ -331,20 +332,20 @@ export default function AnswerForm({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
-        <div className="text-xs text-zinc-400">메인 질문</div>
-        <div className="mt-1 font-bold text-zinc-900">{mainQuestion}</div>
+      <div className="card p-5">
+        <div className="text-xs font-medium text-[var(--color-ink-muted)]">메인 질문</div>
+        <div className="mt-1 font-bold text-[var(--color-ink)]">{mainQuestion}</div>
 
         {subQAs.length > 0 && (
-          <div className="mt-3 border-t border-zinc-100 pt-3">
-            <div className="text-xs text-zinc-400">내가 만든 보조질문과 답</div>
+          <div className="mt-3 border-t border-[var(--color-cream-200)] pt-3">
+            <div className="text-xs font-medium text-[var(--color-ink-muted)]">내가 만든 보조질문과 답</div>
             <ul className="mt-1 flex flex-col gap-2">
               {subQAs.map((s, i) => (
                 <li key={i} className="text-sm">
-                  <div className="text-zinc-700">
-                    <span className="text-zinc-400">[{s.label}]</span> {s.question}
+                  <div className="text-[var(--color-ink)]">
+                    <span className="text-[var(--color-ink-muted)]">[{s.label}]</span> {s.question}
                   </div>
-                  <div className="mt-0.5 text-zinc-500">
+                  <div className="mt-0.5 text-[var(--color-ink-soft)]">
                     {s.answer ? s.answer : "(아직 답을 안 씀)"}
                   </div>
                 </li>
@@ -354,17 +355,18 @@ export default function AnswerForm({
         )}
       </div>
 
-      <div className="rounded-2xl border border-indigo-100 bg-indigo-50 p-4 text-sm text-indigo-700">
+      <div className="card card-lavender flex items-start gap-2 p-4 text-sm text-[var(--color-lavender-deep)]">
+        <QuestionIcon className="mt-0.5 shrink-0" />
         지금까지 만든 보조질문과 답변을 활용해서 메인 질문에 대한 나만의 탐구 글을
         완성해봅시다. 서론 → 본론 → 결론 순서로 차근차근 써보세요.
       </div>
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+      <div className="card p-5">
         <label className="flex flex-col gap-1">
-          <span className="text-xs font-medium text-zinc-600">
+          <span className="text-xs font-medium text-[var(--color-ink-soft)]">
             서론 - 이 글에서 다룰 질문을 자신의 말로 다시 소개해보세요
           </span>
-          <span className="text-xs text-zinc-400">
+          <span className="text-xs text-[var(--color-ink-muted)]">
             힌트: 메인 질문을 그대로 베끼지 말고 자신의 말로 풀어써보세요. 왜 이
             질문이 궁금했는지 한두 문장 덧붙이면 더 좋아요.
           </span>
@@ -376,12 +378,12 @@ export default function AnswerForm({
         </label>
       </div>
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+      <div className="card p-5">
         <label className="flex flex-col gap-1">
-          <span className="text-xs font-medium text-zinc-600">
+          <span className="text-xs font-medium text-[var(--color-ink-soft)]">
             본론 - 보조질문 순서대로 답을 연결해서 서술해보세요
           </span>
-          <span className="text-xs text-zinc-400">
+          <span className="text-xs text-[var(--color-ink-muted)]">
             힌트: 각 답변이 왜 메인 질문과 연결되는지 한 문장씩 설명해주면 글이
             더 탄탄해져요. &quot;먼저&quot;, &quot;또한&quot;, &quot;그 결과&quot; 같은
             연결어를 써보면 자연스럽게 이어져요.
@@ -394,12 +396,12 @@ export default function AnswerForm({
         </label>
       </div>
 
-      <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+      <div className="card p-5">
         <label className="flex flex-col gap-1">
-          <span className="text-xs font-medium text-zinc-600">
+          <span className="text-xs font-medium text-[var(--color-ink-soft)]">
             결론 - 메인 질문에 대한 나의 결론을 정리해보세요
           </span>
-          <span className="text-xs text-zinc-400">
+          <span className="text-xs text-[var(--color-ink-muted)]">
             힌트: 본론 내용을 요약하면서 처음 메인 질문에 대한 나의 생각을
             명확히 정리해보세요. 새로운 정보를 추가하기보다는 지금까지 쓴
             내용을 정리하는 자리예요.
@@ -421,21 +423,17 @@ export default function AnswerForm({
       {scores && <ScoreBreakdown scores={scores} />}
 
       {comment && (
-        <p className="rounded-lg bg-blue-50 border border-blue-200 px-3 py-2 text-sm text-blue-700 whitespace-pre-wrap">
+        <p className="rounded-lg bg-[var(--color-lavender)]/40 border border-[var(--color-lavender)] px-3 py-2 text-sm text-[var(--color-lavender-deep)] whitespace-pre-wrap">
           {comment}
         </p>
       )}
 
-      <p className="text-center text-xs text-zinc-400">
+      <p className="text-center text-xs text-[var(--color-ink-muted)]">
         제출 전에 확인해보세요 — 보조질문 답변을 다 활용했나요? 결론이 처음
         질문에 답하고 있나요?
       </p>
 
-      <button
-        onClick={handleFeedback}
-        disabled={loading}
-        className="rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
-      >
+      <button onClick={handleFeedback} disabled={loading} className="btn-primary">
         {loading ? "AI가 살펴보는 중..." : "AI 피드백 받기"}
       </button>
 
@@ -448,33 +446,15 @@ export default function AnswerForm({
       {submitted ? (
         <div className="flex flex-col gap-3">
           {submitScores && <ScoreBreakdown scores={submitScores} />}
-          <p className="rounded-lg bg-blue-50 border border-blue-200 px-3 py-2 text-center text-sm text-blue-700">
+          <p className="rounded-lg bg-[var(--color-lavender)]/40 border border-[var(--color-lavender)] px-3 py-2 text-center text-sm text-[var(--color-lavender-deep)]">
             제출이 완료됐어요. 선생님이 이 탐구 글쓰기 기록을 확인할 수 있어요.
           </p>
         </div>
       ) : (
-        <button
-          onClick={handleSubmit}
-          disabled={submitting}
-          className="rounded-lg border border-zinc-300 px-4 py-2.5 text-sm font-medium text-zinc-800 hover:bg-zinc-50 disabled:opacity-50"
-        >
+        <button onClick={handleSubmit} disabled={submitting} className="btn-secondary">
           {submitting ? "제출하는 중..." : "제출하기"}
         </button>
       )}
-
-      <style jsx global>{`
-        .input {
-          width: 100%;
-          border-radius: 0.5rem;
-          border: 1px solid #d4d4d8;
-          padding: 0.5rem 0.75rem;
-          font-size: 0.875rem;
-          outline: none;
-        }
-        .input:focus {
-          border-color: #71717a;
-        }
-      `}</style>
     </div>
   );
 }
@@ -485,10 +465,10 @@ export default function AnswerForm({
 // 표시만 담당한다.
 function ScoreBreakdown({ scores }: { scores: EssayScores }) {
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
+    <div className="card p-5">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs font-medium text-zinc-500">종합 글쓰기 채점 결과</span>
-        <span className="rounded-full bg-zinc-900 px-4 py-1.5 text-sm font-bold text-white">
+        <span className="text-xs font-medium text-[var(--color-ink-soft)]">종합 글쓰기 채점 결과</span>
+        <span className="badge badge-level !text-sm !px-4 !py-1.5">
           총점 {scores.totalScore} / 5.0점
         </span>
       </div>

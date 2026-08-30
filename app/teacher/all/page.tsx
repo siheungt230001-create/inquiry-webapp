@@ -33,18 +33,18 @@ export default async function TeacherAllPage({
   const rows = await getAllSubmissions();
 
   return (
-    <div className="flex-1 bg-zinc-50 px-4 py-8 sm:py-10">
+    <div className="flex-1 bg-teacher-shell px-4 py-8 sm:py-10">
       <div className="mx-auto max-w-6xl">
         <div className="mb-4 flex items-center justify-between">
-          <Link href="/" className="text-sm text-zinc-500 hover:text-zinc-800">
+          <Link href="/" className="text-sm text-[var(--color-ink-soft)] hover:text-[var(--color-pink-deep)]">
             ← 처음으로
           </Link>
-          <Link href="/approved-questions" className="text-sm text-zinc-500 hover:text-zinc-800">
+          <Link href="/approved-questions" className="text-sm text-[var(--color-ink-soft)] hover:text-[var(--color-pink-deep)]">
             우수질문 목록 →
           </Link>
         </div>
 
-        <h1 className="text-xl font-semibold text-zinc-900 sm:text-2xl">교사 대시보드</h1>
+        <h1 className="font-heading text-2xl text-[var(--color-ink)] sm:text-3xl">교사 대시보드</h1>
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
           <TeacherModeTabs active="all" />
         </div>
@@ -73,10 +73,10 @@ function BanListStage({ rows }: { rows: SubmissionRow[] }) {
         {bans.length === 0 ? (
           <EmptyState>데이터 없음</EmptyState>
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white">
+          <div className="overflow-x-auto rounded-xl border border-[var(--color-cream-200)] bg-white">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-zinc-200 text-left text-xs text-zinc-500">
+                <tr className="border-b border-[var(--color-cream-200)] text-left text-xs text-[var(--color-ink-soft)]">
                   <th className="px-4 py-2.5">반</th>
                   <th className="px-4 py-2.5">총 제출</th>
                   <th className="px-4 py-2.5">승인</th>
@@ -86,11 +86,11 @@ function BanListStage({ rows }: { rows: SubmissionRow[] }) {
               </thead>
               <tbody>
                 {bans.map((b: BanStat) => (
-                  <tr key={`${b.grade}-${b.ban}`} className="border-b border-zinc-100 last:border-0 hover:bg-zinc-50">
-                    <td className="px-4 py-2.5 font-medium text-zinc-900">
+                  <tr key={`${b.grade}-${b.ban}`} className="border-b border-[var(--color-cream-100)] last:border-0 hover:bg-[var(--color-cream-50)]">
+                    <td className="px-4 py-2.5 font-medium text-[var(--color-ink)]">
                       <Link
                         href={`/teacher/all?grade=${encodeURIComponent(b.grade)}&ban=${encodeURIComponent(b.ban)}`}
-                        className="underline decoration-dotted underline-offset-2 hover:text-indigo-600"
+                        className="underline decoration-dotted underline-offset-2 hover:text-[var(--color-pink-deep)]"
                       >
                         {classLabel(b.grade, b.ban)}
                       </Link>
@@ -113,7 +113,7 @@ function BanListStage({ rows }: { rows: SubmissionRow[] }) {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="mt-8">
-      <h2 className="text-sm font-semibold text-zinc-700">{title}</h2>
+      <h2 className="font-heading text-base text-[var(--color-ink)]">{title}</h2>
       <div className="mt-2">{children}</div>
     </section>
   );
@@ -121,7 +121,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function EmptyState({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border border-dashed border-zinc-200 bg-white px-4 py-6 text-center text-sm text-zinc-400">
+    <div className="rounded-2xl border border-dashed border-[var(--color-ink-muted)]/40 bg-white px-4 py-6 text-center text-sm text-[var(--color-ink-muted)]">
       {children}
     </div>
   );
@@ -139,10 +139,10 @@ function StudentSummaryStage({ rows, grade, ban }: { rows: SubmissionRow[]; grad
         {students.length === 0 ? (
           <EmptyState>데이터 없음</EmptyState>
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white">
+          <div className="overflow-x-auto rounded-xl border border-[var(--color-cream-200)] bg-white">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-zinc-200 text-left text-xs text-zinc-500">
+                <tr className="border-b border-[var(--color-cream-200)] text-left text-xs text-[var(--color-ink-soft)]">
                   <th className="whitespace-nowrap px-4 py-2.5">이름</th>
                   <th className="px-4 py-2.5">반</th>
                   <th className="px-4 py-2.5">번호</th>
@@ -153,11 +153,11 @@ function StudentSummaryStage({ rows, grade, ban }: { rows: SubmissionRow[]; grad
               </thead>
               <tbody>
                 {students.map((s) => (
-                  <tr key={s.email} className="border-b border-zinc-100 last:border-0 hover:bg-zinc-50">
-                    <td className="whitespace-nowrap px-4 py-3 font-medium text-zinc-900">
+                  <tr key={s.email} className="border-b border-[var(--color-cream-100)] last:border-0 hover:bg-[var(--color-cream-50)]">
+                    <td className="whitespace-nowrap px-4 py-3 font-medium text-[var(--color-ink)]">
                       <Link
                         href={`/teacher/all?student=${encodeURIComponent(s.email)}`}
-                        className="underline decoration-dotted underline-offset-2 hover:text-indigo-600"
+                        className="underline decoration-dotted underline-offset-2 hover:text-[var(--color-pink-deep)]"
                       >
                         {s.name}
                       </Link>
@@ -166,7 +166,7 @@ function StudentSummaryStage({ rows, grade, ban }: { rows: SubmissionRow[]; grad
                     <td className="px-4 py-3">{s.no}번</td>
                     <td className="px-4 py-3">{s.unitCount}개</td>
                     <td className="px-4 py-3">{s.totalCount}회</td>
-                    <td className="px-4 py-3 text-zinc-500">{new Date(s.lastActivity).toLocaleString("ko-KR")}</td>
+                    <td className="px-4 py-3 text-[var(--color-ink-soft)]">{new Date(s.lastActivity).toLocaleString("ko-KR")}</td>
                   </tr>
                 ))}
               </tbody>

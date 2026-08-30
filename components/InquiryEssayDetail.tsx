@@ -19,7 +19,7 @@ export function SubQuestionList({ record }: { record?: InquiryRecord }) {
   return (
     <ul className="flex flex-col gap-2">
       {subQuestions.map((s, i) => (
-        <li key={i} className="rounded-lg border border-zinc-100 bg-zinc-50 px-3 py-2 text-xs">
+        <li key={i} className="rounded-lg border border-[var(--color-cream-200)] bg-[var(--color-cream-50)] px-3 py-2 text-xs">
           <div className="text-zinc-700">
             <span className="text-zinc-400">[{s.label}]</span> {s.question}
           </div>
@@ -43,7 +43,7 @@ function EssayBlock({
   max: number;
 }) {
   return (
-    <div className="rounded-lg border border-zinc-100 bg-zinc-50 px-3 py-2">
+    <div className="rounded-lg border border-[var(--color-cream-200)] bg-[var(--color-cream-50)] px-3 py-2">
       <div className="flex items-center justify-between">
         <span className="text-xs font-medium text-zinc-600">{label}</span>
         {score !== "" && <span className="text-xs text-zinc-400">{score} / {max}점</span>}
@@ -78,17 +78,11 @@ export function EssayDetailSection({ record }: { record?: InquiryRecord }) {
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-center gap-2">
-        <span className="rounded-full bg-zinc-900 px-2.5 py-0.5 text-xs font-semibold text-white">
-          총점 {record.totalScore} / 5.0점
-        </span>
-        {isLegacyScoring && (
-          <span className="rounded-full bg-zinc-400 px-2 py-0.5 text-[10px] font-medium text-white">
-            구버전 채점
-          </span>
-        )}
+        <span className="badge badge-level">총점 {record.totalScore} / 5.0점</span>
+        {isLegacyScoring && <span className="badge badge-pending">구버전 채점</span>}
       </div>
       {isLegacyScoring ? (
-        <p className="text-xs text-zinc-400">
+        <p className="text-xs text-[var(--color-ink-muted)]">
           이 기록은 이전 채점 기준(본론 0~3점, 사실정확성 항목 없음)으로 매겨졌어요.
           새 기준과 세부 점수를 직접 비교하려면 재채점이 필요해요.
         </p>
@@ -106,9 +100,9 @@ export function EssayDetailSection({ record }: { record?: InquiryRecord }) {
       />
       <EssayBlock label="결론" text={record.conclusion} score={record.conclusionScore} max={1} />
       {record.comment && (
-        <div className="rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-2">
-          <p className="text-xs font-medium text-indigo-700">AI 피드백 (감점 사유)</p>
-          <p className="mt-1 whitespace-pre-wrap text-xs text-indigo-900">{record.comment}</p>
+        <div className="rounded-lg border border-[var(--color-lavender)] bg-[var(--color-lavender)]/30 px-3 py-2">
+          <p className="text-xs font-medium text-[var(--color-lavender-deep)]">AI 피드백 (감점 사유)</p>
+          <p className="mt-1 whitespace-pre-wrap text-xs text-[var(--color-ink)]">{record.comment}</p>
         </div>
       )}
     </div>

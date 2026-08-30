@@ -80,7 +80,7 @@ export default function EditQuestionForm({ timestamp }: { timestamp: string }) {
 
   if (loadError) {
     return (
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 text-center shadow-sm">
+      <div className="card p-6 text-center">
         <p className="text-sm text-red-700">{loadError}</p>
       </div>
     );
@@ -88,8 +88,8 @@ export default function EditQuestionForm({ timestamp }: { timestamp: string }) {
 
   if (!fields) {
     return (
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 text-center shadow-sm">
-        <p className="text-sm text-zinc-400">불러오는 중...</p>
+      <div className="card p-6 text-center">
+        <p className="text-sm text-[var(--color-ink-muted)]">불러오는 중...</p>
       </div>
     );
   }
@@ -99,10 +99,7 @@ export default function EditQuestionForm({ timestamp }: { timestamp: string }) {
   )}&unit=${encodeURIComponent(fields.unit)}`;
 
   return (
-    <form
-      onSubmit={handleSave}
-      className="flex flex-col gap-4 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm"
-    >
+    <form onSubmit={handleSave} className="card flex flex-col gap-4 p-6">
       <div className="grid grid-cols-4 gap-3">
         <Field label="학년">
           <input
@@ -168,7 +165,7 @@ export default function EditQuestionForm({ timestamp }: { timestamp: string }) {
       )}
 
       {saved && (
-        <div className="rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2 text-sm text-emerald-800">
+        <div className="rounded-lg bg-[var(--color-mint)]/40 border border-[var(--color-mint)] px-3 py-2 text-sm text-[var(--color-mint-deep)]">
           {saved.regraded && saved.result ? (
             <>
               수정 내용으로 다시 채점했어요 — {saved.result.level} · {saved.result.score}점 ·{" "}
@@ -184,33 +181,16 @@ export default function EditQuestionForm({ timestamp }: { timestamp: string }) {
         <button
           type="submit"
           disabled={saving || !fields.unit || !fields.textbookLink.trim()}
-          className="rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
+          className="btn-primary"
         >
           {saving ? "저장하는 중..." : "수정 저장"}
         </button>
         {saved && (
-          <Link
-            href={backHref}
-            className="rounded-lg border border-zinc-300 px-4 py-2.5 text-center text-sm font-medium text-zinc-800 hover:bg-zinc-50"
-          >
+          <Link href={backHref} className="btn-secondary text-center">
             보조질문 만들기로 돌아가기 →
           </Link>
         )}
       </div>
-
-      <style jsx global>{`
-        .input {
-          width: 100%;
-          border-radius: 0.5rem;
-          border: 1px solid #d4d4d8;
-          padding: 0.5rem 0.75rem;
-          font-size: 0.875rem;
-          outline: none;
-        }
-        .input:focus {
-          border-color: #71717a;
-        }
-      `}</style>
     </form>
   );
 }
@@ -218,7 +198,7 @@ export default function EditQuestionForm({ timestamp }: { timestamp: string }) {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="flex flex-col gap-1">
-      <span className="text-xs font-medium text-zinc-600">{label}</span>
+      <span className="text-xs font-medium text-[var(--color-ink-soft)]">{label}</span>
       {children}
     </label>
   );

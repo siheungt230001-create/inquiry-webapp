@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { SUB_QUESTION_CARDS } from "@/lib/constants";
 import type { SubQuestionCheckResult } from "@/lib/subQuestionFlow";
 import AutoTextarea from "./AutoTextarea";
+import { ArrowRightIcon, CheckIcon, WarningIcon } from "./icons";
 
 const MIN_FILLED = 3;
 
@@ -236,39 +237,26 @@ export default function SubQuestionsForm({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
-        {unit && <div className="text-xs text-zinc-400">{unit}</div>}
-        <div className="mt-1 font-bold text-zinc-900">{mainQuestion}</div>
+      <div className="card p-5">
+        {unit && <div className="text-xs font-medium text-[var(--color-ink-muted)]">{unit}</div>}
+        <div className="mt-1 font-bold text-[var(--color-ink)]">{mainQuestion}</div>
       </div>
 
       {SUB_QUESTION_CARDS.map((card, i) => {
         const comment = comments[i];
-        const borderClass =
-          comment?.status === "양호"
-            ? "border-emerald-400"
-            : comment?.status === "수정 필요"
-            ? "border-amber-400"
-            : "border-zinc-200";
 
         return (
-          <div
-            key={card.key}
-            className={`rounded-2xl border-2 bg-white p-5 shadow-sm ${borderClass}`}
-          >
+          <div key={card.key} className={`card p-5 ${card.accent}`}>
             <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold text-zinc-800">{card.label}</span>
+              <span className="text-sm font-semibold text-[var(--color-ink)]">{card.label}</span>
               {comment?.status === "양호" && (
-                <span className="text-emerald-600" aria-label="양호">
-                  ✓
-                </span>
+                <CheckIcon className="text-[var(--color-mint-deep)]" aria-label="양호" />
               )}
               {comment?.status === "수정 필요" && (
-                <span className="text-amber-600" aria-label="수정 필요">
-                  ⚠
-                </span>
+                <WarningIcon className="text-[var(--color-badge-text)]" aria-label="수정 필요" />
               )}
             </div>
-            {card.hint && <p className="mt-1 text-xs text-zinc-400">예: {card.hint}</p>}
+            {card.hint && <p className="mt-1 text-xs text-[var(--color-ink-muted)]">예: {card.hint}</p>}
             <AutoTextarea
               value={values[i] ?? ""}
               onChange={(e) => updateValue(i, e.target.value)}
@@ -278,7 +266,7 @@ export default function SubQuestionsForm({
             {comment && (
               <p
                 className={`mt-2 text-sm ${
-                  comment.status === "양호" ? "text-emerald-700" : "text-amber-700"
+                  comment.status === "양호" ? "text-[var(--color-mint-deep)]" : "text-[var(--color-badge-text)]"
                 }`}
               >
                 {comment.comment}
@@ -294,11 +282,7 @@ export default function SubQuestionsForm({
         </p>
       )}
 
-      <button
-        onClick={handleCheck}
-        disabled={!canCheck || loading}
-        className="rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
-      >
+      <button onClick={handleCheck} disabled={!canCheck || loading} className="btn-primary">
         {loading
           ? "AI가 살펴보는 중..."
           : canCheck
@@ -307,31 +291,14 @@ export default function SubQuestionsForm({
       </button>
 
       {needsRevisionCount > 0 && (
-        <p className="text-center text-xs text-amber-600">
+        <p className="text-center text-xs text-[var(--color-badge-text)]">
           {needsRevisionCount}개 질문은 다시 다듬으면 더 좋아요
         </p>
       )}
 
-      <button
-        onClick={goToSubAnswers}
-        className="rounded-lg border border-zinc-300 px-4 py-2.5 text-sm font-medium text-zinc-800 hover:bg-zinc-50"
-      >
-        보조질문 답 쓰기 →
+      <button onClick={goToSubAnswers} className="btn-secondary flex items-center justify-center gap-1">
+        보조질문 답 쓰기 <ArrowRightIcon />
       </button>
-
-      <style jsx global>{`
-        .input {
-          width: 100%;
-          border-radius: 0.5rem;
-          border: 1px solid #d4d4d8;
-          padding: 0.5rem 0.75rem;
-          font-size: 0.875rem;
-          outline: none;
-        }
-        .input:focus {
-          border-color: #71717a;
-        }
-      `}</style>
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { SELF_LEVEL_LIST } from "@/lib/constants";
 import type { GradingResult } from "@/lib/types";
 import { approvalBadgeClass, CRITERIA_ACCENTS } from "@/lib/badge";
 import AutoTextarea from "./AutoTextarea";
+import { BoltIcon } from "./icons";
 
 interface Profile {
   grade: string;
@@ -251,9 +252,9 @@ export default function SubmitForm() {
 
   if (polling) {
     return (
-      <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-        <p className="font-semibold text-zinc-900">{question}</p>
-        <p className="mt-4 rounded-lg bg-blue-50 border border-blue-200 px-3 py-2 text-sm text-blue-700">
+      <div className="card p-6">
+        <p className="font-semibold text-[var(--color-ink)]">{question}</p>
+        <p className="mt-4 rounded-lg bg-[var(--color-lavender)]/40 border border-[var(--color-lavender)] px-3 py-2 text-sm text-[var(--color-lavender-deep)]">
           제출이 접수됐어요. 순서대로 채점 중이니 잠시만 기다려 주세요.
         </p>
       </div>
@@ -281,7 +282,7 @@ export default function SubmitForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+    <form onSubmit={handleSubmit} className="card flex flex-col gap-4 p-6">
       <div className="grid grid-cols-4 gap-3">
         <Field label="학년">
           <input
@@ -368,24 +369,10 @@ export default function SubmitForm() {
       <button
         type="submit"
         disabled={loading || !unit || !profile.grade.trim() || !textbookLink.trim()}
-        className="mt-1 rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
+        className="btn-primary mt-1"
       >
         {loading ? "AI가 질문을 살펴보는 중..." : "제출하기"}
       </button>
-
-      <style jsx global>{`
-        .input {
-          width: 100%;
-          border-radius: 0.5rem;
-          border: 1px solid #d4d4d8;
-          padding: 0.5rem 0.75rem;
-          font-size: 0.875rem;
-          outline: none;
-        }
-        .input:focus {
-          border-color: #71717a;
-        }
-      `}</style>
     </form>
   );
 }
@@ -393,7 +380,7 @@ export default function SubmitForm() {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="flex flex-col gap-1">
-      <span className="text-xs font-medium text-zinc-600">{label}</span>
+      <span className="text-xs font-medium text-[var(--color-ink-soft)]">{label}</span>
       {children}
     </label>
   );
@@ -441,32 +428,28 @@ function ResultCard({
   }
 
   return (
-    <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-      <p className="font-semibold text-zinc-900">{question}</p>
+    <div className="card p-6">
+      <p className="font-semibold text-[var(--color-ink)]">{question}</p>
 
       <div className="mt-3 flex items-center gap-2">
-        <span className="rounded-full bg-zinc-900 px-3 py-1 text-xs font-semibold text-white">
-          {result.level}
+        <span className="badge badge-level flex items-center gap-1">
+          <BoltIcon /> {result.level}
         </span>
-        <span className="text-sm text-zinc-500">{result.score} / 5.0점</span>
-        <span
-          className={`ml-auto rounded-full px-3 py-1 text-xs font-semibold text-white ${approvalBadgeClass(displayApproval)}`}
-        >
-          {displayApproval}
-        </span>
+        <span className="text-sm text-[var(--color-ink-soft)]">{result.score} / 5.0점</span>
+        <span className={`ml-auto ${approvalBadgeClass(displayApproval)}`}>{displayApproval}</span>
       </div>
 
       {result.self_assessment_mismatch && (
-        <p className="mt-3 rounded-lg bg-blue-50 border border-blue-200 px-3 py-2 text-sm text-blue-700">
+        <p className="mt-3 rounded-lg bg-[var(--color-lavender)]/40 border border-[var(--color-lavender)] px-3 py-2 text-sm text-[var(--color-lavender-deep)]">
           {result.self_assessment_mismatch}
         </p>
       )}
 
-      <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-zinc-800">
+      <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-[var(--color-ink)]">
         {result.feedback_text}
       </p>
 
-      <details className="mt-4 text-xs text-zinc-500">
+      <details className="mt-4 text-xs text-[var(--color-ink-soft)]">
         <summary className="cursor-pointer">세부 채점 보기</summary>
         <ul className="mt-2 grid grid-cols-2 gap-1.5">
           {CRITERIA_ACCENTS.map((c, i) => {
@@ -488,7 +471,7 @@ function ResultCard({
                   style={{ backgroundColor: c.color }}
                 />
                 <span style={c.textSafe ? { color: c.color } : undefined}>{c.label}</span>
-                <span className="text-zinc-500">: {value}</span>
+                <span className="text-[var(--color-ink-soft)]">: {value}</span>
               </li>
             );
           })}
@@ -502,31 +485,21 @@ function ResultCard({
       )}
 
       {finalStatus ? (
-        <p className="mt-6 rounded-lg bg-blue-50 border border-blue-200 px-3 py-2 text-center text-sm text-blue-700">
+        <p className="mt-6 rounded-lg bg-[var(--color-lavender)]/40 border border-[var(--color-lavender)] px-3 py-2 text-center text-sm text-[var(--color-lavender-deep)]">
           제출이 완료됐어요. 최종 상태: {finalStatus}
         </p>
       ) : (
-        <button
-          onClick={handleFinalize}
-          disabled={finalizing}
-          className="mt-6 w-full rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
-        >
+        <button onClick={handleFinalize} disabled={finalizing} className="btn-primary mt-6 w-full">
           {finalizing ? "제출하는 중..." : "질문 제출하기"}
         </button>
       )}
 
       {finalStatus || approved ? (
-        <button
-          onClick={onReset}
-          className="mt-2 w-full rounded-lg border border-zinc-300 px-4 py-2.5 text-sm font-medium text-zinc-800 hover:bg-zinc-50"
-        >
+        <button onClick={onReset} className="btn-secondary mt-2 w-full">
           다른 질문 제출하기
         </button>
       ) : (
-        <button
-          onClick={onEdit}
-          className="mt-2 w-full rounded-lg border border-zinc-300 px-4 py-2.5 text-sm font-medium text-zinc-800 hover:bg-zinc-50"
-        >
+        <button onClick={onEdit} className="btn-secondary mt-2 w-full">
           질문 수정하기
         </button>
       )}

@@ -7,6 +7,7 @@ import { SUB_QUESTION_CARDS } from "@/lib/constants";
 import type { SubQuestionCheckResult } from "@/lib/subQuestionFlow";
 import { useDebouncedEffect } from "@/lib/useDebouncedEffect";
 import AutoTextarea from "./AutoTextarea";
+import { ArrowRightIcon, BookIcon, CheckIcon, WarningIcon } from "./icons";
 
 function valuesKey(timestamp: string) {
   return `subq:${timestamp}`;
@@ -288,30 +289,30 @@ export default function SubAnswersForm({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
-        <div className="text-xs text-zinc-400">메인 질문</div>
-        <div className="mt-1 font-bold text-zinc-900">{mainQuestion}</div>
+      <div className="card p-5">
+        <div className="text-xs font-medium text-[var(--color-ink-muted)]">메인 질문</div>
+        <div className="mt-1 font-bold text-[var(--color-ink)]">{mainQuestion}</div>
       </div>
 
       {readingText && (
-        <details className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
-          <summary className="cursor-pointer text-sm font-medium text-zinc-700">
-            읽기자료 보기
+        <details className="card p-5">
+          <summary className="flex cursor-pointer items-center gap-1.5 text-sm font-medium text-[var(--color-ink)]">
+            <BookIcon className="text-[var(--color-pink-deep)]" /> 읽기자료 보기
           </summary>
-          <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-zinc-700">
+          <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-[var(--color-ink)]">
             {readingText}
           </p>
         </details>
       )}
 
       {approvedItems.length === 0 ? (
-        <div className="rounded-2xl border border-zinc-200 bg-white p-5 text-center shadow-sm">
-          <p className="text-sm text-zinc-500">
+        <div className="card p-5 text-center">
+          <p className="text-sm text-[var(--color-ink-soft)]">
             아직 AI 코멘트를 받은 보조질문이 없어요.
           </p>
           <Link
             href={`/submit/sub-questions?ts=${encodeURIComponent(timestamp)}&q=${encodeURIComponent(mainQuestion)}`}
-            className="mt-2 inline-block text-sm font-medium text-indigo-600 underline"
+            className="mt-2 inline-block text-sm font-medium text-[var(--color-pink-deep)] underline"
           >
             보조질문 만들기로 돌아가서 AI 코멘트 받기
           </Link>
@@ -319,32 +320,20 @@ export default function SubAnswersForm({
       ) : (
         approvedItems.map((item) => {
           const comment = answerComments[item.index];
-          const borderClass =
-            comment?.status === "양호"
-              ? "border-emerald-400"
-              : comment?.status === "수정 필요"
-              ? "border-amber-400"
-              : "border-zinc-200";
+          const accent = SUB_QUESTION_CARDS[item.index]?.accent || "";
 
           return (
-            <div
-              key={item.index}
-              className={`rounded-2xl border-2 bg-white p-5 shadow-sm ${borderClass}`}
-            >
+            <div key={item.index} className={`card p-5 ${accent}`}>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-zinc-400">{item.label}</span>
+                <span className="text-xs font-medium text-[var(--color-ink-muted)]">{item.label}</span>
                 {comment?.status === "양호" && (
-                  <span className="text-emerald-600" aria-label="양호">
-                    ✓
-                  </span>
+                  <CheckIcon className="text-[var(--color-mint-deep)]" aria-label="양호" />
                 )}
                 {comment?.status === "수정 필요" && (
-                  <span className="text-amber-600" aria-label="수정 필요">
-                    ⚠
-                  </span>
+                  <WarningIcon className="text-[var(--color-badge-text)]" aria-label="수정 필요" />
                 )}
               </div>
-              <div className="mt-1 font-semibold text-zinc-900">{item.text}</div>
+              <div className="mt-1 font-semibold text-[var(--color-ink)]">{item.text}</div>
               <AutoTextarea
                 value={answers[item.index] ?? ""}
                 onChange={(e) => updateAnswer(item.index, e.target.value)}
@@ -355,17 +344,17 @@ export default function SubAnswersForm({
                 const sourceMissing = answers[item.index]?.trim() && !sources[item.index]?.trim();
                 return (
                   <>
-                    <label className="mt-2 block text-xs font-medium text-zinc-600">
-                      출처 <span className="text-rose-500">*</span>
+                    <label className="mt-2 block text-xs font-medium text-[var(--color-ink-soft)]">
+                      출처 <span className="text-[var(--color-pink-deep)]">*</span>
                     </label>
                     <input
                       value={sources[item.index] ?? ""}
                       onChange={(e) => updateSource(item.index, e.target.value)}
-                      className={`input mt-1 text-xs ${sourceMissing ? "border-rose-400" : ""}`}
+                      className={`input mt-1 text-xs ${sourceMissing ? "input-invalid" : ""}`}
                       placeholder="예: 교과서 32쪽, ○○ 자료"
                     />
                     {sourceMissing && (
-                      <p className="mt-1 text-xs text-rose-600">출처를 입력해주세요</p>
+                      <p className="mt-1 text-xs text-[var(--color-pink-deep)]">출처를 입력해주세요</p>
                     )}
                   </>
                 );
@@ -373,7 +362,7 @@ export default function SubAnswersForm({
               {comment && (
                 <p
                   className={`mt-2 text-sm ${
-                    comment.status === "양호" ? "text-emerald-700" : "text-amber-700"
+                    comment.status === "양호" ? "text-[var(--color-mint-deep)]" : "text-[var(--color-badge-text)]"
                   }`}
                 >
                   {comment.comment}
@@ -391,11 +380,7 @@ export default function SubAnswersForm({
       )}
 
       {approvedItems.length > 0 && (
-        <button
-          onClick={handleCheckAnswers}
-          disabled={checking || filledAnswerCount === 0}
-          className="rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-medium text-white hover:bg-zinc-700 disabled:opacity-50"
-        >
+        <button onClick={handleCheckAnswers} disabled={checking || filledAnswerCount === 0} className="btn-primary">
           {checking
             ? "AI가 살펴보는 중..."
             : filledAnswerCount === 0
@@ -407,26 +392,16 @@ export default function SubAnswersForm({
       <button
         onClick={goToAnswer}
         disabled={missingSourceItems.length > 0}
-        className="rounded-lg border border-zinc-300 px-4 py-2.5 text-sm font-medium text-zinc-800 hover:bg-zinc-50 disabled:opacity-50 disabled:hover:bg-white"
+        className="btn-secondary flex items-center justify-center gap-1"
       >
-        {missingSourceItems.length > 0
-          ? `출처를 입력해주세요 (${missingSourceItems.length}개 남음)`
-          : "종합 답안 쓰기 →"}
+        {missingSourceItems.length > 0 ? (
+          `출처를 입력해주세요 (${missingSourceItems.length}개 남음)`
+        ) : (
+          <>
+            종합 답안 쓰기 <ArrowRightIcon />
+          </>
+        )}
       </button>
-
-      <style jsx global>{`
-        .input {
-          width: 100%;
-          border-radius: 0.5rem;
-          border: 1px solid #d4d4d8;
-          padding: 0.5rem 0.75rem;
-          font-size: 0.875rem;
-          outline: none;
-        }
-        .input:focus {
-          border-color: #71717a;
-        }
-      `}</style>
     </div>
   );
 }

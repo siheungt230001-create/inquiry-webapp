@@ -40,18 +40,18 @@ export default async function TeacherPage({
   const selectedUnit = unitParam && units.includes(unitParam) ? unitParam : "";
 
   return (
-    <div className="flex-1 bg-zinc-50 px-4 py-8 sm:py-10">
+    <div className="flex-1 bg-teacher-shell px-4 py-8 sm:py-10">
       <div className="mx-auto max-w-6xl">
         <div className="mb-4 flex items-center justify-between">
-          <Link href="/" className="text-sm text-zinc-500 hover:text-zinc-800">
+          <Link href="/" className="text-sm text-[var(--color-ink-soft)] hover:text-[var(--color-pink-deep)]">
             ← 처음으로
           </Link>
-          <Link href="/approved-questions" className="text-sm text-zinc-500 hover:text-zinc-800">
+          <Link href="/approved-questions" className="text-sm text-[var(--color-ink-soft)] hover:text-[var(--color-pink-deep)]">
             우수질문 목록 →
           </Link>
         </div>
 
-        <h1 className="text-xl font-semibold text-zinc-900 sm:text-2xl">교사 대시보드</h1>
+        <h1 className="font-heading text-2xl text-[var(--color-ink)] sm:text-3xl">교사 대시보드</h1>
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
           <TeacherModeTabs active="unit" />
         </div>
@@ -78,7 +78,7 @@ export default async function TeacherPage({
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="mt-8">
-      <h2 className="text-sm font-semibold text-zinc-700">{title}</h2>
+      <h2 className="font-heading text-base text-[var(--color-ink)]">{title}</h2>
       <div className="mt-2">{children}</div>
     </section>
   );
@@ -86,7 +86,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 
 function EmptyState({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-2xl border border-dashed border-zinc-200 bg-white px-4 py-6 text-center text-sm text-zinc-400">
+    <div className="rounded-2xl border border-dashed border-[var(--color-ink-muted)]/40 bg-white px-4 py-6 text-center text-sm text-[var(--color-ink-muted)]">
       {children}
     </div>
   );
@@ -109,25 +109,25 @@ function UnitListStage({ rows, units }: { rows: SubmissionRow[]; units: string[]
               <Link
                 key={u.unit}
                 href={`/teacher?unit=${encodeURIComponent(u.unit)}`}
-                className="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm hover:border-indigo-300 hover:bg-indigo-50/40"
+                className="card p-5 hover:border-[var(--color-lavender)]"
               >
-                <div className="font-semibold text-zinc-900">{u.unit}</div>
-                <dl className="mt-3 grid grid-cols-2 gap-2 text-xs text-zinc-500 sm:grid-cols-4">
+                <div className="font-semibold text-[var(--color-ink)]">{u.unit}</div>
+                <dl className="mt-3 grid grid-cols-2 gap-2 text-xs text-[var(--color-ink-soft)] sm:grid-cols-4">
                   <div>
                     <dt>총 제출</dt>
-                    <dd className="font-medium text-zinc-800">{u.total}</dd>
+                    <dd className="font-medium text-[var(--color-ink)]">{u.total}</dd>
                   </div>
                   <div>
                     <dt>참여 학생</dt>
-                    <dd className="font-medium text-zinc-800">{u.studentCount}명</dd>
+                    <dd className="font-medium text-[var(--color-ink)]">{u.studentCount}명</dd>
                   </div>
                   <div>
                     <dt>승인율</dt>
-                    <dd className="font-medium text-zinc-800">{(u.approvalRate * 100).toFixed(1)}%</dd>
+                    <dd className="font-medium text-[var(--color-ink)]">{(u.approvalRate * 100).toFixed(1)}%</dd>
                   </div>
                   <div>
                     <dt>평균 점수</dt>
-                    <dd className="font-medium text-zinc-800">{u.avgScore.toFixed(2)}</dd>
+                    <dd className="font-medium text-[var(--color-ink)]">{u.avgScore.toFixed(2)}</dd>
                   </div>
                 </dl>
               </Link>
@@ -157,10 +157,10 @@ function BanTable({ unit, bans }: { unit: string; bans: BanStat[] }) {
   if (bans.length === 0) return <EmptyState>데이터 없음</EmptyState>;
   return (
     <>
-      <div className="hidden overflow-x-auto rounded-xl border border-zinc-200 bg-white sm:block">
+      <div className="hidden overflow-x-auto rounded-xl border border-[var(--color-cream-200)] bg-white sm:block">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-zinc-200 text-left text-xs text-zinc-500">
+            <tr className="border-b border-[var(--color-cream-200)] text-left text-xs text-[var(--color-ink-soft)]">
               <th className="px-4 py-2.5">반</th>
               <th className="px-4 py-2.5">총 제출</th>
               <th className="px-4 py-2.5">승인</th>
@@ -170,13 +170,13 @@ function BanTable({ unit, bans }: { unit: string; bans: BanStat[] }) {
           </thead>
           <tbody>
             {bans.map((b) => (
-              <tr key={`${b.grade}-${b.ban}`} className="border-b border-zinc-100 last:border-0 hover:bg-zinc-50">
-                <td className="px-4 py-2.5 font-medium text-zinc-900">
+              <tr key={`${b.grade}-${b.ban}`} className="border-b border-[var(--color-cream-100)] last:border-0 hover:bg-[var(--color-cream-50)]">
+                <td className="px-4 py-2.5 font-medium text-[var(--color-ink)]">
                   <Link
                     href={`/teacher?unit=${encodeURIComponent(unit)}&grade=${encodeURIComponent(
                       b.grade
                     )}&ban=${encodeURIComponent(b.ban)}`}
-                    className="underline decoration-dotted underline-offset-2 hover:text-indigo-600"
+                    className="underline decoration-dotted underline-offset-2 hover:text-[var(--color-pink-deep)]"
                   >
                     {classLabel(b.grade, b.ban)}
                   </Link>
@@ -198,25 +198,25 @@ function BanTable({ unit, bans }: { unit: string; bans: BanStat[] }) {
             href={`/teacher?unit=${encodeURIComponent(unit)}&grade=${encodeURIComponent(
               b.grade
             )}&ban=${encodeURIComponent(b.ban)}`}
-            className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm"
+            className="card p-4"
           >
-            <div className="text-sm font-semibold text-zinc-900">{classLabel(b.grade, b.ban)}</div>
-            <dl className="mt-2 space-y-1 text-xs text-zinc-500">
+            <div className="text-sm font-semibold text-[var(--color-ink)]">{classLabel(b.grade, b.ban)}</div>
+            <dl className="mt-2 space-y-1 text-xs text-[var(--color-ink-soft)]">
               <div className="flex justify-between">
                 <dt>총 제출</dt>
-                <dd className="font-medium text-zinc-800">{b.total}</dd>
+                <dd className="font-medium text-[var(--color-ink)]">{b.total}</dd>
               </div>
               <div className="flex justify-between">
                 <dt>승인</dt>
-                <dd className="font-medium text-zinc-800">{b.approved}</dd>
+                <dd className="font-medium text-[var(--color-ink)]">{b.approved}</dd>
               </div>
               <div className="flex justify-between">
                 <dt>승인율</dt>
-                <dd className="font-medium text-zinc-800">{(b.approvalRate * 100).toFixed(1)}%</dd>
+                <dd className="font-medium text-[var(--color-ink)]">{(b.approvalRate * 100).toFixed(1)}%</dd>
               </div>
               <div className="flex justify-between">
                 <dt>평균 점수</dt>
-                <dd className="font-medium text-zinc-800">{b.avgScore.toFixed(2)}</dd>
+                <dd className="font-medium text-[var(--color-ink)]">{b.avgScore.toFixed(2)}</dd>
               </div>
             </dl>
           </Link>
@@ -289,38 +289,25 @@ function StudentTable({
       {students.map((s) => {
         const questions = buildStudentQuestionHistory(unitRows, s.email);
         return (
-          <details
-            key={s.email}
-            id={s.email}
-            open={s.email === highlightEmail}
-            className="rounded-2xl border border-zinc-200 bg-white open:shadow-sm"
-          >
+          <details key={s.email} id={s.email} open={s.email === highlightEmail} className="card">
             <summary className="flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-3">
-              <span className="font-medium text-zinc-900">
+              <span className="font-medium text-[var(--color-ink)]">
                 {classLabel(s.grade, s.ban)} {s.no}번 · {s.name}
               </span>
               {/* 최신 질문 자체의 AI 판정 - 펼치면 보이는 회차별 판정과는 별개로 한눈에 보는 요약 */}
               <span className="flex items-center gap-1.5">
-                <span className="text-[10px] text-zinc-400">최신 질문 판정</span>
-                <span className="rounded-full bg-zinc-900 px-2.5 py-0.5 text-xs font-semibold text-white">
-                  {s.level || "채점 대기중"}
-                </span>
-                {s.score !== "" && <span className="text-xs text-zinc-500">{s.score}점</span>}
-                <span
-                  className={`rounded-full px-2.5 py-0.5 text-xs font-semibold text-white ${approvalBadgeClass(
-                    s.approval
-                  )}`}
-                >
-                  {s.approval || "처리중"}
-                </span>
+                <span className="text-[10px] text-[var(--color-ink-muted)]">최신 질문 판정</span>
+                <span className="badge badge-level">{s.level || "채점 대기중"}</span>
+                {s.score !== "" && <span className="text-xs text-[var(--color-ink-soft)]">{s.score}점</span>}
+                <span className={approvalBadgeClass(s.approval)}>{s.approval || "처리중"}</span>
               </span>
-              <span className="text-xs text-zinc-400">총 {s.count}회 제출</span>
-              <span className="ml-auto max-w-[45%] min-w-0 truncate text-xs text-zinc-500">{s.question}</span>
+              <span className="text-xs text-[var(--color-ink-muted)]">총 {s.count}회 제출</span>
+              <span className="ml-auto max-w-[45%] min-w-0 truncate text-xs text-[var(--color-ink-soft)]">{s.question}</span>
             </summary>
 
-            <div className="flex flex-col gap-2 border-t border-zinc-100 px-4 py-4">
+            <div className="flex flex-col gap-2 border-t border-[var(--color-cream-200)] px-4 py-4">
               {questions.length === 0 ? (
-                <p className="text-xs text-zinc-400">아직 채점 완료된 제출이 없어요</p>
+                <p className="text-xs text-[var(--color-ink-muted)]">아직 채점 완료된 제출이 없어요</p>
               ) : (
                 questions.map((q) => (
                   <QuestionRecordCard key={q.timestamp} q={q} record={recordByMainTs.get(q.timestamp)} />

@@ -9,7 +9,7 @@ export function CriteriaGrid({ values }: { values: (number | "")[] }) {
   return (
     <dl className="grid grid-cols-5 gap-2 text-center text-xs">
       {CRITERIA_ACCENTS.map((c, i) => (
-        <div key={c.label} className="rounded-lg border-t-2 bg-zinc-50 px-1.5 py-1.5" style={{ borderColor: c.color }}>
+        <div key={c.label} className="rounded-lg border-t-2 bg-[var(--color-cream-50)] px-1.5 py-1.5" style={{ borderColor: c.color }}>
           <dt style={c.textSafe ? { color: c.color } : undefined} className={c.textSafe ? undefined : "text-zinc-400"}>
             {c.label}
           </dt>
@@ -27,9 +27,7 @@ export function ProgressBadge({ record }: { record: InquiryRecord | undefined })
   const stage = inquiryStageOf(record);
   const showScore = stage === "종합 글쓰기 완료" && record && record.totalScore !== "";
   return (
-    <span
-      className={`inline-block whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold text-white ${inquiryStageBadgeClass(stage)}`}
-    >
+    <span className={`whitespace-nowrap ${inquiryStageBadgeClass(stage)}`}>
       {stage}
       {showScore && ` (${record!.totalScore}점)`}
     </span>
@@ -50,22 +48,14 @@ export function QuestionRecordCard({
   showUnit?: boolean;
 }) {
   return (
-    <details key={q.timestamp} className="rounded-2xl border border-zinc-200 bg-white open:shadow-sm">
+    <details key={q.timestamp} className="card">
       <summary className="flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-3">
         {showUnit && <span className="text-xs text-zinc-400">{q.unit}</span>}
         <span className="flex items-center gap-1.5">
           <span className="text-[10px] text-zinc-400">질문 판정</span>
-          <span className="rounded-full bg-zinc-900 px-2.5 py-0.5 text-xs font-semibold text-white">
-            {q.aiLevel || "채점 대기중"}
-          </span>
+          <span className="badge badge-level">{q.aiLevel || "채점 대기중"}</span>
           {q.aiScore !== "" && <span className="text-xs text-zinc-500">{q.aiScore}점</span>}
-          <span
-            className={`rounded-full px-2.5 py-0.5 text-xs font-semibold text-white ${approvalBadgeClass(
-              q.approval
-            )}`}
-          >
-            {q.approval || "처리중"}
-          </span>
+          <span className={approvalBadgeClass(q.approval)}>{q.approval || "처리중"}</span>
         </span>
         <span className="h-4 w-px bg-zinc-200" aria-hidden />
         <span className="flex items-center gap-1.5">

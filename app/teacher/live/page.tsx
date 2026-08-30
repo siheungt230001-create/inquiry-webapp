@@ -39,24 +39,24 @@ export default async function TeacherLivePage({
   const unitRows = rows.filter((r) => r.unit === selectedUnit);
 
   return (
-    <div className="flex-1 bg-zinc-50 px-4 py-8 sm:py-10">
+    <div className="flex-1 bg-teacher-shell px-4 py-8 sm:py-10">
       <div className="mx-auto max-w-[1600px]">
         <div className="mb-4 flex items-center justify-between">
-          <Link href="/" className="text-sm text-zinc-500 hover:text-zinc-800">
+          <Link href="/" className="text-sm text-[var(--color-ink-soft)] hover:text-[var(--color-pink-deep)]">
             ← 처음으로
           </Link>
-          <Link href="/approved-questions" className="text-sm text-zinc-500 hover:text-zinc-800">
+          <Link href="/approved-questions" className="text-sm text-[var(--color-ink-soft)] hover:text-[var(--color-pink-deep)]">
             우수질문 목록 →
           </Link>
         </div>
 
-        <h1 className="text-xl font-semibold text-zinc-900 sm:text-2xl">교사 대시보드</h1>
+        <h1 className="font-heading text-2xl text-[var(--color-ink)] sm:text-3xl">교사 대시보드</h1>
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
           <TeacherModeTabs active="live" />
         </div>
 
         {units.length === 0 ? (
-          <div className="mt-8 rounded-2xl border border-dashed border-zinc-200 bg-white px-4 py-6 text-center text-sm text-zinc-400">
+          <div className="mt-8 rounded-2xl border border-dashed border-[var(--color-ink-muted)]/40 bg-white px-4 py-6 text-center text-sm text-[var(--color-ink-muted)]">
             아직 제출된 질문이 없어요
           </div>
         ) : (
@@ -67,8 +67,8 @@ export default async function TeacherLivePage({
                   <Link
                     key={u}
                     href={`/teacher/live?unit=${encodeURIComponent(u)}`}
-                    className={`rounded-lg px-3 py-1.5 text-sm font-medium ${
-                      u === selectedUnit ? "bg-zinc-900 text-white" : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200"
+                    className={`rounded-full px-3 py-1.5 text-sm font-medium ${
+                      u === selectedUnit ? "bg-[var(--color-lavender-deep)] text-white" : "bg-[var(--color-cream-200)] text-[var(--color-ink-soft)] hover:bg-[var(--color-lavender)]"
                     }`}
                   >
                     {u}
@@ -104,7 +104,7 @@ function ClassListStage({ unit, unitRows }: { unit: string; unitRows: Submission
       </div>
       <section className="mt-2">
         {classes.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-zinc-200 bg-white px-4 py-6 text-center text-sm text-zinc-400">
+          <div className="rounded-2xl border border-dashed border-[var(--color-ink-muted)]/40 bg-white px-4 py-6 text-center text-sm text-[var(--color-ink-muted)]">
             데이터 없음
           </div>
         ) : (
@@ -115,10 +115,10 @@ function ClassListStage({ unit, unitRows }: { unit: string; unitRows: Submission
                 href={`/teacher/live?unit=${encodeURIComponent(unit)}&grade=${encodeURIComponent(
                   c.grade
                 )}&ban=${encodeURIComponent(c.ban)}`}
-                className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm hover:border-indigo-300 hover:bg-indigo-50/40"
+                className="card p-4 hover:border-[var(--color-lavender)]"
               >
-                <div className="text-lg font-semibold text-zinc-900">{classLabel(c.grade, c.ban)}</div>
-                <div className="mt-1 text-xs text-zinc-500">총 {c.total}건 제출</div>
+                <div className="text-lg font-semibold text-[var(--color-ink)]">{classLabel(c.grade, c.ban)}</div>
+                <div className="mt-1 text-xs text-[var(--color-ink-soft)]">총 {c.total}건 제출</div>
               </Link>
             ))}
           </div>
@@ -156,7 +156,7 @@ async function LiveStage({
         />
       </div>
       <section className="mt-2">
-        <h2 className="text-sm font-semibold text-zinc-700">
+        <h2 className="font-heading text-base text-[var(--color-ink)]">
           실시간 현황판 — {unit} · {classLabel(grade, ban)} ({liveStudents.length}명)
         </h2>
         <div className="mt-2">
