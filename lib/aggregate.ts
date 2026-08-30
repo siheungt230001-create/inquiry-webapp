@@ -369,13 +369,16 @@ export function inquiryStageOf(record: InquiryRecord | undefined): InquiryStage 
   if ([record.intro, record.body, record.conclusion].some((v) => v.trim())) {
     return "종합 글쓰기 작성 중";
   }
-  let subQuestions: { status?: string | null }[] = [];
+  let subQuestions: { answer?: string }[] = [];
   try {
     subQuestions = JSON.parse(record.subQuestionsJson || "[]");
   } catch {
     subQuestions = [];
   }
-  if (subQuestions.some((s) => s.status === "양호")) return "보조질문 답변 작성 중";
+  // status === "양호"만 봤었는데, "수정 필요" 받고 안 고친 질문도 답을 쓸 수 있게
+  // 되면서(SubAnswersForm) 그 학생은 여기서 계속 "보조질문 작성 중"으로 잘못 잡혔다.
+  // 실제로 답을 썼는지로 판단한다.
+  if (subQuestions.some((s) => s.answer?.trim())) return "보조질문 답변 작성 중";
   return "보조질문 작성 중";
 }
 

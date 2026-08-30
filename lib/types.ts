@@ -96,8 +96,9 @@ export interface InquirySubQuestion {
   label: string;
   question: string;
   answer: string;
-  // AI 코멘트 판정 결과 - 새로고침/재접속 시 SubAnswersForm이 "양호"인 항목만
-  // 답변 대상으로 다시 골라내야 하므로 subQuestionsJson 안에 같이 저장한다.
+  // AI 코멘트 판정 결과 - 새로고침/재접속 시 SubAnswersForm이 코멘트 받은(양호/수정
+  // 필요 둘 다) 항목을 답변 대상으로 다시 골라내야 하므로 subQuestionsJson 안에 같이
+  // 저장한다.
   status?: "양호" | "수정 필요" | null;
   comment?: string;
   // 보조질문 "답변" 내용에 대한 별도 AI 판정 - 위 status/comment(질문 자체의 구조
