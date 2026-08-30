@@ -95,13 +95,19 @@ export async function POST(request: Request) {
   // 교사 화면은 totalScore가 ""인 걸로 "진행중"과 "완료"를 구분한다
   // (lib/aggregate.ts의 inquiryStageOf).
   if (draft) {
-    // 점수 필드는 여기서 절대 비우지 않는다 - SubAnswersForm/AnswerForm의 자동 저장(debounce)이
-    // "제출하기"로 이미 채점 끝난 뒤에도 같은 행에 draft:true로 다시 저장할 수 있는데(그
-    // 화면을 다시 열거나 탭이 열려있는 상태에서), 여기서 무조건 ""로 덮어쓰면 방금 매긴
-    // 점수가 통째로 사라진다(실제 사고 사례: 학생이 제출까지 했는데 대시보드엔 "작성중"으로
-    // 보임). 이미 채점된 값이 있으면 그대로 들고 간다 - 재채점은 오직 아래 최종 제출
-    // 경로(draft:false)에서만 일어난다.
     const existing = await getInquiryRecord(email, mainQuestionTimestamp);
+
+    // 이미 채점 완료된(totalScore 있음) 기록이면 draft 저장을 아예 안 한다 - SubAnswersForm/
+    // AnswerForm의 자동 저장(debounce)은 화면을 열기만 해도 mount 시 한 번 발동하는데, 두
+    // 컴포넌트 다 자기 화면에 없는 필드(SubAnswersForm은 intro/body/conclusion, AnswerForm은
+    // subQuestion의 source)를 페이로드에 안 담는다. draft 분기가 행 전체를 덮어쓰는 구조라
+    // 안 보낸 필드가 그대로 빈 문자열로 박혀서, 완료된 기록의 텍스트 칸이 통째로 날아가는
+    // 사고가 있었다(점수는 f53bb45가 지켰지만 텍스트 칸은 지켜지지 않았음). 완료 후 텍스트를
+    // 다시 고치고 싶으면 "제출하기"(draft:false)로 재채점하는 경로만 행을 갱신한다.
+    if (existing && existing.totalScore !== "") {
+      return NextResponse.json({ ok: true, skipped: true });
+    }
+
     const record: InquiryRecord = {
       timestamp: new Date().toISOString(),
       email,
