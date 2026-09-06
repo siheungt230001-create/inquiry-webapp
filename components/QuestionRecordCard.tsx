@@ -49,23 +49,19 @@ export function QuestionRecordCard({
 }) {
   return (
     <details key={q.timestamp} className="card">
-      <summary className="flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-3">
-        {showUnit && <span className="text-xs text-zinc-400">{q.unit}</span>}
-        <span className="flex items-center gap-1.5">
-          <span className="text-[10px] text-zinc-400">질문 판정</span>
-          <span className="badge badge-level">{q.aiLevel || "채점 대기중"}</span>
-          {q.aiScore !== "" && <span className="text-xs text-zinc-500">{q.aiScore}점</span>}
-          <span className={approvalBadgeClass(q.approval)}>{q.approval || "처리중"}</span>
-        </span>
-        <span className="h-4 w-px bg-zinc-200" aria-hidden />
-        <span className="flex items-center gap-1.5">
-          <span className="text-[10px] text-zinc-400">탐구 글쓰기</span>
-          <ProgressBadge record={record} />
-        </span>
+      <summary className="grid cursor-pointer grid-cols-[70px_60px_130px_50px_120px_16px_70px_200px_150px_1fr] items-center gap-x-3 gap-y-1.5 px-4 py-3">
+        <span className="truncate text-xs text-zinc-400">{showUnit ? q.unit : ""}</span>
+        <span className="text-[10px] text-zinc-400">질문 판정</span>
+        <span className="badge badge-level">{q.aiLevel || "채점 대기중"}</span>
+        <span className="text-xs text-zinc-500">{q.aiScore !== "" ? `${q.aiScore}점` : ""}</span>
+        <span className={approvalBadgeClass(q.approval)}>{q.approval || "처리중"}</span>
+        <span className="flex h-4 w-px justify-self-center bg-zinc-200" aria-hidden />
+        <span className="text-[10px] text-zinc-400">탐구 글쓰기</span>
+        <ProgressBadge record={record} />
         <span className="whitespace-nowrap text-xs text-zinc-400">
           {new Date(q.timestamp).toLocaleString("ko-KR")}
         </span>
-        <span className="ml-auto max-w-[45%] min-w-0 truncate text-xs text-zinc-500">{q.question}</span>
+        <span className="min-w-0 truncate text-xs text-zinc-500">{q.question}</span>
       </summary>
 
       <div className="flex flex-col gap-4 border-t border-zinc-100 px-4 py-4">
