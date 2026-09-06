@@ -290,7 +290,7 @@ function StudentTable({
         const questions = buildStudentQuestionHistory(unitRows, s.email);
         return (
           <details key={s.email} id={s.email} open={s.email === highlightEmail} className="card">
-            <summary className="grid cursor-pointer grid-cols-[minmax(120px,auto)_180px_56px_130px_90px_1fr] items-center gap-x-3 gap-y-1.5 px-4 py-3">
+            <summary className="grid cursor-pointer grid-cols-[180px_180px_56px_130px_90px_1fr] items-center gap-x-3 gap-y-1.5 px-4 py-3">
               <span className="truncate font-medium text-[var(--color-ink)]">
                 {classLabel(s.grade, s.ban)} {s.no}번 · {s.name}
               </span>
