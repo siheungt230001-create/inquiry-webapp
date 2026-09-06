@@ -25,16 +25,16 @@ export default async function HistoryPage() {
     <div className="flex-1 bg-pastel-gradient px-4 py-10">
       <div className="mx-auto max-w-xl">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-          <Link href="/" className="flex items-center gap-1 text-sm font-medium text-[var(--color-ink-soft)] hover:text-[var(--color-pink-deep)]">
+          <Link href="/" className="flex items-center gap-1 rounded-full bg-[var(--color-cream-200)] px-3 py-1.5 text-sm font-medium text-[var(--color-ink-soft)] hover:bg-[var(--color-lavender)] hover:text-[var(--color-pink-deep)]">
             <ArrowLeftIcon /> 처음으로
           </Link>
           <div className="flex items-center gap-3">
             {latestEssayHref && (
-              <Link href={latestEssayHref} className="text-sm font-medium text-[var(--color-ink-soft)] hover:text-[var(--color-pink-deep)]">
+              <Link href={latestEssayHref} className="rounded-full bg-[var(--color-cream-200)] px-3 py-1.5 text-sm font-medium text-[var(--color-ink-soft)] hover:bg-[var(--color-lavender)] hover:text-[var(--color-pink-deep)]">
                 종합 글쓰기로 돌아가기
               </Link>
             )}
-            <Link href="/submit" className="text-sm font-medium text-[var(--color-ink-soft)] hover:text-[var(--color-pink-deep)]">
+            <Link href="/submit" className="rounded-full bg-[var(--color-cream-200)] px-3 py-1.5 text-sm font-medium text-[var(--color-ink-soft)] hover:bg-[var(--color-lavender)] hover:text-[var(--color-pink-deep)]">
               새 질문 제출하기 →
             </Link>
           </div>

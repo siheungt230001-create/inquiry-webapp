@@ -290,19 +290,19 @@ function StudentTable({
         const questions = buildStudentQuestionHistory(unitRows, s.email);
         return (
           <details key={s.email} id={s.email} open={s.email === highlightEmail} className="card">
-            <summary className="flex cursor-pointer flex-wrap items-center gap-x-3 gap-y-1.5 px-4 py-3">
-              <span className="font-medium text-[var(--color-ink)]">
+            <summary className="grid cursor-pointer grid-cols-[minmax(120px,auto)_180px_56px_130px_90px_1fr] items-center gap-x-3 gap-y-1.5 px-4 py-3">
+              <span className="truncate font-medium text-[var(--color-ink)]">
                 {classLabel(s.grade, s.ban)} {s.no}번 · {s.name}
               </span>
               {/* 최신 질문 자체의 AI 판정 - 펼치면 보이는 회차별 판정과는 별개로 한눈에 보는 요약 */}
               <span className="flex items-center gap-1.5">
                 <span className="text-[10px] text-[var(--color-ink-muted)]">최신 질문 판정</span>
                 <span className="badge badge-level">{s.level || "채점 대기중"}</span>
-                {s.score !== "" && <span className="text-xs text-[var(--color-ink-soft)]">{s.score}점</span>}
-                <span className={approvalBadgeClass(s.approval)}>{s.approval || "처리중"}</span>
               </span>
+              <span className="text-xs text-[var(--color-ink-soft)]">{s.score !== "" ? `${s.score}점` : ""}</span>
+              <span className={approvalBadgeClass(s.approval)}>{s.approval || "처리중"}</span>
               <span className="text-xs text-[var(--color-ink-muted)]">총 {s.count}회 제출</span>
-              <span className="ml-auto max-w-[45%] min-w-0 truncate text-xs text-[var(--color-ink-soft)]">{s.question}</span>
+              <span className="min-w-0 truncate text-xs text-[var(--color-ink-soft)]">{s.question}</span>
             </summary>
 
             <div className="flex flex-col gap-2 border-t border-[var(--color-cream-200)] px-4 py-4">

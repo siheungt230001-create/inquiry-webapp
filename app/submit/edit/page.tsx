@@ -19,7 +19,7 @@ export default async function EditQuestionPage({
     <div className="flex-1 bg-pastel-gradient px-4 py-10">
       <div className="mx-auto max-w-xl">
         <div className="mb-4 flex items-center justify-between">
-          <Link href="/history" className="flex items-center gap-1 text-sm font-medium text-[var(--color-ink-soft)] hover:text-[var(--color-pink-deep)]">
+          <Link href="/history" className="flex items-center gap-1 rounded-full bg-[var(--color-cream-200)] px-3 py-1.5 text-sm font-medium text-[var(--color-ink-soft)] hover:bg-[var(--color-lavender)] hover:text-[var(--color-pink-deep)]">
             <ArrowLeftIcon /> 내 제출 이력
           </Link>
         </div>

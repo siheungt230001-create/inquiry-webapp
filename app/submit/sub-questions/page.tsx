@@ -22,7 +22,7 @@ export default async function SubQuestionsPage({
         <div className="mb-4 flex items-center justify-between">
           <Link
             href={`/submit/edit?ts=${encodeURIComponent(ts)}`}
-            className="flex items-center gap-1 text-sm font-medium text-[var(--color-ink-soft)] hover:text-[var(--color-pink-deep)]"
+            className="flex items-center gap-1 rounded-full bg-[var(--color-cream-200)] px-3 py-1.5 text-sm font-medium text-[var(--color-ink-soft)] hover:bg-[var(--color-lavender)] hover:text-[var(--color-pink-deep)]"
           >
             <ArrowLeftIcon /> 질문 수정하기
           </Link>

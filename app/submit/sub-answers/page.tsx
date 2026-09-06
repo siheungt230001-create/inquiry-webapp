@@ -32,11 +32,11 @@ export default async function SubAnswersPage({
         <div className="mb-4 flex items-center justify-between">
           <Link
             href={backHref}
-            className="flex items-center gap-1 text-sm font-medium text-[var(--color-ink-soft)] hover:text-[var(--color-pink-deep)]"
+            className="flex items-center gap-1 rounded-full bg-[var(--color-cream-200)] px-3 py-1.5 text-sm font-medium text-[var(--color-ink-soft)] hover:bg-[var(--color-lavender)] hover:text-[var(--color-pink-deep)]"
           >
             <ArrowLeftIcon /> 보조질문으로
           </Link>
-          <Link href="/history" className="text-sm font-medium text-[var(--color-ink-soft)] hover:text-[var(--color-pink-deep)]">
+          <Link href="/history" className="rounded-full bg-[var(--color-cream-200)] px-3 py-1.5 text-sm font-medium text-[var(--color-ink-soft)] hover:bg-[var(--color-lavender)] hover:text-[var(--color-pink-deep)]">
             내 제출 이력 →
           </Link>
         </div>
