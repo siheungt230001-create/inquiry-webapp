@@ -81,59 +81,43 @@ export default function SubmitForm() {
     };
   }, []);
 
-  useEffect(() => {
-    fetch("/api/units")
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.units) {
-          setUnits(data.units);
-          // 복구된 제출이 이미 unit을 채워놨을 수 있으니, 비어있을 때만 첫 단원으로 기본
-          // 선택한다 - 여기서 무조건 덮어쓰면 아래 복구 effect가 채운 값이 지워진다.
-          if (data.units.length > 0) setUnit((prev) => prev || data.units[0]);
-        }
-      })
-      .catch(() => setError("단원 목록을 불러오지 못했습니다."));
-  }, []);
-
-  // 로그인 계정에 저장된 학년/반/번호/이름을 불러와 미리 채운다(app/api/profile) -
-  // 잠기는 건 아니라서 학생이 그 자리에서 계속 고칠 수 있다. 값이 없으면(첫 로그인)
-  // 빈 채로 둔다.
-  useEffect(() => {
-    fetch("/api/profile")
-      .then((r) => r.json())
-      .then((data) => {
-        if (data.profile) setProfile(data.profile);
-      })
-      .catch(() => {
-        // 못 불러와도 빈 폼으로 계속 진행 - 어차피 매번 직접 입력하던 것과 같은 상태다
-      });
-  }, []);
-
-  // 마운트 시 "채점 대기 중"인 제출이 있으면 폼과 폴링 상태를 복구한다.
+  // 단원 목록/프로필/"채점 대기중" 제출 여부를 /api/submit/init 하나로 한 번에 불러온다.
+  // 원래 /api/units + /api/profile + /api/submit/status 세 요청을 마운트 시 동시에 날렸는데,
+  // 학생 여러 명이 한꺼번에 이 페이지를 열면 Sheets 읽기 호출 수가 3배로 불어나
+  // 429(할당량 초과)를 유발했다 - lib/sheets.ts의 getSubmitInitData가 batchGet으로 묶어서
+  // 서버 쪽 호출 수를 줄인 것에 맞춰 프런트도 요청 하나로 합친다.
   useEffect(() => {
     const local = loadPendingSubmit();
     if (local) {
       resumePending(local.timestamp, local.question, local.unit, local.selfLevel, local.textbookLink);
-      return;
     }
     let cancelled = false;
-    fetch("/api/submit/status")
+    fetch("/api/submit/init")
       .then((r) => r.json())
       .then((data) => {
-        if (cancelled || data.status !== "대기중") return;
-        const pending: PendingSubmit = {
-          timestamp: data.timestamp,
-          question: data.question,
-          unit: data.unit,
-          selfLevel: data.selfLevel,
-          textbookLink: data.textbookLink,
-        };
-        savePendingSubmit(pending);
-        resumePending(pending.timestamp, pending.question, pending.unit, pending.selfLevel, pending.textbookLink);
+        if (cancelled) return;
+        if (data.units) {
+          setUnits(data.units);
+          // 복구된 제출이 이미 unit을 채워놨을 수 있으니, 비어있을 때만 첫 단원으로 기본
+          // 선택한다 - 여기서 무조건 덮어쓰면 위 복구 로직이 채운 값이 지워진다.
+          if (data.units.length > 0) setUnit((prev) => prev || data.units[0]);
+        }
+        if (data.profile) setProfile(data.profile);
+        // 로컬(sessionStorage)에 이미 대기중 제출이 있으면 그걸 우선하고, 서버 값은 무시한다 -
+        // 둘 다 있을 경우 로컬이 더 최신(방금 이 탭에서 제출한 것)이기 때문.
+        if (!local && data.pending) {
+          const pending: PendingSubmit = {
+            timestamp: data.pending.timestamp,
+            question: data.pending.question,
+            unit: data.pending.unit,
+            selfLevel: data.pending.selfLevel,
+            textbookLink: data.pending.textbookLink,
+          };
+          savePendingSubmit(pending);
+          resumePending(pending.timestamp, pending.question, pending.unit, pending.selfLevel, pending.textbookLink);
+        }
       })
-      .catch(() => {
-        // 서버에서 못 불러와도 그냥 빈 폼으로 시작 - 원래도 첫 제출인 학생은 이 상태다
-      });
+      .catch(() => setError("단원 목록을 불러오지 못했습니다."));
     return () => {
       cancelled = true;
     };

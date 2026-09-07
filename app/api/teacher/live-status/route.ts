@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { isTeacherEmail } from "@/lib/teacher-auth";
-import { getAllSubmissions, getAllInquiryRecords } from "@/lib/sheets";
+import { getSubmissionsAndInquiryRecords } from "@/lib/sheets";
 import {
   buildStudentLatest,
   buildInquiryRecordByMainTimestamp,
@@ -24,11 +24,10 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "unit과 ban이 필요합니다." }, { status: 400 });
   }
 
-  const rows = await getAllSubmissions();
+  const { submissions: rows, inquiryRecords: records } = await getSubmissionsAndInquiryRecords();
   const unitRows = rows.filter((r) => r.unit === unit);
   const students = buildStudentLatest(unitRows).filter((s) => s.ban === ban && s.grade === grade);
 
-  const records = await getAllInquiryRecords();
   const recordByMainTs = buildInquiryRecordByMainTimestamp(records);
 
   return NextResponse.json({ students: buildLiveClassStatus(students, recordByMainTs) });

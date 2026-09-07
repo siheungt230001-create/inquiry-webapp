@@ -117,7 +117,21 @@ function getErrorStatus(err: unknown): number | undefined {
   return typeof num === "number" && !Number.isNaN(num) ? num : undefined;
 }
 
-async function withRetry<T>(fn: () => Promise<T>, maxAttempts = 3): Promise<T> {
+// Google API가 429 응답에 Retry-After 헤더를 실어 보내면 그 값을 그대로 쓴다 -
+// 분당 한도라 언제 리셋되는지는 서버가 제일 잘 안다. 없으면 지수 백오프로 대체.
+function getRetryAfterMs(err: unknown): number | undefined {
+  const anyErr = err as { response?: { headers?: Record<string, string> } };
+  const header = anyErr?.response?.headers?.["retry-after"];
+  if (!header) return undefined;
+  const seconds = Number(header);
+  return Number.isNaN(seconds) ? undefined : seconds * 1000;
+}
+
+// 2026-09-07 한 반 전체가 동시 접속했을 때 기존 maxAttempts=3(최대 대기 ~6초)로는
+// 부족해서 429가 그대로 사용자에게 새어나갔다 - 시도 횟수를 늘리고 백오프 상한도
+// 올려서(최대 8초 간격) 분당 한도가 풀릴 때까지 더 오래 버티게 한다. 호출 수 자체를
+// 줄이는 캐시/batchGet이 우선이고, 이건 그래도 몰릴 때의 마지막 방어선이다.
+async function withRetry<T>(fn: () => Promise<T>, maxAttempts = 5): Promise<T> {
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       return await fn();
@@ -125,8 +139,10 @@ async function withRetry<T>(fn: () => Promise<T>, maxAttempts = 3): Promise<T> {
       const status = getErrorStatus(err);
       const canRetry = (status === 429 || status === 503) && attempt < maxAttempts;
       if (!canRetry) throw err;
-      // 지수 백오프 + 지터(무작위 지연) - 여러 요청이 동시에 재시도해 다시 몰리는 것을 완화.
-      const delay = 1000 * Math.pow(2, attempt) + Math.random() * 500;
+      // 지수 백오프(최대 8초) + 지터(무작위 지연) - 여러 요청이 동시에 재시도해
+      // 다시 몰리는 것을 완화.
+      const backoff = getRetryAfterMs(err) ?? Math.min(1500 * Math.pow(2, attempt - 1), 8000);
+      const delay = backoff + Math.random() * 500;
       await new Promise((r) => setTimeout(r, delay));
     }
   }
@@ -141,7 +157,10 @@ async function withRetry<T>(fn: () => Promise<T>, maxAttempts = 3): Promise<T> {
 // 이어졌다. 실시간 현황판도 완전 실시간일 필요는 없는 화면이라, 결과를 몇 초만
 // 재사용해도 문제없다 - 쓰기(appendSubmission/update*/upsertInquiryRecord) 직후엔
 // 캐시를 바로 비워서 방금 쓴 내용이 오래된 캐시에 가려지는 일은 없게 한다.
-const CACHE_TTL_MS = 8000;
+// 2026-09-07 한 반 전체가 동시 접속하는 시간대에 8초는 너무 짧아서(폴링 간격
+// 3초와 맞물려) 같은 인스턴스에서도 캐시가 자주 만료되고 있었다 - 15초로 늘려서
+// 캐시 적중률을 높인다(그만큼 학생에게 보이는 최신성은 최대 15초 늦어질 수 있음).
+const CACHE_TTL_MS = 15000;
 let submissionsCache: { value: SubmissionRow[]; expiresAt: number } | null = null;
 let inquiryRecordsCache: { value: InquiryRecord[]; expiresAt: number } | null = null;
 
@@ -150,7 +169,7 @@ let inquiryRecordsCache: { value: InquiryRecord[]; expiresAt: number } | null = 
 // Google Sheets API의 "분당 읽기 요청" 프로젝트 공용 한도(429)를 넘겨서 getAllSubmissions
 // 등 이미 캐시 중인 다른 경로까지 같이 429를 맞는 전면 장애로 번졌다. 단원 자료는
 // 교사가 가끔만 고치므로 더 긴 TTL을 쓴다.
-const UNITS_CACHE_TTL_MS = 60000;
+const UNITS_CACHE_TTL_MS = 120000;
 let unitsCache: { value: { title: string; readingText: string }[]; expiresAt: number } | null = null;
 const studentProfileCache = new Map<string, { value: StudentProfile | null; expiresAt: number }>();
 
@@ -167,6 +186,65 @@ function getSheetsClient() {
     scopes: ["https://www.googleapis.com/auth/spreadsheets"],
   });
   return google.sheets({ version: "v4", auth });
+}
+
+// ===== 여러 범위를 한 번의 API 호출로 묶어 읽기 =====
+// 같은 요청 안에서 서로 다른 시트를 여러 번 읽어야 할 때(예: /submit 페이지 초기
+// 로딩이 단원 목록+프로필+제출 이력을 동시에 필요로 함) values.get()을 range 개수만큼
+// 부르는 대신 이걸로 한 번에 묶는다 - 호출 수 자체가 줄어야 429 재발을 막을 수 있다.
+async function batchFetchRanges(ranges: string[]): Promise<string[][][]> {
+  const sheets = getSheetsClient();
+  const res = await withRetry(() =>
+    sheets.spreadsheets.values.batchGet({
+      spreadsheetId: process.env.SPREADSHEET_ID,
+      ranges,
+    })
+  );
+  return (res.data.valueRanges || []).map((vr) => vr.values || []);
+}
+
+function parseUnitsRows(rows: string[][]): { title: string; readingText: string }[] {
+  return rows
+    .filter((r) => r[0])
+    .map((r) => ({ title: String(r[0]).trim(), readingText: String(r[1] || "") }));
+}
+
+function parseSubmissionRows(rows: string[][]): SubmissionRow[] {
+  return rows.map((r) => {
+    const obj: Record<string, unknown> = {};
+    SHEET_COLUMNS.forEach((key, i) => {
+      const raw = r[i] ?? "";
+      // Sheets API는 셀 값을 전부 문자열로 돌려주므로, 숫자 컬럼은 여기서 한 번 변환해둔다
+      // (안 그러면 typeof 검사로 숫자만 골라 쓰는 집계 로직이 전부 빈 값으로 취급함).
+      obj[key] = NUMERIC_COLUMNS.has(key) && raw !== "" ? Number(raw) : raw;
+    });
+    return obj as unknown as SubmissionRow;
+  });
+}
+
+function parseInquiryRows(rows: string[][]): InquiryRecord[] {
+  return rows.map((r) => {
+    const obj: Record<string, unknown> = {};
+    INQUIRY_COLUMNS.forEach((key, i) => {
+      const raw = r[i] ?? "";
+      obj[key] = NUMERIC_INQUIRY_COLUMNS.has(key) && raw !== "" ? Number(raw) : raw;
+    });
+    return obj as unknown as InquiryRecord;
+  });
+}
+
+function parseProfileRow(rows: string[][], email: string): StudentProfile | null {
+  const row = rows.find((r) => r[0] === email);
+  if (!row) return null;
+  const obj: Record<string, unknown> = {};
+  STUDENT_PROFILE_COLUMNS.forEach((key, i) => {
+    obj[key] = row[i] ?? "";
+  });
+  return obj as unknown as StudentProfile;
+}
+
+function sortByTimestampDesc<T extends { timestamp: string }>(rows: T[]): T[] {
+  return [...rows].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 }
 
 // ===== 공개 API =====
@@ -186,10 +264,7 @@ export async function getUnits(): Promise<{ title: string; readingText: string }
       range: `${UNIT_SHEET_NAME}!A2:B`,
     })
   );
-  const rows = res.data.values || [];
-  const units = rows
-    .filter((r) => r[0])
-    .map((r) => ({ title: String(r[0]).trim(), readingText: String(r[1] || "") }));
+  const units = parseUnitsRows(res.data.values || []);
   unitsCache = { value: units, expiresAt: Date.now() + UNITS_CACHE_TTL_MS };
   return units;
 }
@@ -270,20 +345,7 @@ export async function getAllSubmissions(): Promise<SubmissionRow[]> {
       range: `${LOG_SHEET_NAME}!A2:AA`,
     })
   );
-  const rows = res.data.values || [];
-  const parsed: SubmissionRow[] = rows.map((r) => {
-    const obj: Record<string, unknown> = {};
-    SHEET_COLUMNS.forEach((key, i) => {
-      const raw = r[i] ?? "";
-      // Sheets API는 셀 값을 전부 문자열로 돌려주므로, 숫자 컬럼은 여기서 한 번 변환해둔다
-      // (안 그러면 typeof 검사로 숫자만 골라 쓰는 집계 로직이 전부 빈 값으로 취급함).
-      obj[key] = NUMERIC_COLUMNS.has(key) && raw !== "" ? Number(raw) : raw;
-    });
-    return obj as unknown as SubmissionRow;
-  });
-  const sorted = parsed.sort(
-    (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-  );
+  const sorted = sortByTimestampDesc(parseSubmissionRows(res.data.values || []));
   submissionsCache = { value: sorted, expiresAt: Date.now() + CACHE_TTL_MS };
   return sorted;
 }
@@ -486,20 +548,45 @@ export async function getAllInquiryRecords(): Promise<InquiryRecord[]> {
       range: `${INQUIRY_SHEET_NAME}!A2:S`,
     })
   );
-  const rows = res.data.values || [];
-  const parsed: InquiryRecord[] = rows.map((r) => {
-    const obj: Record<string, unknown> = {};
-    INQUIRY_COLUMNS.forEach((key, i) => {
-      const raw = r[i] ?? "";
-      obj[key] = NUMERIC_INQUIRY_COLUMNS.has(key) && raw !== "" ? Number(raw) : raw;
-    });
-    return obj as unknown as InquiryRecord;
-  });
-  const sorted = parsed.sort(
-    (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-  );
+  const sorted = sortByTimestampDesc(parseInquiryRows(res.data.values || []));
   inquiryRecordsCache = { value: sorted, expiresAt: Date.now() + CACHE_TTL_MS };
   return sorted;
+}
+
+// 교사 실시간 현황판(app/api/teacher/live-status)이 제출_판정_로그와 탐구_글쓰기_기록을
+// 매번 같이 필요로 해서 - 캐시가 둘 다 만료된 순간(폴링 시작 직후 등)엔 values.get()을
+// 두 번 부르는 대신 batchGet 한 번으로 묶는다. 한쪽만 만료됐으면 그냥 각자의 캐시 경로를 탄다.
+export async function getSubmissionsAndInquiryRecords(): Promise<{
+  submissions: SubmissionRow[];
+  inquiryRecords: InquiryRecord[];
+}> {
+  if (DEMO_MODE) {
+    const [submissions, inquiryRecords] = await Promise.all([
+      getAllSubmissions(),
+      getAllInquiryRecords(),
+    ]);
+    return { submissions, inquiryRecords };
+  }
+
+  const now = Date.now();
+  const needSubmissions = !submissionsCache || submissionsCache.expiresAt <= now;
+  const needInquiry = !inquiryRecordsCache || inquiryRecordsCache.expiresAt <= now;
+
+  if (needSubmissions && needInquiry) {
+    const [subValues, inqValues] = await batchFetchRanges([
+      `${LOG_SHEET_NAME}!A2:AA`,
+      `${INQUIRY_SHEET_NAME}!A2:S`,
+    ]);
+    const submissions = sortByTimestampDesc(parseSubmissionRows(subValues));
+    submissionsCache = { value: submissions, expiresAt: now + CACHE_TTL_MS };
+    const inquiryRecords = sortByTimestampDesc(parseInquiryRows(inqValues));
+    inquiryRecordsCache = { value: inquiryRecords, expiresAt: now + CACHE_TTL_MS };
+    return { submissions, inquiryRecords };
+  }
+
+  const submissions = needSubmissions ? await getAllSubmissions() : submissionsCache!.value;
+  const inquiryRecords = needInquiry ? await getAllInquiryRecords() : inquiryRecordsCache!.value;
+  return { submissions, inquiryRecords };
 }
 
 // 학생이 특정 메인 질문에 대해 지금까지 작성한 탐구 글쓰기 기록(진행중/완료 둘 다)을
@@ -572,18 +659,75 @@ export async function getStudentProfile(email: string): Promise<StudentProfile |
       range: `${STUDENT_PROFILE_SHEET_NAME}!A2:F`,
     })
   );
-  const rows = res.data.values || [];
-  const row = rows.find((r) => r[0] === email);
-  let profile: StudentProfile | null = null;
-  if (row) {
-    const obj: Record<string, unknown> = {};
-    STUDENT_PROFILE_COLUMNS.forEach((key, i) => {
-      obj[key] = row[i] ?? "";
-    });
-    profile = obj as unknown as StudentProfile;
-  }
+  const profile = parseProfileRow(res.data.values || [], email);
   studentProfileCache.set(email, { value: profile, expiresAt: Date.now() + CACHE_TTL_MS });
   return profile;
+}
+
+// /submit 페이지가 마운트 시 필요로 하는 세 가지(단원 목록, 학년/반/번호/이름 프로필,
+// "채점 대기중"인 제출이 있는지)를 한 번에 반환한다. 원래는 /api/units + /api/profile +
+// /api/submit/status를 프런트가 동시에 fetch해서 서로 다른 시트를 각각 read하고 있었는데,
+// 2026-09-07 한 반 전체가 동시에 이 페이지를 열면 (학생 수) x 3번의 Sheets 읽기가 같은
+// 순간에 몰려 분당 한도(429)를 넘겼다 - 캐시가 이미 만료된 항목들만 batchGet 한 번으로
+// 묶어서 호출 수 자체를 줄인다(전부 캐시돼 있으면 Sheets 호출이 0번).
+export async function getSubmitInitData(email: string): Promise<{
+  units: { title: string; readingText: string }[];
+  profile: StudentProfile | null;
+  pendingSubmission: SubmissionRow | null;
+}> {
+  if (DEMO_MODE) {
+    const [units, profile, mySubmissions] = await Promise.all([
+      getUnits(),
+      getStudentProfile(email),
+      getSubmissionsByEmail(email),
+    ]);
+    const pendingSubmission = mySubmissions[0]?.status === "대기중" ? mySubmissions[0] : null;
+    return { units, profile, pendingSubmission };
+  }
+
+  const now = Date.now();
+  const needUnits = !unitsCache || unitsCache.expiresAt <= now;
+  const cachedProfile = studentProfileCache.get(email);
+  const needProfile = !cachedProfile || cachedProfile.expiresAt <= now;
+  const needSubmissions = !submissionsCache || submissionsCache.expiresAt <= now;
+
+  const pendingRanges: { key: "units" | "profile" | "submissions"; range: string }[] = [];
+  if (needUnits) pendingRanges.push({ key: "units", range: `${UNIT_SHEET_NAME}!A2:B` });
+  if (needProfile) pendingRanges.push({ key: "profile", range: `${STUDENT_PROFILE_SHEET_NAME}!A2:F` });
+  if (needSubmissions) pendingRanges.push({ key: "submissions", range: `${LOG_SHEET_NAME}!A2:AA` });
+
+  const fetched =
+    pendingRanges.length > 0 ? await batchFetchRanges(pendingRanges.map((p) => p.range)) : [];
+  const byKey = new Map(pendingRanges.map((p, i) => [p.key, fetched[i]]));
+
+  let units: { title: string; readingText: string }[];
+  if (needUnits) {
+    units = parseUnitsRows(byKey.get("units")!);
+    unitsCache = { value: units, expiresAt: now + UNITS_CACHE_TTL_MS };
+  } else {
+    units = unitsCache!.value;
+  }
+
+  let profile: StudentProfile | null;
+  if (needProfile) {
+    profile = parseProfileRow(byKey.get("profile")!, email);
+    studentProfileCache.set(email, { value: profile, expiresAt: now + CACHE_TTL_MS });
+  } else {
+    profile = cachedProfile!.value;
+  }
+
+  let submissions: SubmissionRow[];
+  if (needSubmissions) {
+    submissions = sortByTimestampDesc(parseSubmissionRows(byKey.get("submissions")!));
+    submissionsCache = { value: submissions, expiresAt: now + CACHE_TTL_MS };
+  } else {
+    submissions = submissionsCache!.value;
+  }
+
+  const mySubmission = submissions.find((s) => s.email === email);
+  const pendingSubmission = mySubmission?.status === "대기중" ? mySubmission : null;
+
+  return { units, profile, pendingSubmission };
 }
 
 // 학년/반/번호/이름을 새로 제출하거나 수정할 때마다 호출해서 "다음 로그인 때 미리
