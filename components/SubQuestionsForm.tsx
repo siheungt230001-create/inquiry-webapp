@@ -19,6 +19,13 @@ function statusStorageKey(timestamp: string) {
   return `subqStatus:${timestamp}`;
 }
 
+// 보조질문 "판정"할 때마다 개별 코멘트와 함께 받는 종합(탐구 설계) 피드백 -
+// 참고용이라 진행을 막지는 않지만, 새로고침해도 남아있게 개별 코멘트와 같은
+// 방식(세션스토리지 + 서버 저장)으로 들고 다닌다.
+function designFeedbackKey(timestamp: string) {
+  return `subqDesign:${timestamp}`;
+}
+
 // 답변/답변 판정/출처는 이 화면(보조질문 만들기) 소관이 아니라 SubAnswersForm이 쓰는
 // 값이지만, saveDraft가 여기서도 같이 저장을 호출하므로 기존 값을 읽어와 그대로
 // 실어 보내야 한다 - 안 그러면 여기서 저장할 때마다 답변/출처가 빈 문자열로 덮어써진다.
@@ -68,6 +75,23 @@ function loadComments(timestamp: string): (SubQuestionCheckResult | null)[] {
   return SUB_QUESTION_CARDS.map(() => null);
 }
 
+function loadDesignFeedback(timestamp: string): string {
+  if (typeof window === "undefined") return "";
+  try {
+    return window.sessionStorage.getItem(designFeedbackKey(timestamp)) || "";
+  } catch {
+    return "";
+  }
+}
+
+function saveDesignFeedback(timestamp: string, value: string) {
+  try {
+    window.sessionStorage.setItem(designFeedbackKey(timestamp), value);
+  } catch {
+    // 사생활 보호 모드 등에서 sessionStorage 쓰기가 막혀 있어도 화면은 계속 동작하게 둔다
+  }
+}
+
 function loadCardArray<T>(key: string, fallback: T): T[] {
   if (typeof window === "undefined") return SUB_QUESTION_CARDS.map(() => fallback);
   try {
@@ -98,6 +122,7 @@ export default function SubQuestionsForm({
   const [comments, setComments] = useState<(SubQuestionCheckResult | null)[]>(
     () => SUB_QUESTION_CARDS.map(() => null)
   );
+  const [designFeedback, setDesignFeedback] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -114,6 +139,7 @@ export default function SubQuestionsForm({
     if (hasLocalData) {
       setValues(localValues);
       setComments(localComments);
+      setDesignFeedback(loadDesignFeedback(timestamp));
       return;
     }
     let cancelled = false;
@@ -130,10 +156,13 @@ export default function SubQuestionsForm({
         const nextComments = SUB_QUESTION_CARDS.map((_, i) =>
           items[i]?.status ? { status: items[i].status!, comment: items[i].comment ?? "" } : null
         );
+        const nextDesignFeedback = (data.record.subQuestionDesignFeedback as string) || "";
         setValues(nextValues);
         setComments(nextComments);
+        setDesignFeedback(nextDesignFeedback);
         saveJson(storageKey(timestamp), nextValues);
         saveJson(statusStorageKey(timestamp), nextComments);
+        saveDesignFeedback(timestamp, nextDesignFeedback);
       })
       .catch(() => {
         // 서버에서 못 불러와도 빈 값으로 계속 진행 - 원래도 처음 쓰는 학생은 빈 값으로 시작한다
@@ -146,7 +175,11 @@ export default function SubQuestionsForm({
   // 진행 상황(보조질문 + AI 판정)을 서버에 남긴다 - 다음 단계로 넘어갈 때뿐 아니라 AI
   // 코멘트를 받은 직후에도 저장해서, 학생이 그대로 탭을 닫아도 다시 들어왔을 때 이어 쓸 수
   // 있게 한다. 실패해도 부가 기능이라 화면 흐름은 막지 않는다.
-  async function saveDraft(nextValues: string[], nextComments: (SubQuestionCheckResult | null)[]) {
+  async function saveDraft(
+    nextValues: string[],
+    nextComments: (SubQuestionCheckResult | null)[],
+    nextDesignFeedback: string
+  ) {
     try {
       const answers = loadCardArray<string>(answersStorageKey(timestamp), "");
       const answerStatuses = loadCardArray<SubQuestionCheckResult | null>(
@@ -167,7 +200,12 @@ export default function SubQuestionsForm({
       await fetch("/api/inquiry-writing", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mainQuestionTimestamp: timestamp, subQuestions: items, draft: true }),
+        body: JSON.stringify({
+          mainQuestionTimestamp: timestamp,
+          subQuestions: items,
+          draft: true,
+          subQuestionDesignFeedback: nextDesignFeedback,
+        }),
       });
     } catch {
       // 무시 - 진행 상태 저장은 부가 기능
@@ -185,6 +223,12 @@ export default function SubQuestionsForm({
       nextComments[index] = null;
       setComments(nextComments);
       saveJson(statusStorageKey(timestamp), nextComments);
+    }
+    // 구성이 바뀌었으니 종합(탐구 설계) 피드백도 더 이상 맞지 않는다 - 다시 판정받아야
+    // 새로 생긴다("보조질문을 수정하고 다시 판정받으면 재생성" 요구사항).
+    if (designFeedback) {
+      setDesignFeedback("");
+      saveDesignFeedback(timestamp, "");
     }
   }
 
@@ -220,9 +264,12 @@ export default function SubQuestionsForm({
       filledIndexes.forEach((i, resultIdx) => {
         nextComments[i] = results[resultIdx] ?? null;
       });
+      const nextDesignFeedback = (data.designFeedback as string) || "";
       setComments(nextComments);
+      setDesignFeedback(nextDesignFeedback);
       saveJson(statusStorageKey(timestamp), nextComments);
-      saveDraft(values, nextComments);
+      saveDesignFeedback(timestamp, nextDesignFeedback);
+      saveDraft(values, nextComments, nextDesignFeedback);
     } catch {
       setError("서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.");
     } finally {
@@ -233,7 +280,7 @@ export default function SubQuestionsForm({
   async function goToSubAnswers() {
     // 2단계 진행 상태를 서버에 다시 한번 남겨서 교사 화면에 보이게 한다 - 실패해도
     // 부가 기능이라 학생 흐름(다음 단계 이동)은 막지 않는다.
-    await saveDraft(values, comments);
+    await saveDraft(values, comments, designFeedback);
     router.push(
       `/submit/sub-answers?ts=${encodeURIComponent(timestamp)}&q=${encodeURIComponent(mainQuestion)}&unit=${encodeURIComponent(unit)}`
     );
@@ -245,6 +292,16 @@ export default function SubQuestionsForm({
         {unit && <div className="text-xs font-medium text-[var(--color-ink-muted)]">{unit}</div>}
         <div className="mt-1 font-bold text-[var(--color-ink)]">{mainQuestion}</div>
       </div>
+
+      {designFeedback && (
+        <div className="card card-lavender p-5">
+          <p className="text-sm font-semibold text-[var(--color-lavender-deep)]">🎯 탐구 설계 피드백</p>
+          <p className="mt-2 whitespace-pre-wrap text-sm text-[var(--color-ink)]">{designFeedback}</p>
+          <p className="mt-2 text-xs text-[var(--color-ink-muted)]">
+            참고용 의견이에요 - 이대로 다음 단계로 넘어가도 괜찮아요.
+          </p>
+        </div>
+      )}
 
       {SUB_QUESTION_CARDS.map((card, i) => {
         const comment = comments[i];

@@ -49,8 +49,8 @@ export function buildSubQuestionCheckPrompt(
 
   return `[역할]
 당신은 중학생의 역사 탐구를 돕는 코치입니다. 학생이 메인 질문 하나를 여러
-보조질문으로 쪼개 봤습니다. 각 보조질문이 메인 질문과 잘 연결되는지만
-짧게 코멘트하세요.
+보조질문으로 쪼개 봤습니다. 각 보조질문이 메인 질문과 잘 연결되는지, 그리고
+보조질문 전체를 모아놓았을 때 메인 질문에 제대로 도달하는지를 코멘트하세요.
 
 [절대 규칙]
 1. 정답이나 역사적 사실, 완성된 대안 질문 문장을 대신 써주지 않는다. 방향만
@@ -66,7 +66,7 @@ ${unitReadingText}
 [학생이 만든 보조질문 목록]
 ${itemsText}
 
-[각 보조질문 채점 기준]
+[각 보조질문 채점 기준 - results]
 - 메인 질문과 관련이 있는가(주어·초점이 메인 질문에서 다루는 대상/사건과
   이어지는가)?
 - 위 [읽기자료]가 다루는 주제·시대와 완전히 다른(통째로 다른 단원 이야기인)
@@ -79,9 +79,24 @@ ${itemsText}
   제시한다.
 - 위 기준을 충분히 만족하면 "양호"로 판정하고, 잘한 점을 짧게 언급한다.
 
+[탐구 설계 종합 피드백 - designFeedback]
+개별 보조질문 판정과는 별개로, 보조질문 전체를 하나의 세트로 봤을 때
+"이 보조질문들에 다 답하면 메인 질문의 핵심적인 답에 도달할 수 있는가"를
+평가하는 코멘트를 2~4문장으로 작성한다.
+- 메인 질문이 묻는 핵심 요소 중 지금 보조질문 세트가 다루지 못한 부분이
+  있으면 짚어준다("~에 대한 보조질문이 빠진 것 같아요"처럼).
+- 반대로 메인 질문과 무관한 곁가지로 새는 보조질문이 섞여 있으면 짚어준다.
+- 구성이 이미 탄탄하면(빠진 부분·곁가지 없이 메인 질문 전체를 잘 커버하면)
+  그 점을 칭찬한다.
+- 이 피드백은 참고용이다 - 개별 보조질문의 "양호"/"수정 필요" 판정과 결론이
+  달라도(예: 개별로는 다 "양호"인데 전체 구성엔 빈틈이 있음) 괜찮다. 강제로
+  뭔가를 고치라고 다그치는 톤이 아니라, 다음 단계로 넘어가도 되는 학생에게도
+  참고할 만한 관찰을 주는 톤으로 쓴다.
+
 [출력]
-학생이 만든 보조질문 목록과 같은 순서로, 항목마다 status("양호" 또는
-"수정 필요")와 comment(1~2문장) 하나씩을 담은 배열을 반환하세요.
+- results: 학생이 만든 보조질문 목록과 같은 순서로, 항목마다 status("양호"
+  또는 "수정 필요")와 comment(1~2문장) 하나씩을 담은 배열.
+- designFeedback: 위 기준대로 작성한 탐구 설계 종합 피드백 문자열 하나.
 
 요청한 JSON 스키마에 맞춰서만 응답하세요.`;
 }
@@ -100,8 +115,9 @@ export const SUB_QUESTION_RESPONSE_SCHEMA = {
         required: ["status", "comment"],
       },
     },
+    designFeedback: { type: "STRING" },
   },
-  required: ["results"],
+  required: ["results", "designFeedback"],
 } as const;
 
 // 보조질문 "답변" 자체에 대한 피드백 - 보조질문 채점(위 buildSubQuestionCheckPrompt,
@@ -168,7 +184,15 @@ ${itemsText}
 요청한 JSON 스키마에 맞춰서만 응답하세요.`;
 }
 
-export const SUB_ANSWER_RESPONSE_SCHEMA = SUB_QUESTION_RESPONSE_SCHEMA;
+// SUB_QUESTION_RESPONSE_SCHEMA와 달리 designFeedback이 없다 - 답변 체크는 탐구
+// 설계 종합 피드백 대상이 아니다(그건 보조질문 "구성" 단계 전용).
+export const SUB_ANSWER_RESPONSE_SCHEMA = {
+  type: "OBJECT",
+  properties: {
+    results: SUB_QUESTION_RESPONSE_SCHEMA.properties.results,
+  },
+  required: ["results"],
+} as const;
 
 export function buildEssayFeedbackPrompt(
   unitTitle: string,

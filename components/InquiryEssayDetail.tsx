@@ -17,17 +17,27 @@ export function SubQuestionList({ record }: { record?: InquiryRecord }) {
     return <p className="text-xs text-zinc-400">아직 작성한 보조질문이 없어요</p>;
   }
   return (
-    <ul className="flex flex-col gap-2">
-      {subQuestions.map((s, i) => (
-        <li key={i} className="rounded-lg border border-[var(--color-cream-200)] bg-[var(--color-cream-50)] px-3 py-2 text-xs">
-          <div className="text-zinc-700">
-            <span className="text-zinc-400">[{s.label}]</span> {s.question}
-          </div>
-          <div className="mt-0.5 text-zinc-500">{s.answer ? s.answer : "(답을 안 씀)"}</div>
-          {s.source && <div className="mt-0.5 text-[11px] text-zinc-400">출처: {s.source}</div>}
-        </li>
-      ))}
-    </ul>
+    <div className="flex flex-col gap-2">
+      {record.subQuestionDesignFeedback && (
+        <div className="rounded-lg border border-[var(--color-lavender)] bg-[var(--color-lavender)]/20 px-3 py-2">
+          <p className="text-xs font-medium text-[var(--color-lavender-deep)]">🎯 탐구 설계 피드백</p>
+          <p className="mt-1 whitespace-pre-wrap text-xs text-[var(--color-ink)]">
+            {record.subQuestionDesignFeedback}
+          </p>
+        </div>
+      )}
+      <ul className="flex flex-col gap-2">
+        {subQuestions.map((s, i) => (
+          <li key={i} className="rounded-lg border border-[var(--color-cream-200)] bg-[var(--color-cream-50)] px-3 py-2 text-xs">
+            <div className="text-zinc-700">
+              <span className="text-zinc-400">[{s.label}]</span> {s.question}
+            </div>
+            <div className="mt-0.5 text-zinc-500">{s.answer ? s.answer : "(답을 안 씀)"}</div>
+            {s.source && <div className="mt-0.5 text-[11px] text-zinc-400">출처: {s.source}</div>}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 

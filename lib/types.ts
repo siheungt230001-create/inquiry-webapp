@@ -149,6 +149,11 @@ export interface InquiryRecord {
   // 안내 문구 - 채워져 있으면 introScore~totalScore는 전부 ""(미채점)이다. 빈 문자열이면
   // 정상 채점 대상. lib/subQuestionFlow.ts의 buildOffTopicEssayResult 참고.
   topicMismatch: string;
+  // 보조질문 전체(세트)가 메인 질문의 핵심에 도달하는 구성인지에 대한 AI의 종합
+  // 코멘트 - 개별 보조질문 status/comment(subQuestionsJson 안)와는 별개로 참고용이며,
+  // 이 값이 뭐든 다음 단계 진행을 막지 않는다. app/api/sub-questions/check가
+  // 보조질문을 다시 판정할 때마다 함께 재생성된다.
+  subQuestionDesignFeedback: string;
 }
 
 // 여기 새 컬럼을 추가할 땐 반드시 맨 끝에만 붙인다(중간 삽입 금지 - 실제 시트 컬럼도
@@ -174,6 +179,7 @@ export const INQUIRY_COLUMNS: (keyof InquiryRecord)[] = [
   "factScore",
   "teacherFeedback",
   "topicMismatch",
+  "subQuestionDesignFeedback",
 ];
 
 // "학생_프로필" 시트의 한 행 - 로그인 계정(email)마다 최근 입력한 학년/반/번호/이름을

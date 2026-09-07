@@ -49,6 +49,7 @@ export async function GET(request: Request) {
       comment: record.comment,
       factScore: record.factScore,
       topicMismatch: record.topicMismatch,
+      subQuestionDesignFeedback: record.subQuestionDesignFeedback,
     },
   });
 }
@@ -67,6 +68,10 @@ export async function POST(request: Request) {
     body: bodyText = "",
     conclusion = "",
     draft = false,
+    // 보조질문 만들기 화면(SubQuestionsForm)만 이 필드를 채워서 보낸다 - 그 외
+    // 화면(보조질문 답변/종합 글쓰기)의 자동 저장은 이 값을 모르므로 아예 안 보내고,
+    // 그럴 땐 기존 값을 그대로 유지한다(teacherFeedback과 같은 보존 패턴).
+    subQuestionDesignFeedback,
   } = body || {};
 
   if (!mainQuestionTimestamp || !Array.isArray(subQuestions)) {
@@ -98,6 +103,10 @@ export async function POST(request: Request) {
   // 덮어쓰는" 사고).
   const existingForFeedback = await getInquiryRecord(email, mainQuestionTimestamp);
   const teacherFeedback = existingForFeedback?.teacherFeedback ?? "";
+  const resolvedDesignFeedback =
+    subQuestionDesignFeedback !== undefined
+      ? subQuestionDesignFeedback
+      : existingForFeedback?.subQuestionDesignFeedback ?? "";
 
   // 진행중 저장(보조질문 작성/보조질문 답변/종합 글쓰기 초안 전부 여기로 온다) - 아직
   // "제출하기"를 안 눌렀으니 AI 채점 없이 지금까지 쓴 내용만 그대로 남긴다. intro/body/
@@ -142,6 +151,7 @@ export async function POST(request: Request) {
       // 학생이 글을 다시 고치기 시작했다는 뜻이니, 예전 "단원 확인 필요" 표시는
       // 지운다 - 재채점(제출하기) 전까지는 그냥 "작성 중"으로 보여야 한다.
       topicMismatch: "",
+      subQuestionDesignFeedback: resolvedDesignFeedback,
     };
     try {
       await upsertInquiryRecord(record);
@@ -205,6 +215,7 @@ export async function POST(request: Request) {
     factScore: isOffTopic ? "" : scoreResult.factScore,
     teacherFeedback,
     topicMismatch: scoreResult.topicMismatch ?? "",
+    subQuestionDesignFeedback: resolvedDesignFeedback,
   };
 
   try {
