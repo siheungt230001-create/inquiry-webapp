@@ -16,6 +16,10 @@ const UNIT_SHEET_NAME = "단원_자료";
 const LOG_SHEET_NAME = "제출_판정_로그";
 const INQUIRY_SHEET_NAME = "탐구_글쓰기_기록";
 const STUDENT_PROFILE_SHEET_NAME = "학생_프로필";
+// 학생이 스스로 학년/반/번호/이름을 고칠 때(app/api/profile POST)마다 한 행씩 쌓는
+// 감사 로그 - 이상한 변경이 있었는지 교사가 나중에 시트에서 직접 확인할 수 있게 남긴다.
+// 별도 대시보드 화면은 없다(요청 시 "구현 부담 크면 생략 가능"이라고 명시된 부가 기능).
+const PROFILE_LOG_SHEET_NAME = "프로필_변경_로그";
 
 // SubmissionRow에서 number | "" 타입인 컬럼들. types.ts와 반드시 일치시킬 것.
 const NUMERIC_COLUMNS = new Set<keyof SubmissionRow>([
@@ -39,11 +43,19 @@ const NUMERIC_INQUIRY_COLUMNS = new Set<keyof InquiryRecord>([
 // ===== 데모 모드: 로컬 JSON 파일 저장소 =====
 const DEMO_FILE = path.join(process.cwd(), "data", "demo-store.json");
 
+interface ProfileChangeLogEntry {
+  timestamp: string;
+  email: string;
+  before: { grade: string; ban: string; no: string; name: string };
+  after: { grade: string; ban: string; no: string; name: string };
+}
+
 interface DemoStore {
   units: { title: string; readingText: string }[];
   submissions: SubmissionRow[];
   inquiryRecords: InquiryRecord[];
   studentProfiles: StudentProfile[];
+  profileChangeLogs: ProfileChangeLogEntry[];
 }
 
 const SEED_UNIT = {
@@ -95,9 +107,16 @@ async function readDemoStore(): Promise<DemoStore> {
       if (s.grade === undefined) s.grade = "";
     }
     if (!parsed.studentProfiles) parsed.studentProfiles = [];
+    if (!parsed.profileChangeLogs) parsed.profileChangeLogs = [];
     return parsed;
   } catch {
-    const initial: DemoStore = { units: [SEED_UNIT], submissions: [], inquiryRecords: [], studentProfiles: [] };
+    const initial: DemoStore = {
+      units: [SEED_UNIT],
+      submissions: [],
+      inquiryRecords: [],
+      studentProfiles: [],
+      profileChangeLogs: [],
+    };
     await fs.mkdir(path.dirname(DEMO_FILE), { recursive: true });
     await fs.writeFile(DEMO_FILE, JSON.stringify(initial, null, 2));
     return initial;
@@ -782,6 +801,47 @@ export async function upsertStudentProfile(
     );
   }
   studentProfileCache.delete(profile.email); // 방금 쓴 값이 다음 읽기에 바로 반영되게
+}
+
+// 학생이 "내 정보 수정" 화면(app/api/profile POST)에서 직접 학년/반/번호/이름을 바꿀
+// 때마다 한 행 남긴다 - 실패해도 실제 프로필 갱신 자체를 막으면 안 되므로 호출부에서
+// 항상 .catch(() => {})로 감싸 쓴다.
+export async function appendProfileChangeLog(
+  email: string,
+  before: { grade: string; ban: string; no: string; name: string },
+  after: { grade: string; ban: string; no: string; name: string }
+): Promise<void> {
+  const timestamp = new Date().toISOString();
+  if (DEMO_MODE) {
+    const store = await readDemoStore();
+    store.profileChangeLogs.push({ timestamp, email, before, after });
+    await writeDemoStore(store);
+    return;
+  }
+  const sheets = getSheetsClient();
+  const values = [
+    [
+      timestamp,
+      email,
+      before.grade,
+      before.ban,
+      before.no,
+      before.name,
+      after.grade,
+      after.ban,
+      after.no,
+      after.name,
+    ],
+  ];
+  await withRetry(() =>
+    sheets.spreadsheets.values.append({
+      spreadsheetId: process.env.SPREADSHEET_ID,
+      range: `${PROFILE_LOG_SHEET_NAME}!A1`,
+      valueInputOption: "RAW",
+      insertDataOption: "INSERT_ROWS",
+      requestBody: { values },
+    })
+  );
 }
 
 export function isDemoMode(): boolean {

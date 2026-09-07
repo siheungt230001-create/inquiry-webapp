@@ -35,6 +35,9 @@ export default async function Home() {
               <Link href="/history" className="btn-secondary">
                 내 제출 이력 보기
               </Link>
+              <Link href="/profile" className="text-xs text-[var(--color-ink-muted)] underline">
+                학년/반/번호가 잘못됐나요? 내 정보 수정하기
+              </Link>
               <div className="mt-2">
                 <SignOutButton />
               </div>

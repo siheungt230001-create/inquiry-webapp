@@ -4,7 +4,7 @@ import { auth } from "@/auth";
 import { gradeSubmission, gradingResultToSubmissionFields } from "@/lib/gradeSubmission";
 import { GEMINI_RATE_LIMIT_PER_MINUTE } from "@/lib/gemini";
 import { appendSubmission, checkAbuseFlag, getSubmissionsByEmail, upsertStudentProfile } from "@/lib/sheets";
-import { formatRound } from "@/lib/constants";
+import { formatRound, validateProfileNumbers } from "@/lib/constants";
 import type { SubmissionRow } from "@/lib/types";
 
 // QSTASH_TOKEN이 설정돼 있으면(Upstash QStash 계정 연결됨) 채점을 큐에 태워서
@@ -56,6 +56,10 @@ export async function POST(request: Request) {
       { error: "질문을 조금 더 구체적으로 적어주세요." },
       { status: 400 }
     );
+  }
+  const profileError = validateProfileNumbers(String(grade), String(ban), String(no));
+  if (profileError) {
+    return NextResponse.json({ error: profileError }, { status: 400 });
   }
 
   const email = session.user.email;

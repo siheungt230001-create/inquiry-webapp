@@ -1,18 +1,14 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { SELF_LEVEL_LIST } from "@/lib/constants";
+import { SELF_LEVEL_LIST, validateProfileNumbers } from "@/lib/constants";
 import type { GradingResult } from "@/lib/types";
 import { approvalBadgeClass, CRITERIA_ACCENTS } from "@/lib/badge";
 import AutoTextarea from "./AutoTextarea";
+import { Field, ProfileFields, type ProfileFieldsValue } from "./ProfileFields";
 import { BoltIcon } from "./icons";
 
-interface Profile {
-  grade: string;
-  ban: string;
-  no: string;
-  name: string;
-}
+type Profile = ProfileFieldsValue;
 
 const EMPTY_PROFILE: Profile = { grade: "", ban: "", no: "", name: "" };
 
@@ -194,8 +190,13 @@ export default function SubmitForm() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    setLoading(true);
     setError(null);
+    const validationError = validateProfileNumbers(profile.grade, profile.ban, profile.no);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+    setLoading(true);
     setResult(null);
 
     try {
@@ -267,41 +268,7 @@ export default function SubmitForm() {
 
   return (
     <form onSubmit={handleSubmit} className="card flex flex-col gap-4 p-6">
-      <div className="grid grid-cols-4 gap-3">
-        <Field label="학년">
-          <input
-            value={profile.grade}
-            onChange={(e) => updateProfile({ grade: e.target.value })}
-            className="input"
-            placeholder="예: 3"
-            required
-          />
-        </Field>
-        <Field label="반">
-          <input
-            value={profile.ban}
-            onChange={(e) => updateProfile({ ban: e.target.value })}
-            className="input"
-            placeholder="예: 3"
-          />
-        </Field>
-        <Field label="번호">
-          <input
-            value={profile.no}
-            onChange={(e) => updateProfile({ no: e.target.value })}
-            className="input"
-            placeholder="예: 12"
-          />
-        </Field>
-        <Field label="이름">
-          <input
-            value={profile.name}
-            onChange={(e) => updateProfile({ name: e.target.value })}
-            className="input"
-            placeholder="이름"
-          />
-        </Field>
-      </div>
+      <ProfileFields value={profile} onChange={updateProfile} />
 
       <Field label="제출 주제 (단원)">
         <select value={unit} onChange={(e) => setUnit(e.target.value)} className="input" required>
@@ -358,15 +325,6 @@ export default function SubmitForm() {
         {loading ? "AI가 질문을 살펴보는 중..." : "제출하기"}
       </button>
     </form>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="flex flex-col gap-1">
-      <span className="text-xs font-medium text-[var(--color-ink-soft)]">{label}</span>
-      {children}
-    </label>
   );
 }
 

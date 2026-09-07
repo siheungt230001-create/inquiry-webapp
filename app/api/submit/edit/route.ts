@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { gradeSubmission, gradingResultToSubmissionFields } from "@/lib/gradeSubmission";
 import { getSubmissionsByEmail, updateSubmissionResult, upsertStudentProfile } from "@/lib/sheets";
+import { validateProfileNumbers } from "@/lib/constants";
 
 // 이미 제출한 메인 질문을 고치는 화면(components/EditQuestionForm.tsx)용 - 같은
 // 행(email+timestamp)을 그대로 덮어쓴다. 새 행으로 취급하면 이미 진행 중인 보조질문/
@@ -63,6 +64,10 @@ export async function POST(request: Request) {
       { error: "질문을 조금 더 구체적으로 적어주세요." },
       { status: 400 }
     );
+  }
+  const profileError = validateProfileNumbers(String(grade), String(ban), String(no));
+  if (profileError) {
+    return NextResponse.json({ error: profileError }, { status: 400 });
   }
 
   const email = session.user.email;

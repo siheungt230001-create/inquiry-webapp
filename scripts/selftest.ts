@@ -13,6 +13,7 @@ import {
   computeFinalStatus,
 } from "../lib/rubric";
 import { gradingResultToSubmissionFields } from "../lib/gradeSubmission";
+import { validateProfileNumbers } from "../lib/constants";
 
 function assert(cond: unknown, msg: string) {
   if (!cond) {
@@ -196,6 +197,17 @@ async function testModelFallback() {
 
   global.fetch = originalFetch;
 }
+
+// 2026-09-07 학년/반/번호 오타("30123"처럼 자릿수가 어긋난 값)가 시트에 그대로
+// 들어가지 못하게 막는 범위 검증 - app/api/submit, app/api/submit/edit,
+// app/api/profile(내 정보 수정) 세 곳이 공유하는 함수라 여기서 한 번만 확인한다.
+assert(validateProfileNumbers("3", "1", "23") === null, "정상 범위(3학년 1반 23번)는 통과");
+assert(validateProfileNumbers("3", "", "") === null, "반/번호는 비어 있어도 통과(선택 입력)");
+assert(validateProfileNumbers("30123", "1", "23") !== null, "학년에 자릿수 어긋난 값(30123)은 거부");
+assert(validateProfileNumbers("4", "1", "23") !== null, "범위를 벗어난 학년(4)은 거부");
+assert(validateProfileNumbers("", "1", "23") !== null, "학년이 비어 있으면 거부(필수 입력)");
+assert(validateProfileNumbers("3", "99", "23") !== null, "범위를 벗어난 반(99)은 거부");
+assert(validateProfileNumbers("3", "1", "abc") !== null, "숫자가 아닌 번호는 거부");
 
 (async () => {
   await testCallGeminiSuccess();

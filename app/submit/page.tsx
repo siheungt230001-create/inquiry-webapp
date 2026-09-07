@@ -15,9 +15,14 @@ export default async function SubmitPage() {
           <Link href="/" className="flex items-center gap-1 rounded-full bg-[var(--color-cream-200)] px-3 py-1.5 text-sm font-medium text-[var(--color-ink-soft)] hover:bg-[var(--color-lavender)] hover:text-[var(--color-pink-deep)]">
             <ArrowLeftIcon /> 처음으로
           </Link>
-          <Link href="/history" className="rounded-full bg-[var(--color-cream-200)] px-3 py-1.5 text-sm font-medium text-[var(--color-ink-soft)] hover:bg-[var(--color-lavender)] hover:text-[var(--color-pink-deep)]">
-            내 제출 이력 →
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link href="/profile" className="rounded-full bg-[var(--color-cream-200)] px-3 py-1.5 text-sm font-medium text-[var(--color-ink-soft)] hover:bg-[var(--color-lavender)] hover:text-[var(--color-pink-deep)]">
+              내 정보 수정
+            </Link>
+            <Link href="/history" className="rounded-full bg-[var(--color-cream-200)] px-3 py-1.5 text-sm font-medium text-[var(--color-ink-soft)] hover:bg-[var(--color-lavender)] hover:text-[var(--color-pink-deep)]">
+              내 제출 이력 →
+            </Link>
+          </div>
         </div>
         <h1 className="font-heading text-2xl text-[var(--color-ink)]">탐구 질문 제출하기</h1>
         <p className="mt-1 text-sm text-[var(--color-ink-soft)]">

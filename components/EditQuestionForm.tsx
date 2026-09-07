@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { SELF_LEVEL_LIST } from "@/lib/constants";
+import { SELF_LEVEL_LIST, validateProfileNumbers } from "@/lib/constants";
 import AutoTextarea from "./AutoTextarea";
+import { Field, ProfileFields } from "./ProfileFields";
 
 interface EditableFields {
   grade: string;
@@ -27,6 +28,7 @@ export default function EditQuestionForm({ timestamp }: { timestamp: string }) {
 
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
   const [saved, setSaved] = useState<{ regraded: boolean; result?: { level: string; score: number; approval: string } } | null>(null);
 
   useEffect(() => {
@@ -57,8 +59,14 @@ export default function EditQuestionForm({ timestamp }: { timestamp: string }) {
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     if (!fields) return;
-    setSaving(true);
     setSaveError(null);
+    const error = validateProfileNumbers(fields.grade, fields.ban, fields.no);
+    if (error) {
+      setValidationError(error);
+      return;
+    }
+    setValidationError(null);
+    setSaving(true);
     try {
       const res = await fetch("/api/submit/edit", {
         method: "POST",
@@ -100,25 +108,14 @@ export default function EditQuestionForm({ timestamp }: { timestamp: string }) {
 
   return (
     <form onSubmit={handleSave} className="card flex flex-col gap-4 p-6">
-      <div className="grid grid-cols-4 gap-3">
-        <Field label="학년">
-          <input
-            value={fields.grade}
-            onChange={(e) => update("grade", e.target.value)}
-            className="input"
-            required
-          />
-        </Field>
-        <Field label="반">
-          <input value={fields.ban} onChange={(e) => update("ban", e.target.value)} className="input" />
-        </Field>
-        <Field label="번호">
-          <input value={fields.no} onChange={(e) => update("no", e.target.value)} className="input" />
-        </Field>
-        <Field label="이름">
-          <input value={fields.name} onChange={(e) => update("name", e.target.value)} className="input" />
-        </Field>
-      </div>
+      <ProfileFields
+        value={{ grade: fields.grade, ban: fields.ban, no: fields.no, name: fields.name }}
+        onChange={(next) => {
+          for (const [key, value] of Object.entries(next)) {
+            update(key as keyof EditableFields, value as string);
+          }
+        }}
+      />
 
       <Field label="제출 주제 (단원)">
         <select value={fields.unit} onChange={(e) => update("unit", e.target.value)} className="input" required>
@@ -158,6 +155,12 @@ export default function EditQuestionForm({ timestamp }: { timestamp: string }) {
         />
       </Field>
 
+      {validationError && (
+        <p className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">
+          {validationError}
+        </p>
+      )}
+
       {saveError && (
         <p className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">
           {saveError}
@@ -192,14 +195,5 @@ export default function EditQuestionForm({ timestamp }: { timestamp: string }) {
         )}
       </div>
     </form>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="flex flex-col gap-1">
-      <span className="text-xs font-medium text-[var(--color-ink-soft)]">{label}</span>
-      {children}
-    </label>
   );
 }

@@ -29,6 +29,9 @@ export default async function HistoryPage() {
             <ArrowLeftIcon /> 처음으로
           </Link>
           <div className="flex items-center gap-3">
+            <Link href="/profile" className="rounded-full bg-[var(--color-cream-200)] px-3 py-1.5 text-sm font-medium text-[var(--color-ink-soft)] hover:bg-[var(--color-lavender)] hover:text-[var(--color-pink-deep)]">
+              내 정보 수정
+            </Link>
             {latestEssayHref && (
               <Link href={latestEssayHref} className="rounded-full bg-[var(--color-cream-200)] px-3 py-1.5 text-sm font-medium text-[var(--color-ink-soft)] hover:bg-[var(--color-lavender)] hover:text-[var(--color-pink-deep)]">
                 종합 글쓰기로 돌아가기

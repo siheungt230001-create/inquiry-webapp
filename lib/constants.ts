@@ -1,4 +1,31 @@
 export const ROUND_LIST = ["1차", "2차", "3차", "4차", "5차 이상"];
+
+// 학년/반/번호 오타(예: "30123"처럼 자릿수가 어긋난 값)가 시트에 그대로 들어가는 걸
+// 막기 위한 합리적 범위 - 중학교 기준(학년 1~3), 반/번호는 실제 운영 규모보다
+// 넉넉하게 잡았다(작은 학교의 큰 학급 번호까지 커버).
+export const GRADE_RANGE = { min: 1, max: 3 };
+export const BAN_RANGE = { min: 1, max: 20 };
+export const NO_RANGE = { min: 1, max: 40 };
+
+// 학년은 필수, 반/번호는 기존처럼 선택 입력(빈 값 허용)이지만 값이 있으면 범위를
+// 벗어나지 않는지 검사한다. app/api/submit, app/api/submit/edit, app/api/profile
+// (자기 정보 수정) 세 곳이 이 함수 하나만 공유해서 검증 기준이 어긋나지 않게 한다.
+export function validateProfileNumbers(grade: string, ban: string, no: string): string | null {
+  const inRange = (v: string, range: { min: number; max: number }) => {
+    const n = Number(v);
+    return Number.isInteger(n) && n >= range.min && n <= range.max;
+  };
+  if (!grade.trim() || !inRange(grade, GRADE_RANGE)) {
+    return `학년은 ${GRADE_RANGE.min}~${GRADE_RANGE.max} 사이 숫자로 입력해주세요.`;
+  }
+  if (ban.trim() && !inRange(ban, BAN_RANGE)) {
+    return `반은 ${BAN_RANGE.min}~${BAN_RANGE.max} 사이 숫자로 입력해주세요.`;
+  }
+  if (no.trim() && !inRange(no, NO_RANGE)) {
+    return `번호는 ${NO_RANGE.min}~${NO_RANGE.max} 사이 숫자로 입력해주세요.`;
+  }
+  return null;
+}
 export const SELF_LEVEL_LIST = [
   "L1 사실 확인형",
   "L2 분석형",
