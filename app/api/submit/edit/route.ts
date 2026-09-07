@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { gradeSubmission } from "@/lib/gradeSubmission";
+import { gradeSubmission, gradingResultToSubmissionFields } from "@/lib/gradeSubmission";
 import { getSubmissionsByEmail, updateSubmissionResult, upsertStudentProfile } from "@/lib/sheets";
 
 // 이미 제출한 메인 질문을 고치는 화면(components/EditQuestionForm.tsx)용 - 같은
@@ -110,18 +110,7 @@ export async function POST(request: Request) {
       selfLevel,
       textbookLink,
       status: "완료",
-      aiLevel: result.level,
-      levelTrack: result.track,
-      levelBand: result.band,
-      aiScore: result.score,
-      fact: result.criteria_scores.fact_accuracy,
-      causal: result.criteria_scores.causal_depth,
-      compare: result.criteria_scores.comparison_clarity,
-      sentence: result.criteria_scores.sentence_clarity,
-      integration: result.criteria_scores.integration_depth,
-      approval: result.approval,
-      mismatch: result.self_assessment_mismatch || "",
-      feedback: result.feedback_text,
+      ...gradingResultToSubmissionFields(result),
       processedAt: new Date().toISOString(),
     });
     if (!ok) {

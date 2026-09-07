@@ -61,6 +61,14 @@ export function EssayDetailSection({ record }: { record?: InquiryRecord }) {
     return <p className="text-xs text-zinc-400">아직 보조질문 단계로 넘어가지 않았어요</p>;
   }
 
+  if (record.topicMismatch) {
+    return (
+      <p className="rounded-lg bg-[var(--color-alert-bg)] border border-[var(--color-alert-text)]/30 px-3 py-2 text-xs font-medium text-[var(--color-alert-text)]">
+        단원 확인 필요 - {record.topicMismatch}
+      </p>
+    );
+  }
+
   if (record.totalScore === "") {
     return (
       <p className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">

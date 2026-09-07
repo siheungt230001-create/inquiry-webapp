@@ -2,13 +2,8 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getAllInquiryRecords, getInquiryRecord, getSubmissionsByEmail, upsertInquiryRecord } from "@/lib/sheets";
 import { isTeacherEmail } from "@/lib/teacher-auth";
-import { callGeminiGeneric } from "@/lib/gemini";
-import {
-  buildEssayFeedbackPrompt,
-  ESSAY_RESPONSE_SCHEMA,
-  computeEssayTotal,
-  type EssayFeedbackResult,
-} from "@/lib/subQuestionFlow";
+import { gradeEssay } from "@/lib/gradeEssay";
+import { computeEssayTotal } from "@/lib/subQuestionFlow";
 import { hashEssayInputs, recallEssayFeedback, rememberEssayFeedback } from "@/lib/essayFeedbackCache";
 import type { InquiryRecord, InquirySubQuestion } from "@/lib/types";
 
@@ -53,6 +48,7 @@ export async function GET(request: Request) {
       totalScore: record.totalScore,
       comment: record.comment,
       factScore: record.factScore,
+      topicMismatch: record.topicMismatch,
     },
   });
 }
@@ -143,6 +139,9 @@ export async function POST(request: Request) {
       comment: existing?.comment ?? "",
       factScore: existing?.factScore ?? "",
       teacherFeedback,
+      // 학생이 글을 다시 고치기 시작했다는 뜻이니, 예전 "단원 확인 필요" 표시는
+      // 지운다 - 재채점(제출하기) 전까지는 그냥 "작성 중"으로 보여야 한다.
+      topicMismatch: "",
     };
     try {
       await upsertInquiryRecord(record);
@@ -170,14 +169,7 @@ export async function POST(request: Request) {
   let scoreResult = recallEssayFeedback(cacheKey, inputHash);
   if (!scoreResult) {
     try {
-      const scorePrompt = buildEssayFeedbackPrompt(
-        mainRow.question,
-        formattedSubQuestions,
-        intro,
-        bodyText,
-        conclusion
-      );
-      scoreResult = await callGeminiGeneric<EssayFeedbackResult>(scorePrompt, ESSAY_RESPONSE_SCHEMA);
+      scoreResult = await gradeEssay(mainRow.unit, mainRow.question, formattedSubQuestions, intro, bodyText, conclusion);
       rememberEssayFeedback(cacheKey, inputHash, scoreResult);
     } catch (err) {
       const message = (err as Error).message;
@@ -188,6 +180,10 @@ export async function POST(request: Request) {
     }
   }
 
+  // 단원과 무관하다고 판정되면 점수를 아예 저장하지 않는다("" = 미채점) - 반별
+  // 평균·완료 집계에서 미제출과 똑같이 빠지게 하려면 0점이 아니라 빈 값이어야 한다
+  // (lib/aggregate.ts는 record.totalScore로 "완료" 여부를 가른다).
+  const isOffTopic = Boolean(scoreResult.topicMismatch);
   const record: InquiryRecord = {
     timestamp: new Date().toISOString(),
     email,
@@ -201,13 +197,14 @@ export async function POST(request: Request) {
     intro,
     body: bodyText,
     conclusion,
-    introScore: scoreResult.introScore,
-    bodyScore: scoreResult.bodyScore,
-    conclusionScore: scoreResult.conclusionScore,
-    totalScore: computeEssayTotal(scoreResult),
-    comment: scoreResult.comment,
-    factScore: scoreResult.factScore,
+    introScore: isOffTopic ? "" : scoreResult.introScore,
+    bodyScore: isOffTopic ? "" : scoreResult.bodyScore,
+    conclusionScore: isOffTopic ? "" : scoreResult.conclusionScore,
+    totalScore: isOffTopic ? "" : computeEssayTotal(scoreResult),
+    comment: isOffTopic ? "" : scoreResult.comment,
+    factScore: isOffTopic ? "" : scoreResult.factScore,
     teacherFeedback,
+    topicMismatch: scoreResult.topicMismatch ?? "",
   };
 
   try {

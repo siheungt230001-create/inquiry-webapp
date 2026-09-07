@@ -384,10 +384,30 @@ function ResultCard({
   onEdit: () => void;
 }) {
   const approved = result.approval === "승인";
+  const isOffTopic = result.approval === "단원 확인 필요";
   const [finalStatus, setFinalStatus] = useState<string | null>(null);
   const [finalizing, setFinalizing] = useState(false);
   const [finalizeError, setFinalizeError] = useState<string | null>(null);
   const displayApproval = finalStatus || result.approval;
+
+  // 단원과 무관한 질문 - 점수/승인 자체가 없으므로 점수 카드 대신 안내만 보여주고
+  // 바로 수정하게 한다("질문 제출하기"로 확정할 값 자체가 없다).
+  if (isOffTopic) {
+    return (
+      <div className="card p-6">
+        <p className="font-semibold text-[var(--color-ink)]">{question}</p>
+        <div className="mt-3">
+          <span className={approvalBadgeClass(result.approval)}>{result.approval}</span>
+        </div>
+        <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-[var(--color-ink)]">
+          {result.feedback_text}
+        </p>
+        <button onClick={onEdit} className="btn-primary mt-6 w-full">
+          질문 수정하기
+        </button>
+      </div>
+    );
+  }
 
   async function handleFinalize() {
     setFinalizing(true);

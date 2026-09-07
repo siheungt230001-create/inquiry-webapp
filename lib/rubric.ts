@@ -2,7 +2,7 @@
 // 프롬프트 내용을 바꿀 때는 이 파일과 apps_script_자동화.gs(Apps Script 버전을 계속 쓰는 경우)
 // 양쪽을 같이 수정해야 두 시스템의 채점 기준이 어긋나지 않습니다.
 
-import type { CriteriaScores } from "./types";
+import type { CriteriaScores, GradingResult } from "./types";
 
 export type Track = "L1" | "L2" | "L3" | "L4";
 
@@ -97,6 +97,25 @@ ${unitReadingText}
 - 제출 주제: ${unitTitle}
 - 학생 질문: "${studentQuestion}"
 - 학생이 스스로 예상한 레벨: ${selfAssessedLevel}
+
+[0. 단원 관련성 확인 - 반드시 아래 채점보다 먼저 판단]
+학생 질문이 [읽기자료]가 다루는 주제·시대·사건과 관련이 있는지 먼저 확인한다.
+- topic_relevant는 "완전히 다른 주제/단원"일 때만 false로 판정하는 매우 엄격한
+  기준이다. 예를 들어 [읽기자료]가 고려 후기(몽골 간섭기)를 다루는데 질문이
+  조선 후기 실학이나 현재 정치 이야기처럼 시대·사건 자체가 통째로 다르면 false다.
+- 아래는 모두 topic_relevant = true(관련 있음)로 판정한다:
+  · [읽기자료]에 나온 인물·사건·정책을 다른 시대·국가와 "비교"하는 질문
+    (비교 대상이 자료 밖이어도 비교의 축이 자료 내용이면 관련 있음).
+  · [읽기자료] 안의 특정 문장·단락 하나만 다루거나, 자료 전체가 아니라 일부만
+    언급하는 질문.
+  · 표현이 서툴거나 모호해서 무엇을 묻는지 애매한 질문 - 애매함은 아래 채점
+    항목(문장 명료성 등)에서 감점하되, 그것만으로 topic_relevant를 false로
+    만들지 않는다.
+  · 자료에 등장하는 소재를 자료 밖 관점(예: 오늘날 시각, 다른 인물의 입장)에서
+    묻는 질문.
+- topic_relevant가 false면 나머지 채점 항목(criteria_scores 등)은 그냥 전부
+  0으로 채우고 feedback_text는 빈 문자열로 둔다 - 코드가 별도로 안내 문구를
+  구성하므로 여기서 지어내지 않는다.
 
 [4가지 질문 틀 및 구조 점검]
 학생 질문을 아래 4가지 틀 중 가장 가까운 유형으로 먼저 분류하고, "구조적 결함"이
@@ -249,10 +268,37 @@ export function computeFinalStatus(
   return isManuallySubmitted ? "제출완료(미승인)" : "재제출";
 }
 
+// 질문이 [읽기자료]와 완전히 다른 주제/단원일 때 코드가 직접 만드는 결과 - Gemini의
+// criteria_scores/feedback_text를 아예 쓰지 않는다(관련 없는 질문에 점수를 매기는 것
+// 자체가 의미 없고, 학생에게 "숫자 점수"라는 잘못된 신호를 주지 않기 위함). 이 결과를
+// 받은 쪽(app/api/submit/route.ts 등)은 aiScore/fact~integration을 전부 ""(빈 값)로
+// 시트에 남겨서 반별 평균·승인 건수 집계에서 미제출과 똑같이 빠지게 한다
+// (lib/aggregate.ts는 aiScore가 number일 때만 평균에 넣고, approval==="승인"일
+// 때만 승인 건수에 넣으므로 별도 집계 코드 수정이 필요 없다).
+export function buildOffTopicResult(unitTitle: string): GradingResult {
+  return {
+    level: "",
+    track: "",
+    band: "",
+    score: 0,
+    criteria_scores: {
+      fact_accuracy: 0,
+      causal_depth: 0,
+      comparison_clarity: 0,
+      sentence_clarity: 0,
+      integration_depth: 0,
+    },
+    approval: "단원 확인 필요",
+    self_assessment_mismatch: "",
+    feedback_text: `이 질문은 제시된 단원(${unitTitle}) 내용과 관련이 없어 보입니다. 단원 자료를 참고해서 다시 질문을 작성해주세요.`,
+  };
+}
+
 // Gemini에게 응답 형식을 강제하는 스키마 (JSON 모드) - RESPONSE_SCHEMA와 동일
 export const RESPONSE_SCHEMA = {
   type: "OBJECT",
   properties: {
+    topic_relevant: { type: "BOOLEAN" },
     level: { type: "STRING", enum: ["L1", "L2", "L3", "L4"] },
     score: { type: "NUMBER" },
     criteria_scores: {
@@ -277,6 +323,7 @@ export const RESPONSE_SCHEMA = {
     feedback_text: { type: "STRING" },
   },
   required: [
+    "topic_relevant",
     "level",
     "score",
     "criteria_scores",

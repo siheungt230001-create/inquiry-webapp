@@ -1,5 +1,7 @@
 // 채점 결과 타입 - apps_script_자동화.gs의 RESPONSE_SCHEMA와 1:1로 대응합니다.
-export type Approval = "승인" | "재제출" | "제출완료(미승인)";
+// "단원 확인 필요": 질문이 제시된 단원 자료와 무관한 주제라고 AI가 판단했을 때 -
+// 점수를 아예 매기지 않고 이 상태로만 표시한다(lib/rubric.ts의 buildOffTopicResult).
+export type Approval = "승인" | "재제출" | "제출완료(미승인)" | "단원 확인 필요";
 
 export interface CriteriaScores {
   fact_accuracy: number;
@@ -143,6 +145,10 @@ export interface InquiryRecord {
   // comment(글쓰기 총평)와는 완전히 별개. 교사 대시보드에서 쓰고, 학생 /history에서
   // 읽기 전용으로 보인다.
   teacherFeedback: string;
+  // 종합 글쓰기가 제시된 단원 자료와 무관한 내용이라고 AI가 판단했을 때만 채워지는
+  // 안내 문구 - 채워져 있으면 introScore~totalScore는 전부 ""(미채점)이다. 빈 문자열이면
+  // 정상 채점 대상. lib/subQuestionFlow.ts의 buildOffTopicEssayResult 참고.
+  topicMismatch: string;
 }
 
 // 여기 새 컬럼을 추가할 땐 반드시 맨 끝에만 붙인다(중간 삽입 금지 - 실제 시트 컬럼도
@@ -167,6 +173,7 @@ export const INQUIRY_COLUMNS: (keyof InquiryRecord)[] = [
   "comment",
   "factScore",
   "teacherFeedback",
+  "topicMismatch",
 ];
 
 // "학생_프로필" 시트의 한 행 - 로그인 계정(email)마다 최근 입력한 학년/반/번호/이름을

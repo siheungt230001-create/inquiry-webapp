@@ -88,6 +88,7 @@ async function readDemoStore(): Promise<DemoStore> {
       if (r.factScore === undefined) r.factScore = "";
       if (r.comment === undefined) r.comment = "";
       if (r.teacherFeedback === undefined) r.teacherFeedback = "";
+      if (r.topicMismatch === undefined) r.topicMismatch = "";
     }
     for (const s of parsed.submissions) {
       if (s.grade === undefined) s.grade = "";
@@ -637,6 +638,7 @@ export async function upsertTeacherFeedback(
         comment: "",
         factScore: "",
         teacherFeedback,
+        topicMismatch: "",
       };
   await upsertInquiryRecord(record);
 }

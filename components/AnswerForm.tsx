@@ -184,10 +184,12 @@ export default function AnswerForm({
   const [error, setError] = useState<string | null>(null);
   const [comment, setComment] = useState<string | null>(null);
   const [scores, setScores] = useState<EssayScores | null>(null);
+  const [topicMismatch, setTopicMismatch] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [submitScores, setSubmitScores] = useState<EssayScores | null>(null);
+  const [submitTopicMismatch, setSubmitTopicMismatch] = useState<string | null>(null);
 
   // sessionStorage에 값이 있으면 그대로 쓰고, 비어 있으면(탭을 닫았다 열거나 다른 기기)
   // 서버(시트)에 남은 진행 상황을 대신 불러온다.
@@ -238,6 +240,11 @@ export default function AnswerForm({
         setSubQAs(toApprovedSubQAs(nextFull));
         setEssay(nextEssay);
         saveJson(essayKey(timestamp), nextEssay);
+        // 지난번 "제출하기"가 단원 확인 필요로 끝났고 그 뒤로 다시 고치지 않았다면
+        // (topicMismatch가 아직 남아있다면) 새로고침/재접속 후에도 그 안내를 그대로 보여준다.
+        if (data.record.topicMismatch) {
+          setSubmitTopicMismatch(data.record.topicMismatch as string);
+        }
         setLoaded(true);
       })
       .catch(() => setLoaded(true));
@@ -287,6 +294,7 @@ export default function AnswerForm({
     setError(null);
     setComment(null);
     setScores(null);
+    setTopicMismatch(null);
     try {
       const res = await fetch("/api/essay-feedback", {
         method: "POST",
@@ -303,6 +311,10 @@ export default function AnswerForm({
       const data = await res.json();
       if (!res.ok) {
         setError(data.error || "알 수 없는 오류가 발생했습니다.");
+        return;
+      }
+      if (data.topicMismatch) {
+        setTopicMismatch(data.topicMismatch as string);
         return;
       }
       setComment(data.comment as string);
@@ -323,6 +335,7 @@ export default function AnswerForm({
   async function handleSubmit() {
     setSubmitting(true);
     setSubmitError(null);
+    setSubmitTopicMismatch(null);
     try {
       const res = await fetch("/api/inquiry-writing", {
         method: "POST",
@@ -338,6 +351,12 @@ export default function AnswerForm({
       const data = await res.json();
       if (!res.ok) {
         setSubmitError(data.error || "알 수 없는 오류가 발생했습니다.");
+        return;
+      }
+      // 단원과 무관하다고 판정되면 점수/완료 처리 없이 안내만 보여주고, 학생이
+      // 글을 고쳐서 다시 "제출하기"를 누를 수 있게 둔다(submitted를 true로 만들지 않음).
+      if (data.topicMismatch) {
+        setSubmitTopicMismatch(data.topicMismatch as string);
         return;
       }
       setSubmitScores({
@@ -445,12 +464,19 @@ export default function AnswerForm({
         </p>
       )}
 
-      {scores && <ScoreBreakdown scores={scores} />}
-
-      {comment && (
-        <p className="rounded-lg bg-[var(--color-lavender)]/40 border border-[var(--color-lavender)] px-3 py-2 text-sm text-[var(--color-lavender-deep)] whitespace-pre-wrap">
-          {comment}
+      {topicMismatch ? (
+        <p className="rounded-lg bg-[var(--color-alert-bg)] border border-[var(--color-alert-text)]/30 px-3 py-2 text-sm text-[var(--color-alert-text)] whitespace-pre-wrap">
+          {topicMismatch}
         </p>
+      ) : (
+        <>
+          {scores && <ScoreBreakdown scores={scores} />}
+          {comment && (
+            <p className="rounded-lg bg-[var(--color-lavender)]/40 border border-[var(--color-lavender)] px-3 py-2 text-sm text-[var(--color-lavender-deep)] whitespace-pre-wrap">
+              {comment}
+            </p>
+          )}
+        </>
       )}
 
       <p className="text-center text-xs text-[var(--color-ink-muted)]">
@@ -465,6 +491,12 @@ export default function AnswerForm({
       {submitError && (
         <p className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">
           {submitError}
+        </p>
+      )}
+
+      {submitTopicMismatch && (
+        <p className="rounded-lg bg-[var(--color-alert-bg)] border border-[var(--color-alert-text)]/30 px-3 py-2 text-center text-sm text-[var(--color-alert-text)] whitespace-pre-wrap">
+          {submitTopicMismatch}
         </p>
       )}
 

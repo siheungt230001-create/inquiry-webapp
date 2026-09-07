@@ -57,8 +57,10 @@ export default async function HistoryPage() {
           <div className="mt-6 flex flex-col gap-3">
             {rows.map((r, i) => {
               const badgeClass = approvalBadgeClass(r.approval);
+              const isTopicMismatch = r.approval === "단원 확인 필요";
               // 채점이 실제로 끝나서 어떤 판정이든(승인/재제출/제출완료(미승인)) 난 카드에만
-              // 종합 글쓰기 버튼을 보여준다 - 아직 처리중(빈 값)이거나 채점 오류인 카드는 제외.
+              // 종합 글쓰기 버튼을 보여준다 - 아직 처리중(빈 값)이거나 채점 오류, 단원과
+              // 무관하다고 판정된 카드는 제외(질문 자체를 다시 써야 하므로).
               const showEssayLink =
                 r.approval === "승인" ||
                 r.approval === "재제출" ||
@@ -76,7 +78,9 @@ export default async function HistoryPage() {
                   </div>
                   <div className="mt-1 font-medium text-[var(--color-ink)]">{r.question}</div>
                   <div className="mt-2 flex items-center gap-2">
-                    <span className="badge badge-level">{r.aiLevel || "채점 대기중"}</span>
+                    <span className="badge badge-level">
+                      {r.aiLevel || (isTopicMismatch ? "미채점" : "채점 대기중")}
+                    </span>
                     {r.aiScore !== "" && (
                       <span className="text-xs text-[var(--color-ink-soft)]">{r.aiScore}점</span>
                     )}
@@ -94,12 +98,14 @@ export default async function HistoryPage() {
                     </div>
                   )}
                   <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <Link
-                      href={`/submit/sub-questions?ts=${encodeURIComponent(r.timestamp)}&q=${encodeURIComponent(r.question)}&unit=${encodeURIComponent(r.unit)}`}
-                      className="btn-secondary inline-flex items-center gap-1 !px-3 !py-1.5 !text-xs"
-                    >
-                      보조질문 만들기 <ArrowRightIcon />
-                    </Link>
+                    {!isTopicMismatch && (
+                      <Link
+                        href={`/submit/sub-questions?ts=${encodeURIComponent(r.timestamp)}&q=${encodeURIComponent(r.question)}&unit=${encodeURIComponent(r.unit)}`}
+                        className="btn-secondary inline-flex items-center gap-1 !px-3 !py-1.5 !text-xs"
+                      >
+                        보조질문 만들기 <ArrowRightIcon />
+                      </Link>
+                    )}
                     {showEssayLink && (
                       <Link
                         href={essayHref}

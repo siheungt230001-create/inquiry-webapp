@@ -3,6 +3,7 @@
 // 실행: npx tsx scripts/selftest.ts
 import {
   buildPrompt,
+  buildOffTopicResult,
   RESPONSE_SCHEMA,
   APPROVAL_THRESHOLD,
   computeApproval,
@@ -11,6 +12,7 @@ import {
   evaluateCriteriaScores,
   computeFinalStatus,
 } from "../lib/rubric";
+import { gradingResultToSubmissionFields } from "../lib/gradeSubmission";
 
 function assert(cond: unknown, msg: string) {
   if (!cond) {
@@ -37,6 +39,19 @@ assert(prompt.includes("완성된 대안 질문 금지"), "프롬프트에 예�
 assert(prompt.includes("L4 (복합형"), "프롬프트에 L4 트랙 포함");
 assert(prompt.includes("정보 요소"), "프롬프트에 자료 통합 깊이 재작성 반영");
 assert(RESPONSE_SCHEMA.required.includes("self_assessment_mismatch"), "스키마에 self_assessment_mismatch 필수 필드 포함");
+assert(RESPONSE_SCHEMA.required.includes("topic_relevant"), "스키마에 topic_relevant 필수 필드 포함(단원 관련성 게이트)");
+assert(prompt.includes("단원 관련성 확인"), "프롬프트에 단원 관련성 확인 섹션 포함");
+
+// 2026-09-07 학생이 단원과 무관한 질문을 만들어도 구조만 갖추면 점수가 높게 나와
+// "승인"되던 버그 - buildOffTopicResult가 점수 없이 "단원 확인 필요" 상태만 돌려주고,
+// gradingResultToSubmissionFields가 그 상태를 시트에 숫자 0이 아니라 빈 값("")으로
+// 남기는지 확인한다(0으로 남으면 반별 평균이 부당하게 낮아진다).
+const offTopic = buildOffTopicResult("몽골 간섭과 고려의 개혁");
+assert(offTopic.approval === "단원 확인 필요", "단원 무관 결과의 approval은 '단원 확인 필요'");
+assert(offTopic.feedback_text.includes("몽골 간섭과 고려의 개혁"), "단원 무관 안내 문구에 단원명이 들어감");
+const offTopicFields = gradingResultToSubmissionFields(offTopic);
+assert(offTopicFields.aiScore === "", "단원 무관 결과는 aiScore를 0이 아니라 빈 값으로 저장");
+assert(offTopicFields.aiLevel === "", "단원 무관 결과는 aiLevel도 빈 값으로 저장");
 
 // 2) computeApproval/computeLevelBand/computeFinalStatus가 같은 기준값(APPROVAL_THRESHOLD)으로
 // 서로 모순되지 않는 결과를 내는지 확인 - "레벨은 낮음인데 승인" 같은 불일치 재발 방지.
@@ -78,6 +93,17 @@ assert(evaluated.track === "L1", "criteria_scores 기준 실제 트랙은 L1 (Ge
 assert(evaluated.score === 2.0, "criteria_scores 합산 실제 총점은 2.0 (Gemini의 5.0 자체 판단 무시)");
 assert(evaluated.approval === "재제출", "실제 승인 여부는 재제출 (Gemini의 승인 자체 판단 무시)");
 assert(evaluated.level === "L1", "실제 레벨은 L1 (Gemini의 L4 자체 판단 무시)");
+
+// 정상 채점 결과는 gradingResultToSubmissionFields를 거쳐도 숫자가 그대로 남아야
+// 한다(단원 무관 분기가 정상 케이스까지 건드리지 않는지 확인).
+const normalResult = {
+  ...evaluated,
+  self_assessment_mismatch: "",
+  feedback_text: "테스트",
+  criteria_scores: dishonestGeminiResponse.criteria_scores,
+};
+const normalFields = gradingResultToSubmissionFields(normalResult);
+assert(normalFields.aiScore === 2.0, "정상 채점 결과는 aiScore가 숫자 그대로 저장됨");
 
 // 2) callGemini() 성공 경로 - fetch를 가짜로 바꿔서 실제 네트워크 없이 파싱 로직만 검증
 async function testCallGeminiSuccess() {

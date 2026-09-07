@@ -234,7 +234,7 @@ export default function SubAnswersForm({
       const res = await fetch("/api/sub-answers/check", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mainQuestion, items }),
+        body: JSON.stringify({ unit, mainQuestion, items }),
       });
       const data = await res.json();
       if (!res.ok) {

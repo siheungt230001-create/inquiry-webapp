@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { Client as QStashClient } from "@upstash/qstash";
 import { auth } from "@/auth";
-import { gradeSubmission } from "@/lib/gradeSubmission";
+import { gradeSubmission, gradingResultToSubmissionFields } from "@/lib/gradeSubmission";
 import { GEMINI_RATE_LIMIT_PER_MINUTE } from "@/lib/gemini";
 import { appendSubmission, checkAbuseFlag, getSubmissionsByEmail, upsertStudentProfile } from "@/lib/sheets";
 import { formatRound } from "@/lib/constants";
@@ -131,18 +131,7 @@ export async function POST(request: Request) {
     const row: SubmissionRow = {
       ...baseRow,
       status: "완료",
-      aiLevel: result.level,
-      levelTrack: result.track,
-      levelBand: result.band,
-      aiScore: result.score,
-      fact: result.criteria_scores.fact_accuracy,
-      causal: result.criteria_scores.causal_depth,
-      compare: result.criteria_scores.comparison_clarity,
-      sentence: result.criteria_scores.sentence_clarity,
-      integration: result.criteria_scores.integration_depth,
-      approval: result.approval,
-      mismatch: result.self_assessment_mismatch || "",
-      feedback: result.feedback_text,
+      ...gradingResultToSubmissionFields(result),
       processedAt: new Date().toISOString(),
     };
 

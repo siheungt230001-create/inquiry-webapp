@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { callGeminiGeneric } from "@/lib/gemini";
+import { getGroundingTextForUnit } from "@/lib/sheets";
 import {
   buildSubAnswerCheckPrompt,
   SUB_ANSWER_RESPONSE_SCHEMA,
@@ -14,17 +15,18 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json();
-  const { mainQuestion, items } = body || {};
+  const { unit, mainQuestion, items } = body || {};
 
-  if (!mainQuestion || !Array.isArray(items) || items.length === 0) {
+  if (!unit || !mainQuestion || !Array.isArray(items) || items.length === 0) {
     return NextResponse.json(
-      { error: "메인 질문과 보조질문·답변 목록이 필요합니다." },
+      { error: "단원, 메인 질문과 보조질문·답변 목록이 필요합니다." },
       { status: 400 }
     );
   }
 
   try {
-    const prompt = buildSubAnswerCheckPrompt(mainQuestion, items);
+    const groundingText = await getGroundingTextForUnit(unit);
+    const prompt = buildSubAnswerCheckPrompt(groundingText, mainQuestion, items);
     const { results } = await callGeminiGeneric<{ results: SubAnswerCheckResult[] }>(
       prompt,
       SUB_ANSWER_RESPONSE_SCHEMA

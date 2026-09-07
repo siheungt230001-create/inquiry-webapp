@@ -16,6 +16,16 @@ export interface EssayFeedbackResult {
   bodyScore: number; // 0~2.5, 0.5 단위
   conclusionScore: number; // 0~1, 0.5 단위
   factScore: number; // 0 또는 0.5 - 명백한 역사적 사실 오류가 없으면 0.5(만점), 있으면 0
+  // 글 내용이 단원 자료와 무관하다고 AI가 판정했을 때만 채워지는 안내 문구(코드가
+  // 직접 구성 - buildOffTopicEssayComment). 채워져 있으면 위 점수 4개는 의미 없는
+  // 값(0)이고, 실제 저장 시엔 ""로 바뀐다(app/api/inquiry-writing/route.ts).
+  topicMismatch?: string;
+}
+
+// 종합 글쓰기가 [읽기자료]와 완전히 다른 주제일 때 보여줄 안내 문구 - lib/rubric.ts의
+// buildOffTopicResult(메인 질문용)와 같은 톤으로 통일한다.
+export function buildOffTopicEssayComment(unitTitle: string): string {
+  return `이 글의 내용이 제시된 단원(${unitTitle}) 자료와 관련이 없어 보입니다. 단원 자료를 참고해서 다시 작성해주세요.`;
 }
 
 export function computeEssayTotal(result: {
@@ -29,6 +39,7 @@ export function computeEssayTotal(result: {
 
 // [학생이 적은 보조질문 목록] 입력 순서와 응답 배열 순서가 1:1로 대응해야 한다.
 export function buildSubQuestionCheckPrompt(
+  unitReadingText: string,
   mainQuestion: string,
   items: { label: string; text: string }[]
 ): string {
@@ -46,6 +57,9 @@ export function buildSubQuestionCheckPrompt(
    말로 안내한다.
 2. 존댓말, 중학생이 이해하기 쉬운 짧은 문장을 쓴다.
 
+[읽기자료 - 이 단원이 다루는 내용]
+${unitReadingText}
+
 [메인 질문]
 "${mainQuestion}"
 
@@ -55,10 +69,14 @@ ${itemsText}
 [각 보조질문 채점 기준]
 - 메인 질문과 관련이 있는가(주어·초점이 메인 질문에서 다루는 대상/사건과
   이어지는가)?
+- 위 [읽기자료]가 다루는 주제·시대와 완전히 다른(통째로 다른 단원 이야기인)
+  질문인가? - 단순히 표현이 서툴거나 자료의 일부만 다루는 정도는 여기 해당
+  하지 않는다.
 - 단순 사실 확인 수준에 머물지 않고, 조금이라도 생각해볼 거리가 있는가?
-- 메인 질문과 주어·초점이 완전히 동떨어졌다면 "수정 필요"로 판정하고,
-  막연한 코멘트 대신 "~에 대한 내용으로 질문을 만들어보세요"처럼 메인
-  질문과 다시 연결되는 구체적인 방향을 제시한다.
+- 메인 질문과 주어·초점이 완전히 동떨어졌거나 단원 주제와 완전히 다르다면
+  "수정 필요"로 판정하고, 막연한 코멘트 대신 "~에 대한 내용으로 질문을
+  만들어보세요"처럼 메인 질문·단원 자료와 다시 연결되는 구체적인 방향을
+  제시한다.
 - 위 기준을 충분히 만족하면 "양호"로 판정하고, 잘한 점을 짧게 언급한다.
 
 [출력]
@@ -94,6 +112,7 @@ export type SubAnswerCheckResult = SubQuestionCheckResult;
 
 // [보조질문-답변 쌍] 입력 순서와 응답 배열 순서가 1:1로 대응해야 한다.
 export function buildSubAnswerCheckPrompt(
+  unitReadingText: string,
   mainQuestion: string,
   items: { label: string; subQuestion: string; answer: string }[]
 ): string {
@@ -119,6 +138,9 @@ export function buildSubAnswerCheckPrompt(
    자료를 다시 한번 확인해보면 좋겠어요"처럼 스스로 확인하도록만 안내한다.
    확신이 서지 않는 내용이라면 굳이 언급하지 않는다. 사실 오류만으로는 "수정
    필요"로 판정하지 않는다(아래 4번 기준 참고).
+
+[읽기자료 - 이 단원이 다루는 내용]
+${unitReadingText}
 
 [메인 질문]
 "${mainQuestion}"
@@ -149,6 +171,8 @@ ${itemsText}
 export const SUB_ANSWER_RESPONSE_SCHEMA = SUB_QUESTION_RESPONSE_SCHEMA;
 
 export function buildEssayFeedbackPrompt(
+  unitTitle: string,
+  unitReadingText: string,
   mainQuestion: string,
   subQuestions: string[],
   intro: string,
@@ -163,6 +187,19 @@ export function buildEssayFeedbackPrompt(
 당신은 중학생의 역사 탐구 글쓰기를 돕는 코치입니다. 학생이 메인 질문에 대해
 서론-본론-결론 구조로 종합 답안을 썼습니다. 구조가 잘 갖춰졌는지만 짧게
 코멘트하세요.
+
+[읽기자료 - 이 단원(${unitTitle})이 다루는 내용]
+${unitReadingText}
+
+[0. 단원 관련성 확인 - 반드시 채점보다 먼저 판단]
+학생이 쓴 서론/본론/결론이 위 [읽기자료]가 다루는 주제·시대·사건과 관련이
+있는지 먼저 확인한다. topic_relevant는 "완전히 다른 주제/단원"일 때만
+false로 판정하는 엄격한 기준이다 - 단순히 부실하거나 짧거나 보조질문을
+잘 못 살렸다고 false로 판정하지 않는다(그런 경우는 아래 채점 항목에서
+낮은 점수로 반영한다). [읽기자료]에 나온 소재를 다른 시대·인물·오늘날
+관점과 비교하는 내용은 관련 있음(true)으로 본다. false면 아래 채점
+항목(introScore 등)은 전부 0으로 채우고 comment는 빈 문자열로 둔다 -
+코드가 별도로 안내 문구를 구성한다.
 
 [절대 규칙]
 1. 정답이나 역사적 사실을 대신 써주지 않는다. 구조에 대한 조언만 한다.
@@ -224,11 +261,12 @@ ${subQuestionsText}
 export const ESSAY_RESPONSE_SCHEMA = {
   type: "OBJECT",
   properties: {
+    topic_relevant: { type: "BOOLEAN" },
     comment: { type: "STRING" },
     introScore: { type: "NUMBER" },
     bodyScore: { type: "NUMBER" },
     conclusionScore: { type: "NUMBER" },
     factScore: { type: "NUMBER" },
   },
-  required: ["comment", "introScore", "bodyScore", "conclusionScore", "factScore"],
+  required: ["topic_relevant", "comment", "introScore", "bodyScore", "conclusionScore", "factScore"],
 } as const;

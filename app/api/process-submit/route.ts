@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { Receiver } from "@upstash/qstash";
-import { gradeSubmission } from "@/lib/gradeSubmission";
+import { gradeSubmission, gradingResultToSubmissionFields } from "@/lib/gradeSubmission";
 import { updateSubmissionResult } from "@/lib/sheets";
 
 // 브라우저가 아니라 QStash가 서버 대 서버로 호출하는 엔드포인트다 - 로그인 세션이
@@ -35,18 +35,7 @@ export async function POST(request: Request) {
     const result = await gradeSubmission(unit, question, selfLevel);
     await updateSubmissionResult(email, timestamp, {
       status: "완료",
-      aiLevel: result.level,
-      levelTrack: result.track,
-      levelBand: result.band,
-      aiScore: result.score,
-      fact: result.criteria_scores.fact_accuracy,
-      causal: result.criteria_scores.causal_depth,
-      compare: result.criteria_scores.comparison_clarity,
-      sentence: result.criteria_scores.sentence_clarity,
-      integration: result.criteria_scores.integration_depth,
-      approval: result.approval,
-      mismatch: result.self_assessment_mismatch || "",
-      feedback: result.feedback_text,
+      ...gradingResultToSubmissionFields(result),
       processedAt: new Date().toISOString(),
     });
     return NextResponse.json({ ok: true });

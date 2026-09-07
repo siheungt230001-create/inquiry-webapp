@@ -3,6 +3,7 @@ export function approvalBadgeClass(approval: string): string {
   if (approval === "승인") return "badge badge-done";
   if (approval === "재제출") return "badge badge-progress";
   if (approval === "제출완료(미승인)") return "badge badge-level";
+  if (approval === "단원 확인 필요") return "badge badge-alert";
   return "badge badge-pending"; // 처리중/빈 값
 }
 

@@ -1,12 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { callGeminiGeneric } from "@/lib/gemini";
-import {
-  buildEssayFeedbackPrompt,
-  ESSAY_RESPONSE_SCHEMA,
-  computeEssayTotal,
-  type EssayFeedbackResult,
-} from "@/lib/subQuestionFlow";
+import { gradeEssay } from "@/lib/gradeEssay";
+import { computeEssayTotal } from "@/lib/subQuestionFlow";
+import { getSubmissionsByEmail } from "@/lib/sheets";
 import { hashEssayInputs, rememberEssayFeedback } from "@/lib/essayFeedbackCache";
 
 export async function POST(request: Request) {
@@ -18,26 +14,34 @@ export async function POST(request: Request) {
   const body = await request.json();
   const { mainQuestionTimestamp, mainQuestion, subQuestions, intro, body: bodyText, conclusion } = body || {};
 
-  if (!mainQuestion) {
-    return NextResponse.json({ error: "메인 질문이 필요합니다." }, { status: 400 });
+  if (!mainQuestion || !mainQuestionTimestamp) {
+    return NextResponse.json({ error: "메인 질문 정보가 필요합니다." }, { status: 400 });
+  }
+
+  // unit은 클라이언트를 신뢰하지 않고 원본 채점 기록에서 가져온다(app/api/inquiry-writing과
+  // 같은 패턴) - 단원 관련성 판정에 쓸 읽기자료를 정확히 찾아야 해서 필요하다.
+  const rows = await getSubmissionsByEmail(session.user.email);
+  const mainRow = rows.find((r) => r.timestamp === mainQuestionTimestamp);
+  if (!mainRow) {
+    return NextResponse.json(
+      { error: "해당 메인 질문 제출 기록을 찾을 수 없습니다." },
+      { status: 400 }
+    );
   }
 
   const subQuestionsArr = Array.isArray(subQuestions) ? subQuestions : [];
   try {
-    const prompt = buildEssayFeedbackPrompt(
+    const result = await gradeEssay(
+      mainRow.unit,
       mainQuestion,
       subQuestionsArr,
       intro || "",
       bodyText || "",
       conclusion || ""
     );
-    const result = await callGeminiGeneric<EssayFeedbackResult>(prompt, ESSAY_RESPONSE_SCHEMA);
-    // 제출 시점에 글이 하나도 안 바뀌었으면 이 결과를 그대로 재사용한다 (app/api/inquiry-writing
-    // 참고) - mainQuestionTimestamp가 없으면(옛 클라이언트) 그냥 캐시를 건너뛴다.
-    if (mainQuestionTimestamp) {
-      const hash = hashEssayInputs(mainQuestion, subQuestionsArr, intro || "", bodyText || "", conclusion || "");
-      rememberEssayFeedback(`${session.user.email}:${mainQuestionTimestamp}`, hash, result);
-    }
+    // 제출 시점에 글이 하나도 안 바뀌었으면 이 결과를 그대로 재사용한다 (app/api/inquiry-writing 참고).
+    const hash = hashEssayInputs(mainQuestion, subQuestionsArr, intro || "", bodyText || "", conclusion || "");
+    rememberEssayFeedback(`${session.user.email}:${mainQuestionTimestamp}`, hash, result);
     return NextResponse.json({ ...result, totalScore: computeEssayTotal(result) });
   } catch (err) {
     const message = (err as Error).message;
