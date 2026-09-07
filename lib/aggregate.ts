@@ -369,7 +369,7 @@ export function inquiryStageOf(record: InquiryRecord | undefined): InquiryStage 
   if ([record.intro, record.body, record.conclusion].some((v) => v.trim())) {
     return "종합 글쓰기 작성 중";
   }
-  let subQuestions: { answer?: string }[] = [];
+  let subQuestions: { question?: string; answer?: string }[] = [];
   try {
     subQuestions = JSON.parse(record.subQuestionsJson || "[]");
   } catch {
@@ -379,7 +379,11 @@ export function inquiryStageOf(record: InquiryRecord | undefined): InquiryStage 
   // 되면서(SubAnswersForm) 그 학생은 여기서 계속 "보조질문 작성 중"으로 잘못 잡혔다.
   // 실제로 답을 썼는지로 판단한다.
   if (subQuestions.some((s) => s.answer?.trim())) return "보조질문 답변 작성 중";
-  return "보조질문 작성 중";
+  // record가 있다는 사실 자체가 아니라 실제 보조질문 내용(question)이 있는지로 판단한다 -
+  // 교사가 남긴 피드백만 있고 학생은 아직 보조질문을 하나도 안 쓴 record(sheets.ts의
+  // upsertTeacherFeedback)까지 "보조질문 작성 중"으로 잘못 잡히는 걸 막기 위함.
+  if (subQuestions.some((s) => s.question?.trim())) return "보조질문 작성 중";
+  return "메인 질문만 제출됨";
 }
 
 export function inquiryStageBadgeClass(stage: InquiryStage): string {

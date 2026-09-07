@@ -94,6 +94,15 @@ export async function POST(request: Request) {
 
   const items = subQuestions as InquirySubQuestion[];
 
+  // 두 분기(진행중 저장/제출하기) 다 InquiryRecord를 통째로 새로 지어서 upsert하므로,
+  // 여기서 안 챙긴 필드는 그대로 빈 값으로 덮어써진다. teacherFeedback은 학생 쪽 이
+  // 라우트가 절대 채우지 않는 필드라 항상 기존 값을 그대로 옮겨 담아야 한다 -
+  // 안 그러면 학생이 보조질문을 저장하거나 종합 글쓰기를 제출할 때마다 교사가 남긴
+  // 피드백이 통째로 사라진다(ef2f457과 같은 종류의 "부분 payload가 전체 필드를
+  // 덮어쓰는" 사고).
+  const existingForFeedback = await getInquiryRecord(email, mainQuestionTimestamp);
+  const teacherFeedback = existingForFeedback?.teacherFeedback ?? "";
+
   // 진행중 저장(보조질문 작성/보조질문 답변/종합 글쓰기 초안 전부 여기로 온다) - 아직
   // "제출하기"를 안 눌렀으니 AI 채점 없이 지금까지 쓴 내용만 그대로 남긴다. intro/body/
   // conclusion도 지금 화면에 있는 값을 그대로 저장해야 새로고침·재접속 시 이어 쓸 수 있다
@@ -101,7 +110,7 @@ export async function POST(request: Request) {
   // 교사 화면은 totalScore가 ""인 걸로 "진행중"과 "완료"를 구분한다
   // (lib/aggregate.ts의 inquiryStageOf).
   if (draft) {
-    const existing = await getInquiryRecord(email, mainQuestionTimestamp);
+    const existing = existingForFeedback;
 
     // 이미 채점 완료된(totalScore 있음) 기록이면 draft 저장을 아예 안 한다 - SubAnswersForm/
     // AnswerForm의 자동 저장(debounce)은 화면을 열기만 해도 mount 시 한 번 발동하는데, 두
@@ -133,6 +142,7 @@ export async function POST(request: Request) {
       totalScore: existing?.totalScore ?? "",
       comment: existing?.comment ?? "",
       factScore: existing?.factScore ?? "",
+      teacherFeedback,
     };
     try {
       await upsertInquiryRecord(record);
@@ -197,6 +207,7 @@ export async function POST(request: Request) {
     totalScore: computeEssayTotal(scoreResult),
     comment: scoreResult.comment,
     factScore: scoreResult.factScore,
+    teacherFeedback,
   };
 
   try {

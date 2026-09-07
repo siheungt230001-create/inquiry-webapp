@@ -139,6 +139,10 @@ export interface InquiryRecord {
   // 없어서 항상 ""로 읽힌다. 그 "" 자체를 "구버전 채점(본론 0~3 기준, 사실정확성 없음)"
   // 판별 신호로 쓴다 - components/InquiryEssayDetail.tsx의 EssayDetailSection 참고.
   factScore: number | "";
+  // 교사가 이 제출 건(메인 질문 하나)에 직접 남기는 피드백 - AI가 자동으로 매기는
+  // comment(글쓰기 총평)와는 완전히 별개. 교사 대시보드에서 쓰고, 학생 /history에서
+  // 읽기 전용으로 보인다.
+  teacherFeedback: string;
 }
 
 // 여기 새 컬럼을 추가할 땐 반드시 맨 끝에만 붙인다(중간 삽입 금지 - 실제 시트 컬럼도
@@ -162,6 +166,7 @@ export const INQUIRY_COLUMNS: (keyof InquiryRecord)[] = [
   "totalScore",
   "comment",
   "factScore",
+  "teacherFeedback",
 ];
 
 // "학생_프로필" 시트의 한 행 - 로그인 계정(email)마다 최근 입력한 학년/반/번호/이름을

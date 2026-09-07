@@ -85,6 +85,14 @@ export default async function HistoryPage() {
                   <p className="mt-3 whitespace-pre-wrap text-sm text-[var(--color-ink)]">
                     {r.feedback || (r.status?.startsWith("오류") ? r.status : "피드백을 준비 중이에요.")}
                   </p>
+                  {record?.teacherFeedback && (
+                    <div className="mt-3 rounded-lg border border-[var(--color-lavender)] bg-[var(--color-lavender)]/20 px-3 py-2">
+                      <p className="text-xs font-medium text-[var(--color-lavender-deep)]">선생님 피드백</p>
+                      <p className="mt-1 whitespace-pre-wrap text-sm text-[var(--color-ink)]">
+                        {record.teacherFeedback}
+                      </p>
+                    </div>
+                  )}
                   <div className="mt-3 flex flex-wrap items-center gap-2">
                     <Link
                       href={`/submit/sub-questions?ts=${encodeURIComponent(r.timestamp)}&q=${encodeURIComponent(r.question)}&unit=${encodeURIComponent(r.unit)}`}

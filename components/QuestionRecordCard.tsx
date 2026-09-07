@@ -2,6 +2,7 @@ import { approvalBadgeClass, CRITERIA_ACCENTS } from "@/lib/badge";
 import { inquiryStageOf, inquiryStageBadgeClass } from "@/lib/aggregate";
 import { SubQuestionList, EssayDetailSection } from "@/components/InquiryEssayDetail";
 import PdfDownloadButton from "@/components/PdfDownloadButton";
+import TeacherFeedbackBox from "@/components/TeacherFeedbackBox";
 import type { InquiryRecord, SubmissionRow } from "@/lib/types";
 
 // "질문 만들기" 세부 채점 5개 타일 - app/teacher/page.tsx, app/teacher/all/page.tsx가 같이 쓴다.
@@ -92,6 +93,11 @@ export function QuestionRecordCard({
             </div>
           )}
         </div>
+        <TeacherFeedbackBox
+          email={q.email}
+          timestamp={q.timestamp}
+          initialFeedback={record?.teacherFeedback ?? ""}
+        />
       </div>
     </details>
   );

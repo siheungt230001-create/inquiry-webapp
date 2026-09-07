@@ -87,6 +87,7 @@ async function readDemoStore(): Promise<DemoStore> {
     for (const r of parsed.inquiryRecords) {
       if (r.factScore === undefined) r.factScore = "";
       if (r.comment === undefined) r.comment = "";
+      if (r.teacherFeedback === undefined) r.teacherFeedback = "";
     }
     for (const s of parsed.submissions) {
       if (s.grade === undefined) s.grade = "";
@@ -421,7 +422,7 @@ export async function upsertInquiryRecord(record: InquiryRecord): Promise<void> 
   const res = await withRetry(() =>
     sheets.spreadsheets.values.get({
       spreadsheetId: process.env.SPREADSHEET_ID,
-      range: `${INQUIRY_SHEET_NAME}!A2:R`,
+      range: `${INQUIRY_SHEET_NAME}!A2:S`,
     })
   );
   const raw = res.data.values || [];
@@ -445,7 +446,7 @@ export async function upsertInquiryRecord(record: InquiryRecord): Promise<void> 
     await withRetry(() =>
       sheets.spreadsheets.values.update({
         spreadsheetId: process.env.SPREADSHEET_ID,
-        range: `${INQUIRY_SHEET_NAME}!A${sheetRow}:R${sheetRow}`,
+        range: `${INQUIRY_SHEET_NAME}!A${sheetRow}:S${sheetRow}`,
         valueInputOption: "RAW",
         requestBody: { values },
       })
@@ -468,7 +469,7 @@ export async function getAllInquiryRecords(): Promise<InquiryRecord[]> {
   const res = await withRetry(() =>
     sheets.spreadsheets.values.get({
       spreadsheetId: process.env.SPREADSHEET_ID,
-      range: `${INQUIRY_SHEET_NAME}!A2:R`,
+      range: `${INQUIRY_SHEET_NAME}!A2:S`,
     })
   );
   const rows = res.data.values || [];
@@ -500,6 +501,43 @@ export async function getInquiryRecord(
       (r) => r.email === email && r.mainQuestionTimestamp === mainQuestionTimestamp
     ) ?? null
   );
+}
+
+// 교사가 특정 제출 건(mainRow)에 피드백을 남긴다. 이미 탐구 글쓰기 기록이 있으면
+// 그 행에 teacherFeedback만 덧붙여 통째로 다시 쓰고, 아직 없으면(학생이 보조질문
+// 단계로 아직 안 넘어감) 그 항목들만 빈 값인 새 행을 만든다. 새 행이라도 subQuestionsJson
+// "[]"·totalScore ""는 upsertInquiryRecord/POST /api/inquiry-writing이 이미 진행중
+// 레코드에 쓰는 값과 같아서, lib/aggregate.ts의 inquiryStageOf가 실제 보조질문 내용
+// (question 텍스트) 유무로 판단하는 한 "메인 질문만 제출됨" 표시가 깨지지 않는다.
+export async function upsertTeacherFeedback(
+  mainRow: SubmissionRow,
+  teacherFeedback: string
+): Promise<void> {
+  const existing = await getInquiryRecord(mainRow.email, mainRow.timestamp);
+  const record: InquiryRecord = existing
+    ? { ...existing, teacherFeedback }
+    : {
+        timestamp: new Date().toISOString(),
+        email: mainRow.email,
+        ban: mainRow.ban,
+        no: mainRow.no,
+        name: mainRow.name,
+        unit: mainRow.unit,
+        mainQuestionTimestamp: mainRow.timestamp,
+        mainQuestion: mainRow.question,
+        subQuestionsJson: "[]",
+        intro: "",
+        body: "",
+        conclusion: "",
+        introScore: "",
+        bodyScore: "",
+        conclusionScore: "",
+        totalScore: "",
+        comment: "",
+        factScore: "",
+        teacherFeedback,
+      };
+  await upsertInquiryRecord(record);
 }
 
 // ===== 학생 프로필 (로그인 계정별 최근 학년/반/번호/이름 기억) =====
