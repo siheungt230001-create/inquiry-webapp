@@ -145,6 +145,15 @@ const CACHE_TTL_MS = 8000;
 let submissionsCache: { value: SubmissionRow[]; expiresAt: number } | null = null;
 let inquiryRecordsCache: { value: InquiryRecord[]; expiresAt: number } | null = null;
 
+// getUnits/getStudentProfile은 원래 캐시가 없어서 /submit 페이지를 열 때마다(학생 수만큼,
+// 매번) 시트 API를 새로 불렀다 - 2026-09-07 학생들이 몰리는 시간대에 이 두 경로가
+// Google Sheets API의 "분당 읽기 요청" 프로젝트 공용 한도(429)를 넘겨서 getAllSubmissions
+// 등 이미 캐시 중인 다른 경로까지 같이 429를 맞는 전면 장애로 번졌다. 단원 자료는
+// 교사가 가끔만 고치므로 더 긴 TTL을 쓴다.
+const UNITS_CACHE_TTL_MS = 60000;
+let unitsCache: { value: { title: string; readingText: string }[]; expiresAt: number } | null = null;
+const studentProfileCache = new Map<string, { value: StudentProfile | null; expiresAt: number }>();
+
 // ===== 실제 Google Sheets 클라이언트 (서비스 계정) =====
 function getSheetsClient() {
   const rawKey = process.env.GOOGLE_SERVICE_ACCOUNT_KEY as string;
@@ -167,6 +176,9 @@ export async function getUnits(): Promise<{ title: string; readingText: string }
     const store = await readDemoStore();
     return store.units;
   }
+  if (unitsCache && unitsCache.expiresAt > Date.now()) {
+    return unitsCache.value;
+  }
   const sheets = getSheetsClient();
   const res = await withRetry(() =>
     sheets.spreadsheets.values.get({
@@ -175,9 +187,11 @@ export async function getUnits(): Promise<{ title: string; readingText: string }
     })
   );
   const rows = res.data.values || [];
-  return rows
+  const units = rows
     .filter((r) => r[0])
     .map((r) => ({ title: String(r[0]).trim(), readingText: String(r[1] || "") }));
+  unitsCache = { value: units, expiresAt: Date.now() + UNITS_CACHE_TTL_MS };
+  return units;
 }
 
 export async function getGroundingTextForUnit(unitTitle: string): Promise<string> {
@@ -547,6 +561,10 @@ export async function getStudentProfile(email: string): Promise<StudentProfile |
     const store = await readDemoStore();
     return store.studentProfiles.find((p) => p.email === email) ?? null;
   }
+  const cached = studentProfileCache.get(email);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.value;
+  }
   const sheets = getSheetsClient();
   const res = await withRetry(() =>
     sheets.spreadsheets.values.get({
@@ -556,12 +574,16 @@ export async function getStudentProfile(email: string): Promise<StudentProfile |
   );
   const rows = res.data.values || [];
   const row = rows.find((r) => r[0] === email);
-  if (!row) return null;
-  const obj: Record<string, unknown> = {};
-  STUDENT_PROFILE_COLUMNS.forEach((key, i) => {
-    obj[key] = row[i] ?? "";
-  });
-  return obj as unknown as StudentProfile;
+  let profile: StudentProfile | null = null;
+  if (row) {
+    const obj: Record<string, unknown> = {};
+    STUDENT_PROFILE_COLUMNS.forEach((key, i) => {
+      obj[key] = row[i] ?? "";
+    });
+    profile = obj as unknown as StudentProfile;
+  }
+  studentProfileCache.set(email, { value: profile, expiresAt: Date.now() + CACHE_TTL_MS });
+  return profile;
 }
 
 // 학년/반/번호/이름을 새로 제출하거나 수정할 때마다 호출해서 "다음 로그인 때 미리
@@ -611,6 +633,7 @@ export async function upsertStudentProfile(
       })
     );
   }
+  studentProfileCache.delete(profile.email); // 방금 쓴 값이 다음 읽기에 바로 반영되게
 }
 
 export function isDemoMode(): boolean {

@@ -39,6 +39,9 @@ yarn-error.log*
 # 데모 모드 로컬 저장소 (실행 중 자동 생성됨, 커밋하지 않음)
 /data/demo-store.json
 
+# 시트 정비 작업 전 로컬 백업 (실제 학생 이메일/이름 포함, 커밋 금지)
+/data/sheet-backups/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
