@@ -1,5 +1,18 @@
 import EssayScoreTiles from "@/components/EssayScoreTiles";
 import type { InquiryRecord, InquirySubQuestion } from "@/lib/types";
+import { CheckIcon, WarningIcon } from "./icons";
+
+// 보조질문/답변 판정 배지 - 학생 화면(SubQuestionsForm/SubAnswersForm)과 같은 아이콘·색을
+// 써서 교사 대시보드에서도 같은 기준으로 한눈에 읽히게 한다.
+function StatusBadge({ status }: { status?: "양호" | "수정 필요" | null }) {
+  if (status === "양호") {
+    return <CheckIcon className="text-[var(--color-mint-deep)]" aria-label="양호" />;
+  }
+  if (status === "수정 필요") {
+    return <WarningIcon className="text-[var(--color-badge-text)]" aria-label="수정 필요" />;
+  }
+  return null;
+}
 
 // InquiryRecord.subQuestionsJson을 파싱해서 보조질문(+학생 답) 목록을 순서대로 보여준다.
 // app/teacher/page.tsx(학생별 최신 상태)와 app/teacher/all/page.tsx(전체 보기)가 같이 쓴다.
@@ -37,10 +50,14 @@ export function SubQuestionList({ record }: { record?: InquiryRecord }) {
       <ul className="flex flex-col gap-2">
         {subQuestions.map((s, i) => (
           <li key={i} className="rounded-lg border border-[var(--color-cream-200)] bg-[var(--color-cream-50)] px-3 py-2 text-xs">
-            <div className="text-zinc-700">
+            <div className="flex items-center gap-1.5 text-zinc-700">
               <span className="text-zinc-400">[{s.label}]</span> {s.question}
+              <StatusBadge status={s.status} />
             </div>
-            <div className="mt-0.5 text-zinc-500">{s.answer ? s.answer : "(답을 안 씀)"}</div>
+            <div className="mt-0.5 flex items-center gap-1.5 text-zinc-500">
+              <span>{s.answer ? s.answer : "(답을 안 씀)"}</span>
+              <StatusBadge status={s.answerStatus} />
+            </div>
             {s.source && <div className="mt-0.5 text-[11px] text-zinc-400">출처: {s.source}</div>}
           </li>
         ))}
