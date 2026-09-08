@@ -176,11 +176,13 @@ export default function SubQuestionsForm({
   // 진행 상황(보조질문 + AI 판정)을 서버에 남긴다 - 다음 단계로 넘어갈 때뿐 아니라 AI
   // 코멘트를 받은 직후에도 저장해서, 학생이 그대로 탭을 닫아도 다시 들어왔을 때 이어 쓸 수
   // 있게 한다. 실패해도 부가 기능이라 화면 흐름은 막지 않는다.
+  // 반환값(성공 여부)은 자동 저장 호출부(handleCheck/goToSubAnswers)는 무시하고, "임시
+  // 저장" 버튼(handleSaveDraft)만 써서 확인/실패 문구를 보여준다.
   async function saveDraft(
     nextValues: string[],
     nextComments: (SubQuestionCheckResult | null)[],
     nextDesignFeedback: string
-  ) {
+  ): Promise<boolean> {
     try {
       const answers = loadCardArray<string>(answersStorageKey(timestamp), "");
       const answerStatuses = loadCardArray<SubQuestionCheckResult | null>(
@@ -198,7 +200,7 @@ export default function SubQuestionsForm({
         answerComment: answerStatuses[i]?.comment ?? "",
         source: sources[i] ?? "",
       })).filter((_, i) => nextValues[i]?.trim());
-      await fetch("/api/inquiry-writing", {
+      const res = await fetchWithTimeout("/api/inquiry-writing", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -208,9 +210,27 @@ export default function SubQuestionsForm({
           subQuestionDesignFeedback: nextDesignFeedback,
         }),
       });
+      return res.ok;
     } catch {
-      // 무시 - 진행 상태 저장은 부가 기능
+      // 무시 - 진행 상태 저장은 부가 기능(자동 호출 시). 수동 호출은 아래서 false를 보고 안내한다.
+      return false;
     }
+  }
+
+  const [savingDraft, setSavingDraft] = useState(false);
+  const [draftSaved, setDraftSaved] = useState(false);
+  const [draftSaveError, setDraftSaveError] = useState(false);
+
+  // "AI 코멘트 받기"와 무관하게 지금 입력만 그대로 저장 - 아직 판정을 안 받아도(질문이
+  // 다 안 채워졌어도) 학생이 원할 때 바로 저장할 수 있게 한다.
+  async function handleSaveDraft() {
+    setSavingDraft(true);
+    setDraftSaved(false);
+    setDraftSaveError(false);
+    const ok = await saveDraft(values, comments, designFeedback);
+    setSavingDraft(false);
+    if (ok) setDraftSaved(true);
+    else setDraftSaveError(true);
   }
 
   function updateValue(index: number, text: string) {
@@ -231,6 +251,8 @@ export default function SubQuestionsForm({
       setDesignFeedback("");
       saveDesignFeedback(timestamp, "");
     }
+    setDraftSaved(false);
+    setDraftSaveError(false);
   }
 
   const filledCount = values.filter((v) => v.trim()).length;
@@ -292,6 +314,23 @@ export default function SubQuestionsForm({
       <div className="card p-5">
         {unit && <div className="text-xs font-medium text-[var(--color-ink-muted)]">{unit}</div>}
         <div className="mt-1 font-bold text-[var(--color-ink)]">{mainQuestion}</div>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <button
+          type="button"
+          onClick={handleSaveDraft}
+          disabled={savingDraft}
+          className="btn-secondary !px-4 !py-1.5 !text-xs"
+        >
+          {savingDraft ? "저장하는 중..." : "임시 저장"}
+        </button>
+        {draftSaved && (
+          <span className="text-xs text-[var(--color-mint-deep)]">임시 저장됐어요</span>
+        )}
+        {draftSaveError && (
+          <span className="text-xs text-[var(--color-badge-text)]">저장에 실패했어요. 다시 시도해 주세요.</span>
+        )}
       </div>
 
       {designFeedback && (

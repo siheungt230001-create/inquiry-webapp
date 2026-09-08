@@ -242,6 +242,8 @@ export default function SubAnswersForm({
       setAnswerSufficiencyFeedback("");
       saveAnswerFeedback(timestamp, "");
     }
+    setDraftSaved(false);
+    setDraftSaveError(false);
   }
 
   function updateSource(index: number, text: string) {
@@ -295,27 +297,23 @@ export default function SubAnswersForm({
     }
   }
 
-  // 답변을 입력하는 동안 타이핑이 잠깐 멈추면 서버에도 진행 상황을 저장한다 - 이 화면
-  // 자체에는 원래 서버 저장 호출이 아예 없어서, sessionStorage만 지워지면(탭 닫기 등)
-  // 답변이 통째로 사라지는 게 버그의 핵심 원인이었다. "양호" 아닌 항목까지 포함한
-  // allValues/allStatuses를 그대로 같이 보내야 subQuestionsJson 전체 덮어쓰기로
-  // 그 항목들이 날아가지 않는다.
-  useDebouncedEffect(
-    () => {
-      if (!loaded || approvedItems.length === 0) return;
-      const payloadItems = SUB_QUESTION_CARDS
-        .map((card, i) => ({
-          label: card.label,
-          question: allValues[i],
-          answer: approvedItems.some((a) => a.index === i) ? answers[i] ?? "" : "",
-          status: allStatuses[i]?.status ?? null,
-          comment: allStatuses[i]?.comment ?? "",
-          answerStatus: answerComments[i]?.status ?? null,
-          answerComment: answerComments[i]?.comment ?? "",
-          source: approvedItems.some((a) => a.index === i) ? sources[i] ?? "" : "",
-        }))
-        .filter((_, i) => allValues[i]?.trim());
-      fetch("/api/inquiry-writing", {
+  // saveDraftNow의 반환값(성공 여부)은 디바운스 자동 저장은 무시하고, "임시 저장"
+  // 버튼(handleSaveDraft)만 써서 확인/실패 문구를 보여준다.
+  async function saveDraftNow(): Promise<boolean> {
+    const payloadItems = SUB_QUESTION_CARDS
+      .map((card, i) => ({
+        label: card.label,
+        question: allValues[i],
+        answer: approvedItems.some((a) => a.index === i) ? answers[i] ?? "" : "",
+        status: allStatuses[i]?.status ?? null,
+        comment: allStatuses[i]?.comment ?? "",
+        answerStatus: answerComments[i]?.status ?? null,
+        answerComment: answerComments[i]?.comment ?? "",
+        source: approvedItems.some((a) => a.index === i) ? sources[i] ?? "" : "",
+      }))
+      .filter((_, i) => allValues[i]?.trim());
+    try {
+      const res = await fetchWithTimeout("/api/inquiry-writing", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -324,9 +322,22 @@ export default function SubAnswersForm({
           draft: true,
           answerSufficiencyFeedback,
         }),
-      }).catch(() => {
-        // 무시 - 자동 저장은 부가 기능, 실패해도 화면 흐름은 막지 않는다
       });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  // 답변을 입력하는 동안 타이핑이 잠깐 멈추면 서버에도 진행 상황을 저장한다 - 이 화면
+  // 자체에는 원래 서버 저장 호출이 아예 없어서, sessionStorage만 지워지면(탭 닫기 등)
+  // 답변이 통째로 사라지는 게 버그의 핵심 원인이었다. "양호" 아닌 항목까지 포함한
+  // allValues/allStatuses를 그대로 같이 보내야 subQuestionsJson 전체 덮어쓰기로
+  // 그 항목들이 날아가지 않는다.
+  useDebouncedEffect(
+    () => {
+      if (!loaded || approvedItems.length === 0) return;
+      saveDraftNow();
     },
     [
       answers,
@@ -340,6 +351,22 @@ export default function SubAnswersForm({
     ],
     800
   );
+
+  const [savingDraft, setSavingDraft] = useState(false);
+  const [draftSaved, setDraftSaved] = useState(false);
+  const [draftSaveError, setDraftSaveError] = useState(false);
+
+  // AI 판정과 무관하게 지금 입력한 답/출처만 그대로 저장 - 디바운스 자동 저장과 같은
+  // 요청이지만, 눌렀을 때 바로 확인 문구를 보여준다.
+  async function handleSaveDraft() {
+    setSavingDraft(true);
+    setDraftSaved(false);
+    setDraftSaveError(false);
+    const ok = await saveDraftNow();
+    setSavingDraft(false);
+    if (ok) setDraftSaved(true);
+    else setDraftSaveError(true);
+  }
 
   function goToAnswer() {
     router.push(
@@ -363,6 +390,25 @@ export default function SubAnswersForm({
             {readingText}
           </p>
         </details>
+      )}
+
+      {approvedItems.length > 0 && (
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleSaveDraft}
+            disabled={savingDraft}
+            className="btn-secondary !px-4 !py-1.5 !text-xs"
+          >
+            {savingDraft ? "저장하는 중..." : "임시 저장"}
+          </button>
+          {draftSaved && (
+            <span className="text-xs text-[var(--color-mint-deep)]">임시 저장됐어요</span>
+          )}
+          {draftSaveError && (
+            <span className="text-xs text-[var(--color-badge-text)]">저장에 실패했어요. 다시 시도해 주세요.</span>
+          )}
+        </div>
       )}
 
       {answerSufficiencyFeedback && (
