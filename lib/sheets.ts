@@ -363,7 +363,7 @@ export async function getAllSubmissions(): Promise<SubmissionRow[]> {
   const res = await withRetry(() =>
     sheets.spreadsheets.values.get({
       spreadsheetId: process.env.SPREADSHEET_ID,
-      range: `${LOG_SHEET_NAME}!A2:AA`,
+      range: `${LOG_SHEET_NAME}!A2:${LOG_LAST_COLUMN_LETTER}`,
     })
   );
   const sorted = sortByTimestampDesc(parseSubmissionRows(res.data.values || []));
@@ -391,6 +391,11 @@ function sheetColumnLetter(index0: number): string {
 }
 
 const APPROVAL_COLUMN_LETTER = sheetColumnLetter(SHEET_COLUMNS.indexOf("approval"));
+// 각 시트 마지막 컬럼 문자 - *_COLUMNS 배열에 컬럼 추가/삭제해도 range가 자동으로 따라감
+// (하드코딩하면 컬럼 추가할 때마다 "Requested writing within range... tried writing to column" 에러 재발)
+const LOG_LAST_COLUMN_LETTER = sheetColumnLetter(SHEET_COLUMNS.length - 1);
+const INQUIRY_LAST_COLUMN_LETTER = sheetColumnLetter(INQUIRY_COLUMNS.length - 1);
+const STUDENT_PROFILE_LAST_COLUMN_LETTER = sheetColumnLetter(STUDENT_PROFILE_COLUMNS.length - 1);
 
 // 학생이 "질문 제출하기"로 최종 확정할 때 기존 행의 approval 칸만 제자리에서
 // 덮어쓴다 (email+timestamp로 행을 특정 - appendSubmission이 매번 새 timestamp로
@@ -418,7 +423,7 @@ export async function updateSubmissionApproval(
   const res = await withRetry(() =>
     sheets.spreadsheets.values.get({
       spreadsheetId: process.env.SPREADSHEET_ID,
-      range: `${LOG_SHEET_NAME}!A2:AA`,
+      range: `${LOG_SHEET_NAME}!A2:${LOG_LAST_COLUMN_LETTER}`,
     })
   );
   const raw = res.data.values || [];
@@ -463,7 +468,7 @@ export async function updateSubmissionResult(
   const res = await withRetry(() =>
     sheets.spreadsheets.values.get({
       spreadsheetId: process.env.SPREADSHEET_ID,
-      range: `${LOG_SHEET_NAME}!A2:AA`,
+      range: `${LOG_SHEET_NAME}!A2:${LOG_LAST_COLUMN_LETTER}`,
     })
   );
   const raw = res.data.values || [];
@@ -483,7 +488,7 @@ export async function updateSubmissionResult(
   await withRetry(() =>
     sheets.spreadsheets.values.update({
       spreadsheetId: process.env.SPREADSHEET_ID,
-      range: `${LOG_SHEET_NAME}!A${sheetRow}:AA${sheetRow}`,
+      range: `${LOG_SHEET_NAME}!A${sheetRow}:${LOG_LAST_COLUMN_LETTER}${sheetRow}`,
       valueInputOption: "RAW",
       requestBody: { values },
     })
@@ -519,7 +524,7 @@ export async function upsertInquiryRecord(record: InquiryRecord): Promise<void> 
   const res = await withRetry(() =>
     sheets.spreadsheets.values.get({
       spreadsheetId: process.env.SPREADSHEET_ID,
-      range: `${INQUIRY_SHEET_NAME}!A2:S`,
+      range: `${INQUIRY_SHEET_NAME}!A2:${INQUIRY_LAST_COLUMN_LETTER}`,
     })
   );
   const raw = res.data.values || [];
@@ -543,7 +548,7 @@ export async function upsertInquiryRecord(record: InquiryRecord): Promise<void> 
     await withRetry(() =>
       sheets.spreadsheets.values.update({
         spreadsheetId: process.env.SPREADSHEET_ID,
-        range: `${INQUIRY_SHEET_NAME}!A${sheetRow}:S${sheetRow}`,
+        range: `${INQUIRY_SHEET_NAME}!A${sheetRow}:${INQUIRY_LAST_COLUMN_LETTER}${sheetRow}`,
         valueInputOption: "RAW",
         requestBody: { values },
       })
@@ -566,7 +571,7 @@ export async function getAllInquiryRecords(): Promise<InquiryRecord[]> {
   const res = await withRetry(() =>
     sheets.spreadsheets.values.get({
       spreadsheetId: process.env.SPREADSHEET_ID,
-      range: `${INQUIRY_SHEET_NAME}!A2:S`,
+      range: `${INQUIRY_SHEET_NAME}!A2:${INQUIRY_LAST_COLUMN_LETTER}`,
     })
   );
   const sorted = sortByTimestampDesc(parseInquiryRows(res.data.values || []));
@@ -595,8 +600,8 @@ export async function getSubmissionsAndInquiryRecords(): Promise<{
 
   if (needSubmissions && needInquiry) {
     const [subValues, inqValues] = await batchFetchRanges([
-      `${LOG_SHEET_NAME}!A2:AA`,
-      `${INQUIRY_SHEET_NAME}!A2:S`,
+      `${LOG_SHEET_NAME}!A2:${LOG_LAST_COLUMN_LETTER}`,
+      `${INQUIRY_SHEET_NAME}!A2:${INQUIRY_LAST_COLUMN_LETTER}`,
     ]);
     const submissions = sortByTimestampDesc(parseSubmissionRows(subValues));
     submissionsCache = { value: submissions, expiresAt: now + CACHE_TTL_MS };
@@ -679,7 +684,7 @@ export async function getStudentProfile(email: string): Promise<StudentProfile |
   const res = await withRetry(() =>
     sheets.spreadsheets.values.get({
       spreadsheetId: process.env.SPREADSHEET_ID,
-      range: `${STUDENT_PROFILE_SHEET_NAME}!A2:F`,
+      range: `${STUDENT_PROFILE_SHEET_NAME}!A2:${STUDENT_PROFILE_LAST_COLUMN_LETTER}`,
     })
   );
   const profile = parseProfileRow(res.data.values || [], email);
@@ -716,8 +721,8 @@ export async function getSubmitInitData(email: string): Promise<{
 
   const pendingRanges: { key: "units" | "profile" | "submissions"; range: string }[] = [];
   if (needUnits) pendingRanges.push({ key: "units", range: `${UNIT_SHEET_NAME}!A2:B` });
-  if (needProfile) pendingRanges.push({ key: "profile", range: `${STUDENT_PROFILE_SHEET_NAME}!A2:F` });
-  if (needSubmissions) pendingRanges.push({ key: "submissions", range: `${LOG_SHEET_NAME}!A2:AA` });
+  if (needProfile) pendingRanges.push({ key: "profile", range: `${STUDENT_PROFILE_SHEET_NAME}!A2:${STUDENT_PROFILE_LAST_COLUMN_LETTER}` });
+  if (needSubmissions) pendingRanges.push({ key: "submissions", range: `${LOG_SHEET_NAME}!A2:${LOG_LAST_COLUMN_LETTER}` });
 
   const fetched =
     pendingRanges.length > 0 ? await batchFetchRanges(pendingRanges.map((p) => p.range)) : [];
@@ -772,7 +777,7 @@ export async function upsertStudentProfile(
   const res = await withRetry(() =>
     sheets.spreadsheets.values.get({
       spreadsheetId: process.env.SPREADSHEET_ID,
-      range: `${STUDENT_PROFILE_SHEET_NAME}!A2:F`,
+      range: `${STUDENT_PROFILE_SHEET_NAME}!A2:${STUDENT_PROFILE_LAST_COLUMN_LETTER}`,
     })
   );
   const raw = res.data.values || [];
@@ -794,7 +799,7 @@ export async function upsertStudentProfile(
     await withRetry(() =>
       sheets.spreadsheets.values.update({
         spreadsheetId: process.env.SPREADSHEET_ID,
-        range: `${STUDENT_PROFILE_SHEET_NAME}!A${sheetRow}:F${sheetRow}`,
+        range: `${STUDENT_PROFILE_SHEET_NAME}!A${sheetRow}:${STUDENT_PROFILE_LAST_COLUMN_LETTER}${sheetRow}`,
         valueInputOption: "RAW",
         requestBody: { values },
       })
