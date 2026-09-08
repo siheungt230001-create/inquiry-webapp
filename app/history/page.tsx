@@ -5,6 +5,7 @@ import { getSubmissionsByEmail, getAllInquiryRecords } from "@/lib/sheets";
 import { approvalBadgeClass } from "@/lib/badge";
 import { buildInquiryRecordByMainTimestamp } from "@/lib/aggregate";
 import PdfDownloadButton from "@/components/PdfDownloadButton";
+import HistoryAutoRefresh from "@/components/HistoryAutoRefresh";
 import { ArrowLeftIcon, ArrowRightIcon } from "@/components/icons";
 
 export default async function HistoryPage() {
@@ -12,6 +13,7 @@ export default async function HistoryPage() {
   if (!session?.user?.email) redirect("/login");
 
   const rows = await getSubmissionsByEmail(session.user.email);
+  const hasPending = rows.some((r) => r.status === "대기중" || r.status?.startsWith("오류"));
   const inquiryRecords = await getAllInquiryRecords();
   const recordByMainTs = buildInquiryRecordByMainTimestamp(inquiryRecords);
   const approvedCount = rows.filter((r) => r.approval === "승인").length;
@@ -23,6 +25,7 @@ export default async function HistoryPage() {
 
   return (
     <div className="flex-1 bg-pastel-gradient px-4 py-10">
+      <HistoryAutoRefresh active={hasPending} />
       <div className="mx-auto max-w-xl">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
           <Link href="/" className="flex items-center gap-1 rounded-full bg-[var(--color-cream-200)] px-3 py-1.5 text-sm font-medium text-[var(--color-ink-soft)] hover:bg-[var(--color-lavender)] hover:text-[var(--color-pink-deep)]">
@@ -90,7 +93,10 @@ export default async function HistoryPage() {
                     <span className={badgeClass}>{r.approval || "처리중"}</span>
                   </div>
                   <p className="mt-3 whitespace-pre-wrap text-sm text-[var(--color-ink)]">
-                    {r.feedback || (r.status?.startsWith("오류") ? r.status : "피드백을 준비 중이에요.")}
+                    {r.feedback ||
+                      (r.status?.startsWith("오류")
+                        ? "채점이 지연되고 있어요. 잠시 후 자동으로 다시 시도합니다."
+                        : "피드백을 준비 중이에요.")}
                   </p>
                   {record?.teacherFeedback && (
                     <div className="mt-3 rounded-lg border border-[var(--color-lavender)] bg-[var(--color-lavender)]/20 px-3 py-2">

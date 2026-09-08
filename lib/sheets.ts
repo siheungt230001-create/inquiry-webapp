@@ -151,9 +151,11 @@ function getRetryAfterMs(err: unknown): number | undefined {
 
 // 2026-09-07 한 반 전체가 동시 접속했을 때 기존 maxAttempts=3(최대 대기 ~6초)로는
 // 부족해서 429가 그대로 사용자에게 새어나갔다 - 시도 횟수를 늘리고 백오프 상한도
-// 올려서(최대 8초 간격) 분당 한도가 풀릴 때까지 더 오래 버티게 한다. 호출 수 자체를
-// 줄이는 캐시/batchGet이 우선이고, 이건 그래도 몰릴 때의 마지막 방어선이다.
-async function withRetry<T>(fn: () => Promise<T>, maxAttempts = 5): Promise<T> {
+// 올렸었다(5회, 최대 8초). 2026-09-08 같은 반이 다시 몰리자 이번엔 그 5회/8초로도
+// 부족해서 똑같이 429가 새어나갔다 - 분당 한도가 완전히 풀리려면 8초 간격 4번(약
+// 18초)으로는 모자랄 수 있다는 뜻이므로 다시 늘린다(10회, 최대 20초). 호출 수
+// 자체를 줄이는 캐시/batchGet이 우선이고, 이건 그래도 몰릴 때의 마지막 방어선이다.
+async function withRetry<T>(fn: () => Promise<T>, maxAttempts = 10): Promise<T> {
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       return await fn();
@@ -161,9 +163,9 @@ async function withRetry<T>(fn: () => Promise<T>, maxAttempts = 5): Promise<T> {
       const status = getErrorStatus(err);
       const canRetry = (status === 429 || status === 503) && attempt < maxAttempts;
       if (!canRetry) throw err;
-      // 지수 백오프(최대 8초) + 지터(무작위 지연) - 여러 요청이 동시에 재시도해
+      // 지수 백오프(최대 20초) + 지터(무작위 지연) - 여러 요청이 동시에 재시도해
       // 다시 몰리는 것을 완화.
-      const backoff = getRetryAfterMs(err) ?? Math.min(1500 * Math.pow(2, attempt - 1), 8000);
+      const backoff = getRetryAfterMs(err) ?? Math.min(1500 * Math.pow(2, attempt - 1), 20000);
       const delay = backoff + Math.random() * 500;
       await new Promise((r) => setTimeout(r, delay));
     }

@@ -124,6 +124,11 @@ export async function POST(request: Request) {
       url: `${getAppUrl()}/api/process-submit`,
       body: { email, timestamp, unit, question, selfLevel },
       flowControl: { key: "gemini-submit", rate: GEMINI_RATE_LIMIT_PER_MINUTE, period: 60 },
+      // 2026-09-08 Sheets API 429(분당 읽기 한도 초과)가 lib/sheets.ts의 withRetry
+      // 재시도까지 다 태우고도 실패해서 행이 "오류"로 멈춘 사고 - QStash 자체 재시도
+      // (기본값은 계정 한도, 명시 안 하면 몇 번인지 불명확) 계층에서 한 번 더 여유를
+      // 두어, 코드 내부 재시도가 다 실패해도 QStash가 나중에 다시 호출해주게 한다.
+      retries: 5,
     });
 
     return NextResponse.json({ queued: true, timestamp });
