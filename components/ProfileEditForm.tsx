@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { validateProfileNumbers } from "@/lib/constants";
+import { fetchWithTimeout } from "@/lib/fetchWithTimeout";
 import { ProfileFields, type ProfileFieldsValue } from "./ProfileFields";
 
 const EMPTY: ProfileFieldsValue = { grade: "", ban: "", no: "", name: "" };
@@ -63,7 +64,7 @@ export default function ProfileEditForm() {
     setSaving(true);
     setSaveError(null);
     try {
-      const res = await fetch("/api/profile", {
+      const res = await fetchWithTimeout("/api/profile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(pendingSave),
@@ -76,7 +77,9 @@ export default function ProfileEditForm() {
       setSaved(true);
       setPendingSave(null);
     } catch {
-      setSaveError("서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.");
+      // 학교 전체가 몰려 저장이 오래 걸리거나(타임아웃) 네트워크가 끊긴 경우 - 서버가
+      // 그새 저장을 마쳤을 수도 있으니 "실패"라고 단정하지 않고 다시 시도를 안내한다.
+      setSaveError("저장이 지연되고 있어요. 잠시 후 다시 시도해 주세요.");
     } finally {
       setSaving(false);
     }

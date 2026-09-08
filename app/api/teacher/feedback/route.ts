@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { isTeacherEmail } from "@/lib/teacher-auth";
 import { getAllSubmissions, upsertTeacherFeedback } from "@/lib/sheets";
+import { toUserErrorMessage } from "@/lib/errorMessage";
 
 // 교사가 학생의 제출 건 하나(email+timestamp로 특정)에 피드백을 남긴다. AI가 자동으로
 // 매기는 InquiryRecord.comment(글쓰기 총평)와는 별개 필드(teacherFeedback)에 저장된다.
@@ -29,7 +30,6 @@ export async function POST(request: Request) {
     await upsertTeacherFeedback(mainRow, teacherFeedback);
     return NextResponse.json({ ok: true });
   } catch (err) {
-    const message = (err as Error).message;
-    return NextResponse.json({ error: `저장 중 오류가 발생했습니다: ${message}` }, { status: 502 });
+    return NextResponse.json({ error: toUserErrorMessage(err, "teacher/feedback") }, { status: 502 });
   }
 }

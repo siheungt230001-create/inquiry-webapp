@@ -7,6 +7,7 @@ import {
   buildInquiryRecordByMainTimestamp,
   buildLiveClassStatus,
 } from "@/lib/aggregate";
+import { toUserErrorMessage } from "@/lib/errorMessage";
 
 // 실시간 현황판(app/teacher/live, components/LiveGrid.tsx) 폴링용 - 선택된 단원+반
 // 학생 전원의 현재 단계와 마지막 활동 시각만 가볍게 반환한다.
@@ -24,11 +25,15 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "unit과 ban이 필요합니다." }, { status: 400 });
   }
 
-  const { submissions: rows, inquiryRecords: records } = await getSubmissionsAndInquiryRecords();
-  const unitRows = rows.filter((r) => r.unit === unit);
-  const students = buildStudentLatest(unitRows).filter((s) => s.ban === ban && s.grade === grade);
+  try {
+    const { submissions: rows, inquiryRecords: records } = await getSubmissionsAndInquiryRecords();
+    const unitRows = rows.filter((r) => r.unit === unit);
+    const students = buildStudentLatest(unitRows).filter((s) => s.ban === ban && s.grade === grade);
 
-  const recordByMainTs = buildInquiryRecordByMainTimestamp(records);
+    const recordByMainTs = buildInquiryRecordByMainTimestamp(records);
 
-  return NextResponse.json({ students: buildLiveClassStatus(students, recordByMainTs) });
+    return NextResponse.json({ students: buildLiveClassStatus(students, recordByMainTs) });
+  } catch (err) {
+    return NextResponse.json({ error: toUserErrorMessage(err, "teacher/live-status") }, { status: 502 });
+  }
 }

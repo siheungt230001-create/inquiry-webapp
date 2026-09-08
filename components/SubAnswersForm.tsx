@@ -6,6 +6,7 @@ import Link from "next/link";
 import { SUB_QUESTION_CARDS } from "@/lib/constants";
 import type { SubQuestionCheckResult } from "@/lib/subQuestionFlow";
 import { useDebouncedEffect } from "@/lib/useDebouncedEffect";
+import { fetchWithTimeout } from "@/lib/fetchWithTimeout";
 import AutoTextarea from "./AutoTextarea";
 import { ArrowRightIcon, BookIcon, CheckIcon, WarningIcon } from "./icons";
 
@@ -267,7 +268,7 @@ export default function SubAnswersForm({
         subQuestion: item.text,
         answer: answers[item.index] ?? "",
       }));
-      const res = await fetch("/api/sub-answers/check", {
+      const res = await fetchWithTimeout("/api/sub-answers/check", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ unit, mainQuestion, items }),
@@ -288,7 +289,7 @@ export default function SubAnswersForm({
       setAnswerSufficiencyFeedback(nextAnswerFeedback);
       saveAnswerFeedback(timestamp, nextAnswerFeedback);
     } catch {
-      setCheckError("서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.");
+      setCheckError("코멘트를 받아오는 데 시간이 오래 걸리고 있어요. 잠시 후 다시 시도해 주세요.");
     } finally {
       setChecking(false);
     }

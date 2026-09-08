@@ -45,7 +45,9 @@ export async function GET(request: Request) {
   }
 
   if (row.status?.startsWith("오류")) {
-    return NextResponse.json({ status: "오류", error: row.status });
+    // row.status에는 원본 예외 메시지가 그대로 들어있다(내부 감사용) - 화면에는
+    // 절대 노출하지 않고 상태만 알려준다(app/history/page.tsx와 같은 원칙).
+    return NextResponse.json({ status: "오류" });
   }
 
   const result: GradingResult = {

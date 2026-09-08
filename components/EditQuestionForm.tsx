@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { SELF_LEVEL_LIST, validateProfileNumbers } from "@/lib/constants";
+import { fetchWithTimeout } from "@/lib/fetchWithTimeout";
 import AutoTextarea from "./AutoTextarea";
 import { Field, ProfileFields } from "./ProfileFields";
 
@@ -68,7 +69,7 @@ export default function EditQuestionForm({ timestamp }: { timestamp: string }) {
     setValidationError(null);
     setSaving(true);
     try {
-      const res = await fetch("/api/submit/edit", {
+      const res = await fetchWithTimeout("/api/submit/edit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ timestamp, ...fields }),
@@ -80,7 +81,7 @@ export default function EditQuestionForm({ timestamp }: { timestamp: string }) {
       }
       setSaved({ regraded: data.regraded, result: data.result });
     } catch {
-      setSaveError("서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.");
+      setSaveError("재채점이 지연되고 있어요. 잠시 후 다시 시도해 주세요.");
     } finally {
       setSaving(false);
     }

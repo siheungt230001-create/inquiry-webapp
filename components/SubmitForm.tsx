@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { SELF_LEVEL_LIST, validateProfileNumbers } from "@/lib/constants";
 import type { GradingResult } from "@/lib/types";
 import { approvalBadgeClass, CRITERIA_ACCENTS } from "@/lib/badge";
+import { fetchWithTimeout } from "@/lib/fetchWithTimeout";
 import AutoTextarea from "./AutoTextarea";
 import { Field, ProfileFields, type ProfileFieldsValue } from "./ProfileFields";
 import { BoltIcon } from "./icons";
@@ -200,7 +201,7 @@ export default function SubmitForm() {
     setResult(null);
 
     try {
-      const res = await fetch("/api/submit", {
+      const res = await fetchWithTimeout("/api/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -371,7 +372,7 @@ function ResultCard({
     setFinalizing(true);
     setFinalizeError(null);
     try {
-      const res = await fetch("/api/finalize", {
+      const res = await fetchWithTimeout("/api/finalize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ timestamp }),

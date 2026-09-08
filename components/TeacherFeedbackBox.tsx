@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { fetchWithTimeout } from "@/lib/fetchWithTimeout";
 
 // 교사 대시보드의 제출 건 카드(QuestionRecordCard) 안에서 쓰는 피드백 입력창.
 // AI가 자동으로 매기는 comment(글쓰기 총평)와 별개인 teacherFeedback 필드를 저장한다.
@@ -23,7 +24,7 @@ export default function TeacherFeedbackBox({
     setSaved(false);
     setError("");
     try {
-      const res = await fetch("/api/teacher/feedback", {
+      const res = await fetchWithTimeout("/api/teacher/feedback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, timestamp, teacherFeedback: value }),
@@ -32,7 +33,7 @@ export default function TeacherFeedbackBox({
       if (!res.ok) throw new Error(data.error || "저장에 실패했습니다.");
       setSaved(true);
     } catch (err) {
-      setError((err as Error).message);
+      setError((err as Error).message || "저장이 지연되고 있어요. 잠시 후 다시 시도해 주세요.");
     } finally {
       setSaving(false);
     }

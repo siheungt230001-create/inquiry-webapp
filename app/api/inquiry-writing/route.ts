@@ -5,6 +5,7 @@ import { isTeacherEmail } from "@/lib/teacher-auth";
 import { gradeEssay } from "@/lib/gradeEssay";
 import { computeEssayTotal } from "@/lib/subQuestionFlow";
 import { hashEssayInputs, recallEssayFeedback, rememberEssayFeedback } from "@/lib/essayFeedbackCache";
+import { toUserErrorMessage } from "@/lib/errorMessage";
 import type { InquiryRecord, InquirySubQuestion } from "@/lib/types";
 
 // 학생이 이 화면(보조질문/보조질문 답/종합 글쓰기)에 다시 들어왔을 때 sessionStorage가
@@ -166,9 +167,8 @@ export async function POST(request: Request) {
       await upsertInquiryRecord(record);
       return NextResponse.json({ ok: true });
     } catch (err) {
-      const message = (err as Error).message;
       return NextResponse.json(
-        { error: `저장 중 오류가 발생했습니다: ${message}` },
+        { error: toUserErrorMessage(err, "inquiry-writing/draft") },
         { status: 502 }
       );
     }
@@ -191,9 +191,8 @@ export async function POST(request: Request) {
       scoreResult = await gradeEssay(mainRow.unit, mainRow.question, formattedSubQuestions, intro, bodyText, conclusion);
       rememberEssayFeedback(cacheKey, inputHash, scoreResult);
     } catch (err) {
-      const message = (err as Error).message;
       return NextResponse.json(
-        { error: `채점 중 오류가 발생했습니다: ${message}` },
+        { error: toUserErrorMessage(err, "inquiry-writing/grade") },
         { status: 502 }
       );
     }
@@ -232,9 +231,8 @@ export async function POST(request: Request) {
     await upsertInquiryRecord(record);
     return NextResponse.json({ ok: true, ...record });
   } catch (err) {
-    const message = (err as Error).message;
     return NextResponse.json(
-      { error: `제출 중 오류가 발생했습니다: ${message}` },
+      { error: toUserErrorMessage(err, "inquiry-writing/submit") },
       { status: 502 }
     );
   }

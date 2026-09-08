@@ -4,6 +4,7 @@ import { gradeEssay } from "@/lib/gradeEssay";
 import { computeEssayTotal } from "@/lib/subQuestionFlow";
 import { getSubmissionsByEmail } from "@/lib/sheets";
 import { hashEssayInputs, rememberEssayFeedback } from "@/lib/essayFeedbackCache";
+import { toUserErrorMessage } from "@/lib/errorMessage";
 
 export async function POST(request: Request) {
   const session = await auth();
@@ -44,9 +45,8 @@ export async function POST(request: Request) {
     rememberEssayFeedback(`${session.user.email}:${mainQuestionTimestamp}`, hash, result);
     return NextResponse.json({ ...result, totalScore: computeEssayTotal(result) });
   } catch (err) {
-    const message = (err as Error).message;
     return NextResponse.json(
-      { error: `피드백을 받아오는 중 오류가 발생했습니다: ${message}` },
+      { error: toUserErrorMessage(err, "essay-feedback") },
       { status: 502 }
     );
   }

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { appendProfileChangeLog, getStudentProfile, upsertStudentProfile } from "@/lib/sheets";
 import { validateProfileNumbers } from "@/lib/constants";
+import { toUserErrorMessage } from "@/lib/errorMessage";
 
 // components/SubmitForm.tsx가 마운트 시 불러와서 학년/반/번호/이름을 미리 채운다 -
 // 저장/갱신은 app/api/submit/route.ts와 app/api/submit/edit/route.ts가 제출/수정
@@ -11,12 +12,16 @@ export async function GET() {
   if (!session?.user?.email) {
     return NextResponse.json({ error: "로그인이 필요합니다." }, { status: 401 });
   }
-  const profile = await getStudentProfile(session.user.email);
-  return NextResponse.json({
-    profile: profile
-      ? { grade: profile.grade, ban: profile.ban, no: profile.no, name: profile.name }
-      : null,
-  });
+  try {
+    const profile = await getStudentProfile(session.user.email);
+    return NextResponse.json({
+      profile: profile
+        ? { grade: profile.grade, ban: profile.ban, no: profile.no, name: profile.name }
+        : null,
+    });
+  } catch (err) {
+    return NextResponse.json({ error: toUserErrorMessage(err, "profile/get") }, { status: 502 });
+  }
 }
 
 // "내 정보 수정" 화면(components/ProfileEditForm.tsx) 전용 - 학생이 잘못 입력한
@@ -37,18 +42,22 @@ export async function POST(request: Request) {
   }
 
   const email = session.user.email;
-  const before = await getStudentProfile(email);
-  const beforeFields = {
-    grade: before?.grade ?? "",
-    ban: before?.ban ?? "",
-    no: before?.no ?? "",
-    name: before?.name ?? "",
-  };
-  const afterFields = { grade: String(grade), ban: String(ban), no: String(no), name: String(name) };
+  try {
+    const before = await getStudentProfile(email);
+    const beforeFields = {
+      grade: before?.grade ?? "",
+      ban: before?.ban ?? "",
+      no: before?.no ?? "",
+      name: before?.name ?? "",
+    };
+    const afterFields = { grade: String(grade), ban: String(ban), no: String(no), name: String(name) };
 
-  await upsertStudentProfile({ email, ...afterFields });
-  // 감사 로그는 부가 기능이다 - 실패해도 방금 저장된 프로필 갱신 자체는 되돌리지 않는다.
-  await appendProfileChangeLog(email, beforeFields, afterFields).catch(() => {});
+    await upsertStudentProfile({ email, ...afterFields });
+    // 감사 로그는 부가 기능이다 - 실패해도 방금 저장된 프로필 갱신 자체는 되돌리지 않는다.
+    await appendProfileChangeLog(email, beforeFields, afterFields).catch(() => {});
 
-  return NextResponse.json({ profile: afterFields });
+    return NextResponse.json({ profile: afterFields });
+  } catch (err) {
+    return NextResponse.json({ error: toUserErrorMessage(err, "profile/post") }, { status: 502 });
+  }
 }

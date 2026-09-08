@@ -5,6 +5,7 @@ import { gradeSubmission, gradingResultToSubmissionFields } from "@/lib/gradeSub
 import { GEMINI_RATE_LIMIT_PER_MINUTE } from "@/lib/gemini";
 import { appendSubmission, checkAbuseFlag, getSubmissionsByEmail, upsertStudentProfile } from "@/lib/sheets";
 import { formatRound, validateProfileNumbers } from "@/lib/constants";
+import { toUserErrorMessage } from "@/lib/errorMessage";
 import type { SubmissionRow } from "@/lib/types";
 
 // QSTASH_TOKEN이 설정돼 있으면(Upstash QStash 계정 연결됨) 채점을 큐에 태워서
@@ -152,7 +153,7 @@ export async function POST(request: Request) {
     const row: SubmissionRow = { ...baseRow, status: `오류: ${message}` };
     await appendSubmission(row).catch(() => {});
     return NextResponse.json(
-      { error: `채점 중 오류가 발생했습니다: ${message}` },
+      { error: toUserErrorMessage(err, "submit") },
       { status: 502 }
     );
   }

@@ -7,6 +7,7 @@ import {
   SUB_QUESTION_RESPONSE_SCHEMA,
   type SubQuestionCheckResult,
 } from "@/lib/subQuestionFlow";
+import { toUserErrorMessage } from "@/lib/errorMessage";
 
 export async function POST(request: Request) {
   const session = await auth();
@@ -33,9 +34,8 @@ export async function POST(request: Request) {
     }>(prompt, SUB_QUESTION_RESPONSE_SCHEMA);
     return NextResponse.json({ results, designFeedback });
   } catch (err) {
-    const message = (err as Error).message;
     return NextResponse.json(
-      { error: `코멘트를 받아오는 중 오류가 발생했습니다: ${message}` },
+      { error: toUserErrorMessage(err, "sub-questions/check") },
       { status: 502 }
     );
   }

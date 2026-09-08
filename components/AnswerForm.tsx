@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { SUB_QUESTION_CARDS } from "@/lib/constants";
 import type { SubQuestionCheckResult } from "@/lib/subQuestionFlow";
 import { useDebouncedEffect } from "@/lib/useDebouncedEffect";
+import { fetchWithTimeout } from "@/lib/fetchWithTimeout";
 import AutoTextarea from "./AutoTextarea";
 import EssayScoreTiles from "./EssayScoreTiles";
 import { QuestionIcon } from "./icons";
@@ -296,7 +297,7 @@ export default function AnswerForm({
     setScores(null);
     setTopicMismatch(null);
     try {
-      const res = await fetch("/api/essay-feedback", {
+      const res = await fetchWithTimeout("/api/essay-feedback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -326,7 +327,9 @@ export default function AnswerForm({
         totalScore: data.totalScore,
       });
     } catch {
-      setError("서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.");
+      // 타임아웃(서버가 재시도하느라 오래 걸림)과 순수 네트워크 단절을 구분하지 않고
+      // 안내 - 어느 쪽이든 학생이 할 수 있는 건 "다시 시도"뿐이다.
+      setError("피드백을 받아오는 데 시간이 오래 걸리고 있어요. 잠시 후 다시 시도해 주세요.");
     } finally {
       setLoading(false);
     }
@@ -337,7 +340,7 @@ export default function AnswerForm({
     setSubmitError(null);
     setSubmitTopicMismatch(null);
     try {
-      const res = await fetch("/api/inquiry-writing", {
+      const res = await fetchWithTimeout("/api/inquiry-writing", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -368,7 +371,7 @@ export default function AnswerForm({
       });
       setSubmitted(true);
     } catch {
-      setSubmitError("서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.");
+      setSubmitError("제출 처리가 지연되고 있어요. 잠시 후 다시 시도해 주세요.");
     } finally {
       setSubmitting(false);
     }

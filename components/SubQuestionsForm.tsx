@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { SUB_QUESTION_CARDS } from "@/lib/constants";
 import type { SubQuestionCheckResult } from "@/lib/subQuestionFlow";
+import { fetchWithTimeout } from "@/lib/fetchWithTimeout";
 import AutoTextarea from "./AutoTextarea";
 import { ArrowRightIcon, CheckIcon, WarningIcon } from "./icons";
 
@@ -248,7 +249,7 @@ export default function SubQuestionsForm({
         text: values[i],
       }));
 
-      const res = await fetch("/api/sub-questions/check", {
+      const res = await fetchWithTimeout("/api/sub-questions/check", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ unit, mainQuestion, items }),
@@ -271,7 +272,7 @@ export default function SubQuestionsForm({
       saveDesignFeedback(timestamp, nextDesignFeedback);
       saveDraft(values, nextComments, nextDesignFeedback);
     } catch {
-      setError("서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.");
+      setError("코멘트를 받아오는 데 시간이 오래 걸리고 있어요. 잠시 후 다시 시도해 주세요.");
     } finally {
       setLoading(false);
     }
