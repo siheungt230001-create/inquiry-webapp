@@ -26,6 +26,14 @@ export function SubQuestionList({ record }: { record?: InquiryRecord }) {
           </p>
         </div>
       )}
+      {record.answerSufficiencyFeedback && (
+        <div className="rounded-lg border border-[var(--color-lavender)] bg-[var(--color-lavender)]/20 px-3 py-2">
+          <p className="text-xs font-medium text-[var(--color-lavender-deep)]">📝 메인 질문 답변 충분성 피드백</p>
+          <p className="mt-1 whitespace-pre-wrap text-xs text-[var(--color-ink)]">
+            {record.answerSufficiencyFeedback}
+          </p>
+        </div>
+      )}
       <ul className="flex flex-col gap-2">
         {subQuestions.map((s, i) => (
           <li key={i} className="rounded-lg border border-[var(--color-cream-200)] bg-[var(--color-cream-50)] px-3 py-2 text-xs">

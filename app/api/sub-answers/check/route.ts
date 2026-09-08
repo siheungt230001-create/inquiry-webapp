@@ -27,11 +27,11 @@ export async function POST(request: Request) {
   try {
     const groundingText = await getGroundingTextForUnit(unit);
     const prompt = buildSubAnswerCheckPrompt(groundingText, mainQuestion, items);
-    const { results } = await callGeminiGeneric<{ results: SubAnswerCheckResult[] }>(
-      prompt,
-      SUB_ANSWER_RESPONSE_SCHEMA
-    );
-    return NextResponse.json({ results });
+    const { results, answerSufficiencyFeedback } = await callGeminiGeneric<{
+      results: SubAnswerCheckResult[];
+      answerSufficiencyFeedback: string;
+    }>(prompt, SUB_ANSWER_RESPONSE_SCHEMA);
+    return NextResponse.json({ results, answerSufficiencyFeedback });
   } catch (err) {
     const message = (err as Error).message;
     return NextResponse.json(

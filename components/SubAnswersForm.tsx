@@ -24,6 +24,11 @@ function answerStatusKey(timestamp: string) {
 function answerSourceKey(timestamp: string) {
   return `subAnswerSource:${timestamp}`;
 }
+// 보조질문 "답변들"을 종합했을 때 메인 질문에 충분히 답이 되는지에 대한 AI의 종합 피드백 -
+// SubQuestionsForm의 designFeedbackKey와 같은 이유로 세션스토리지 + 서버 저장 둘 다로 들고 다닌다.
+function answerFeedbackKey(timestamp: string) {
+  return `subAnswerFeedback:${timestamp}`;
+}
 
 function loadJson<T>(key: string, fallback: T, isValidShape?: (v: unknown) => boolean): T {
   if (typeof window === "undefined") return fallback;
@@ -49,6 +54,23 @@ function saveJson(key: string, value: unknown) {
 
 function isCardLengthArray(v: unknown): boolean {
   return Array.isArray(v) && v.length === SUB_QUESTION_CARDS.length;
+}
+
+function loadAnswerFeedback(timestamp: string): string {
+  if (typeof window === "undefined") return "";
+  try {
+    return window.sessionStorage.getItem(answerFeedbackKey(timestamp)) || "";
+  } catch {
+    return "";
+  }
+}
+
+function saveAnswerFeedback(timestamp: string, value: string) {
+  try {
+    window.sessionStorage.setItem(answerFeedbackKey(timestamp), value);
+  } catch {
+    // 사생활 보호 모드 등에서 sessionStorage 쓰기가 막혀 있어도 화면은 계속 동작하게 둔다
+  }
 }
 
 interface ApprovedItem {
@@ -85,6 +107,10 @@ export default function SubAnswersForm({
   const [answerComments, setAnswerComments] = useState<(SubQuestionCheckResult | null)[]>(
     () => SUB_QUESTION_CARDS.map(() => null)
   );
+  // 답변 개별 판정과는 별개로, 답변 전체를 종합했을 때 메인 질문에 충분히 답이 되는지에
+  // 대한 AI의 종합 피드백(참고용, 진행 차단 안 함) - SubQuestionsForm의 designFeedback과
+  // 같은 성격이다.
+  const [answerSufficiencyFeedback, setAnswerSufficiencyFeedback] = useState<string>("");
   const [loaded, setLoaded] = useState(false);
   const [checking, setChecking] = useState(false);
   const [checkError, setCheckError] = useState<string | null>(null);
@@ -147,6 +173,7 @@ export default function SubAnswersForm({
     // 최신 데이터를 영영 못 본다. 학생 본인이 자기 진행 상황을 이어 쓸 때만 로컬을 쓴다.
     if (!isTeacherView && values.some((v) => v.trim())) {
       applyItemsToState(values, statuses, answers, answerStatuses, sources);
+      setAnswerSufficiencyFeedback(loadAnswerFeedback(timestamp));
       setLoaded(true);
       return;
     }
@@ -180,11 +207,14 @@ export default function SubAnswersForm({
         );
         const nextSources = SUB_QUESTION_CARDS.map((_, i) => serverItems[i]?.source ?? "");
         applyItemsToState(nextValues, nextStatuses, nextAnswers, nextAnswerStatuses, nextSources);
+        const nextAnswerFeedback = (data.record.answerSufficiencyFeedback as string) || "";
+        setAnswerSufficiencyFeedback(nextAnswerFeedback);
         saveJson(valuesKey(timestamp), nextValues);
         saveJson(statusKey(timestamp), nextStatuses);
         saveJson(answersKey(timestamp), nextAnswers);
         saveJson(answerStatusKey(timestamp), nextAnswerStatuses);
         saveJson(answerSourceKey(timestamp), nextSources);
+        saveAnswerFeedback(timestamp, nextAnswerFeedback);
         setLoaded(true);
       })
       .catch(() => setLoaded(true));
@@ -204,6 +234,12 @@ export default function SubAnswersForm({
       nextComments[index] = null;
       setAnswerComments(nextComments);
       saveJson(answerStatusKey(timestamp), nextComments);
+    }
+    // 답이 바뀌었으니 종합(답변 충분성) 피드백도 더 이상 맞지 않는다 - 다시 판정받아야
+    // 새로 생긴다("답변을 수정하고 다시 판정받으면 재생성" 요구사항).
+    if (answerSufficiencyFeedback) {
+      setAnswerSufficiencyFeedback("");
+      saveAnswerFeedback(timestamp, "");
     }
   }
 
@@ -248,6 +284,9 @@ export default function SubAnswersForm({
       });
       setAnswerComments(nextComments);
       saveJson(answerStatusKey(timestamp), nextComments);
+      const nextAnswerFeedback = (data.answerSufficiencyFeedback as string) || "";
+      setAnswerSufficiencyFeedback(nextAnswerFeedback);
+      saveAnswerFeedback(timestamp, nextAnswerFeedback);
     } catch {
       setCheckError("서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.");
     } finally {
@@ -278,12 +317,26 @@ export default function SubAnswersForm({
       fetch("/api/inquiry-writing", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mainQuestionTimestamp: timestamp, subQuestions: payloadItems, draft: true }),
+        body: JSON.stringify({
+          mainQuestionTimestamp: timestamp,
+          subQuestions: payloadItems,
+          draft: true,
+          answerSufficiencyFeedback,
+        }),
       }).catch(() => {
         // 무시 - 자동 저장은 부가 기능, 실패해도 화면 흐름은 막지 않는다
       });
     },
-    [answers, sources, loaded, approvedItems, allValues, allStatuses, answerComments],
+    [
+      answers,
+      sources,
+      loaded,
+      approvedItems,
+      allValues,
+      allStatuses,
+      answerComments,
+      answerSufficiencyFeedback,
+    ],
     800
   );
 
@@ -309,6 +362,20 @@ export default function SubAnswersForm({
             {readingText}
           </p>
         </details>
+      )}
+
+      {answerSufficiencyFeedback && (
+        <div className="card card-lavender p-5">
+          <p className="text-sm font-semibold text-[var(--color-lavender-deep)]">
+            📝 메인 질문 답변 충분성 피드백
+          </p>
+          <p className="mt-2 whitespace-pre-wrap text-sm text-[var(--color-ink)]">
+            {answerSufficiencyFeedback}
+          </p>
+          <p className="mt-2 text-xs text-[var(--color-ink-muted)]">
+            참고용 의견이에요 - 이대로 다음 단계로 넘어가도 괜찮아요.
+          </p>
+        </div>
       )}
 
       {approvedItems.length === 0 ? (

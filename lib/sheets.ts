@@ -102,6 +102,7 @@ async function readDemoStore(): Promise<DemoStore> {
       if (r.teacherFeedback === undefined) r.teacherFeedback = "";
       if (r.topicMismatch === undefined) r.topicMismatch = "";
       if (r.subQuestionDesignFeedback === undefined) r.subQuestionDesignFeedback = "";
+      if (r.answerSufficiencyFeedback === undefined) r.answerSufficiencyFeedback = "";
     }
     for (const s of parsed.submissions) {
       if (s.grade === undefined) s.grade = "";
@@ -665,6 +666,7 @@ export async function upsertTeacherFeedback(
         teacherFeedback,
         topicMismatch: "",
         subQuestionDesignFeedback: "",
+        answerSufficiencyFeedback: "",
       };
   await upsertInquiryRecord(record);
 }

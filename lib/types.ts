@@ -154,6 +154,11 @@ export interface InquiryRecord {
   // 이 값이 뭐든 다음 단계 진행을 막지 않는다. app/api/sub-questions/check가
   // 보조질문을 다시 판정할 때마다 함께 재생성된다.
   subQuestionDesignFeedback: string;
+  // 보조질문 "답변들"을 다 모았을 때 메인 질문에 충분히 답이 되는지에 대한 AI의 종합
+  // 코멘트 - subQuestionDesignFeedback과 같은 성격(참고용, 진행 차단 안 함)이지만 대상
+  // 단계가 다르다(이건 보조질문 답 쓰기 단계). app/api/sub-answers/check가 답변을
+  // 다시 판정할 때마다 함께 재생성된다.
+  answerSufficiencyFeedback: string;
 }
 
 // 여기 새 컬럼을 추가할 땐 반드시 맨 끝에만 붙인다(중간 삽입 금지 - 실제 시트 컬럼도
@@ -180,6 +185,7 @@ export const INQUIRY_COLUMNS: (keyof InquiryRecord)[] = [
   "teacherFeedback",
   "topicMismatch",
   "subQuestionDesignFeedback",
+  "answerSufficiencyFeedback",
 ];
 
 // "학생_프로필" 시트의 한 행 - 로그인 계정(email)마다 최근 입력한 학년/반/번호/이름을

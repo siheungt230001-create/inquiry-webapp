@@ -176,22 +176,34 @@ ${itemsText}
   본다). 사실 오류가 있어도 질문에 성실히 답했다면 "양호"로 판정하고, 사실
   확인 안내만 comment에 덧붙인다.
 
+[메인 질문 답변 충분성 종합 피드백 - answerSufficiencyFeedback]
+개별 답변 판정과는 별개로, 위 보조질문 답변들을 전부 종합했을 때 "메인 질문에
+대한 충분한 답이 되는가"를 평가하는 코멘트를 2~4문장으로 작성한다.
+- 메인 질문이 묻는 핵심 요소 중 지금 답변들이 다루지 못했거나 얕게만 다룬
+  부분이 있으면 짚어준다("~부분은 좀 더 구체적으로 조사해보면 좋겠어요"처럼).
+- 답변들을 종합하면 메인 질문에 이미 충분히 답이 되면 그 점을 칭찬한다.
+- 이 피드백은 참고용이다 - 개별 답변의 "양호"/"수정 필요" 판정과 결론이
+  달라도(예: 개별로는 다 "양호"인데 전체로 보면 빠진 부분이 있음) 괜찮다.
+  강제로 뭔가를 고치라고 다그치는 톤이 아니라, 이대로 다음 단계(종합 글쓰기)로
+  넘어가도 되는 학생에게도 참고할 만한 관찰을 주는 톤으로 쓴다.
+
 [출력]
-[보조질문과 학생이 쓴 답] 목록과 같은 순서로, 항목마다 status("양호" 또는
-"수정 필요")와 comment(1~2문장, 사실 오류를 짚어줄 때는 최대 2문장) 하나씩을
-담은 배열을 반환하세요.
+- results: [보조질문과 학생이 쓴 답] 목록과 같은 순서로, 항목마다 status
+  ("양호" 또는 "수정 필요")와 comment(1~2문장, 사실 오류를 짚어줄 때는 최대
+  2문장) 하나씩을 담은 배열.
+- answerSufficiencyFeedback: 위 기준대로 작성한 답변 충분성 종합 피드백 문자열
+  하나.
 
 요청한 JSON 스키마에 맞춰서만 응답하세요.`;
 }
 
-// SUB_QUESTION_RESPONSE_SCHEMA와 달리 designFeedback이 없다 - 답변 체크는 탐구
-// 설계 종합 피드백 대상이 아니다(그건 보조질문 "구성" 단계 전용).
 export const SUB_ANSWER_RESPONSE_SCHEMA = {
   type: "OBJECT",
   properties: {
     results: SUB_QUESTION_RESPONSE_SCHEMA.properties.results,
+    answerSufficiencyFeedback: { type: "STRING" },
   },
-  required: ["results"],
+  required: ["results", "answerSufficiencyFeedback"],
 } as const;
 
 export function buildEssayFeedbackPrompt(
