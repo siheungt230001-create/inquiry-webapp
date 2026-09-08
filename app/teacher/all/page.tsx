@@ -12,6 +12,7 @@ import {
   buildStudentQuestionHistory,
   buildBanStats,
   buildInquiryByEmail,
+  pickCurrentInquiryTimestamps,
   classLabel,
   type BanStat,
 } from "@/lib/aggregate";
@@ -187,6 +188,9 @@ async function StudentHistoryStage({ rows, email }: { rows: SubmissionRow[]; ema
   const allInquiryRecords = await getAllInquiryRecords();
   const studentInquiryRecords = buildInquiryByEmail(allInquiryRecords).get(email) || [];
   const recordByMainTs = new Map(studentInquiryRecords.map((r) => [r.mainQuestionTimestamp, r]));
+  // 여기는 단원을 안 가리는 "전체 보기"라 pickCurrentInquiryTimestamps가 내부적으로
+  // 단원별로 나눠서 비교해준다 - 다른 단원끼리는 "같은 걸 다시 시도한 것"이 아니므로.
+  const currentTs = pickCurrentInquiryTimestamps(questions, recordByMainTs);
 
   return (
     <>
@@ -210,6 +214,7 @@ async function StudentHistoryStage({ rows, email }: { rows: SubmissionRow[]; ema
               q={q}
               record={recordByMainTs.get(q.timestamp)}
               showUnit
+              isCurrentAttempt={currentTs.has(q.timestamp)}
             />
           ))}
         </div>

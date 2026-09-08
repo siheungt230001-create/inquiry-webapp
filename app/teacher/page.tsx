@@ -15,6 +15,7 @@ import {
   buildUnitStats,
   listUnitsByRecency,
   buildInquiryRecordByMainTimestamp,
+  pickCurrentInquiryTimestamps,
   classLabel,
   type StudentLatest,
   type BanStat,
@@ -288,21 +289,31 @@ function StudentTable({
     <div className="flex flex-col gap-2">
       {students.map((s) => {
         const questions = buildStudentQuestionHistory(unitRows, s.email);
+        const currentTs = pickCurrentInquiryTimestamps(questions, recordByMainTs);
+        // 진행 흔적 있는 질문이 있으면(보조질문/종합 글쓰기 시작) 단순 최신 제출 대신
+        // 그 질문 기준으로 요약을 보여준다 - 학생이 최신 질문이 아니라 예전 질문으로
+        // 계속 작업 중인 경우, 교사가 엉뚱한 질문의 판정을 보게 되는 걸 막는다.
+        const currentRow = currentTs.size > 0 ? questions.find((q) => currentTs.has(q.timestamp)) : undefined;
+        const summaryLabel = currentRow ? "진행 중인 질문 판정" : "최신 질문 판정";
+        const summaryLevel = currentRow ? currentRow.aiLevel : s.level;
+        const summaryScore = currentRow ? currentRow.aiScore : s.score;
+        const summaryApproval = currentRow ? currentRow.approval : s.approval;
+        const summaryQuestion = currentRow ? currentRow.question : s.question;
         return (
           <details key={s.email} id={s.email} open={s.email === highlightEmail} className="card">
             <summary className="grid cursor-pointer grid-cols-[180px_180px_56px_130px_90px_1fr] items-center gap-x-3 gap-y-1.5 px-4 py-3">
               <span className="truncate font-medium text-[var(--color-ink)]">
                 {classLabel(s.grade, s.ban)} {s.no}번 · {s.name}
               </span>
-              {/* 최신 질문 자체의 AI 판정 - 펼치면 보이는 회차별 판정과는 별개로 한눈에 보는 요약 */}
+              {/* 최신/진행 중인 질문의 AI 판정 - 펼치면 보이는 회차별 판정과는 별개로 한눈에 보는 요약 */}
               <span className="flex items-center gap-1.5">
-                <span className="text-[10px] text-[var(--color-ink-muted)]">최신 질문 판정</span>
-                <span className="badge badge-level">{s.level || "채점 대기중"}</span>
+                <span className="text-[10px] text-[var(--color-ink-muted)]">{summaryLabel}</span>
+                <span className="badge badge-level">{summaryLevel || "채점 대기중"}</span>
               </span>
-              <span className="text-xs text-[var(--color-ink-soft)]">{s.score !== "" ? `${s.score}점` : ""}</span>
-              <span className={approvalBadgeClass(s.approval)}>{s.approval || "처리중"}</span>
+              <span className="text-xs text-[var(--color-ink-soft)]">{summaryScore !== "" ? `${summaryScore}점` : ""}</span>
+              <span className={approvalBadgeClass(summaryApproval)}>{summaryApproval || "처리중"}</span>
               <span className="text-xs text-[var(--color-ink-muted)]">총 {s.count}회 제출</span>
-              <span className="min-w-0 truncate text-xs text-[var(--color-ink-soft)]">{s.question}</span>
+              <span className="min-w-0 truncate text-xs text-[var(--color-ink-soft)]">{summaryQuestion}</span>
             </summary>
 
             <div className="flex flex-col gap-2 border-t border-[var(--color-cream-200)] px-4 py-4">
@@ -310,7 +321,12 @@ function StudentTable({
                 <p className="text-xs text-[var(--color-ink-muted)]">아직 채점 완료된 제출이 없어요</p>
               ) : (
                 questions.map((q) => (
-                  <QuestionRecordCard key={q.timestamp} q={q} record={recordByMainTs.get(q.timestamp)} />
+                  <QuestionRecordCard
+                    key={q.timestamp}
+                    q={q}
+                    record={recordByMainTs.get(q.timestamp)}
+                    isCurrentAttempt={currentTs.has(q.timestamp)}
+                  />
                 ))
               )}
             </div>

@@ -35,19 +35,35 @@ export function ProgressBadge({ record }: { record: InquiryRecord | undefined })
   );
 }
 
+// 보조질문이 만들어졌거나 종합 글쓰기가 시작된(=inquiryStageOf가 "메인 질문만 제출됨"이
+// 아닌) 질문에만 붙는 표시 - 같은 단원에 여러 번 제출한 것 중 어느 게 지금 실제로
+// 진행 중인지(가장 최근 활동) 구분한다(lib/aggregate.ts의 pickCurrentInquiryTimestamps).
+function CurrentAttemptBadge({ isCurrent }: { isCurrent: boolean }) {
+  return isCurrent ? (
+    <span className="badge badge-current">▶ 진행 중</span>
+  ) : (
+    <span className="badge badge-pending">이전 시도</span>
+  );
+}
+
 // 질문 하나(SubmissionRow)를 펼치면 질문 원문/세부 점수/보조질문/종합 글쓰기까지
 // 전부 그 자리에서 보이는 카드 - app/teacher/page.tsx(단원별 보기)와
 // app/teacher/all/page.tsx(전체 보기) 둘 다 학생의 질문 이력을 나열할 때 이걸 쓴다.
 // showUnit=true면 요약 줄에 단원명도 같이 보여준다(단원을 안 가리는 "전체 보기"에서만 필요).
+// isCurrentAttempt는 같은 단원에 진행 흔적 있는 질문이 여러 개일 때만 의미가 있다
+// (호출부가 pickCurrentInquiryTimestamps로 계산해서 넘겨준다).
 export function QuestionRecordCard({
   q,
   record,
   showUnit = false,
+  isCurrentAttempt = false,
 }: {
   q: SubmissionRow;
   record: InquiryRecord | undefined;
   showUnit?: boolean;
+  isCurrentAttempt?: boolean;
 }) {
+  const hasProgress = inquiryStageOf(record) !== "메인 질문만 제출됨";
   return (
     <details key={q.timestamp} className="card">
       <summary className="grid cursor-pointer grid-cols-[70px_60px_130px_50px_120px_16px_70px_200px_150px_1fr] items-center gap-x-3 gap-y-1.5 px-4 py-3">
@@ -58,7 +74,10 @@ export function QuestionRecordCard({
         <span className={approvalBadgeClass(q.approval)}>{q.approval || "처리중"}</span>
         <span className="flex h-4 w-px justify-self-center bg-zinc-200" aria-hidden />
         <span className="text-[10px] text-zinc-400">탐구 글쓰기</span>
-        <ProgressBadge record={record} />
+        <span className="flex flex-wrap items-center gap-1">
+          <ProgressBadge record={record} />
+          {hasProgress && <CurrentAttemptBadge isCurrent={isCurrentAttempt} />}
+        </span>
         <span className="whitespace-nowrap text-xs text-zinc-400">
           {new Date(q.timestamp).toLocaleString("ko-KR")}
         </span>

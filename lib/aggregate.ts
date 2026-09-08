@@ -439,6 +439,47 @@ export function buildLiveClassStatus(
   });
 }
 
+// 같은 단원에 메인 질문을 여러 번 제출하는 학생(재시도/포기하고 다른 질문으로 갈아탄
+// 경우)이 있어서, 단순히 "가장 최근 제출"이 아니라 "실제로 보조질문/종합 글쓰기가
+// 진행된" 질문이 여러 개면 그중 가장 최근에 활동(InquiryRecord.timestamp - 초안
+// 자동저장 때마다 갱신됨)이 있었던 걸 "지금 진행 중"으로 본다. 단원이 다르면 애초에
+// "같은 걸 다시 시도한 것"이 아니므로 단원별로 따로 비교한다.
+function pickCurrentInquiryTimestamp(
+  timestamps: string[],
+  recordByMainTs: Map<string, InquiryRecord>
+): string | undefined {
+  let best: { ts: string; activity: number } | undefined;
+  for (const ts of timestamps) {
+    const record = recordByMainTs.get(ts);
+    if (!record || inquiryStageOf(record) === "메인 질문만 제출됨") continue;
+    const activity = new Date(record.timestamp).getTime();
+    if (!best || activity > best.activity) best = { ts, activity };
+  }
+  return best?.ts;
+}
+
+// 학생의 메인 질문 제출 목록(여러 단원이 섞여 있어도 됨) 중, 단원별로 "지금 진행
+// 중"인 질문의 mainQuestionTimestamp 집합을 돌려준다 - QuestionRecordCard가 "▶ 진행
+// 중"/"이전 시도" 배지를 붙이고, 학생별 요약 줄이 최신 제출 대신 이 질문 기준으로
+// 판정을 보여주는 데 쓴다.
+export function pickCurrentInquiryTimestamps(
+  questions: SubmissionRow[],
+  recordByMainTs: Map<string, InquiryRecord>
+): Set<string> {
+  const byUnit = new Map<string, string[]>();
+  for (const q of questions) {
+    const list = byUnit.get(q.unit) || [];
+    list.push(q.timestamp);
+    byUnit.set(q.unit, list);
+  }
+  const current = new Set<string>();
+  for (const tsList of byUnit.values()) {
+    const best = pickCurrentInquiryTimestamp(tsList, recordByMainTs);
+    if (best) current.add(best);
+  }
+  return current;
+}
+
 // 교사 대시보드 "탐구 글쓰기 기록" 섹션 - 선택된 단원/반으로 필터링(이미 최신순 정렬된 채로 옴).
 export function filterInquiryRecords(
   records: InquiryRecord[],

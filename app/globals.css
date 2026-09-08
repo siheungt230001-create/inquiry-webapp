@@ -119,3 +119,4 @@ body {
 .badge-pending { background: #ECE4DD; color: #8A7A6E; }
 .badge-level { background: var(--color-lavender-deep); color: #ffffff; }
 .badge-alert { background: var(--color-alert-bg); color: var(--color-alert-text); }
+.badge-current { background: var(--color-pink-deep); color: #ffffff; }
