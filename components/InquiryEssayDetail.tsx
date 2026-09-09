@@ -47,6 +47,22 @@ export function SubQuestionList({ record }: { record?: InquiryRecord }) {
           </p>
         </div>
       )}
+      {record.subQuestionProperNounFeedback && (
+        <div className="rounded-lg border border-[var(--color-badge-text)]/30 bg-[var(--color-badge-text)]/10 px-3 py-2">
+          <p className="text-xs font-medium text-[var(--color-badge-text)]">🔍 보조질문 표기 확인</p>
+          <p className="mt-1 whitespace-pre-wrap text-xs text-[var(--color-ink)]">
+            {record.subQuestionProperNounFeedback}
+          </p>
+        </div>
+      )}
+      {record.answerProperNounFeedback && (
+        <div className="rounded-lg border border-[var(--color-badge-text)]/30 bg-[var(--color-badge-text)]/10 px-3 py-2">
+          <p className="text-xs font-medium text-[var(--color-badge-text)]">🔍 답변 표기 확인</p>
+          <p className="mt-1 whitespace-pre-wrap text-xs text-[var(--color-ink)]">
+            {record.answerProperNounFeedback}
+          </p>
+        </div>
+      )}
       <ul className="flex flex-col gap-2">
         {subQuestions.map((s, i) => (
           <li key={i} className="rounded-lg border border-[var(--color-cream-200)] bg-[var(--color-cream-50)] px-3 py-2 text-xs">
@@ -57,6 +73,7 @@ export function SubQuestionList({ record }: { record?: InquiryRecord }) {
             <div className="mt-0.5 flex items-center gap-1.5 text-zinc-500">
               <span>{s.answer ? s.answer : "(답을 안 씀)"}</span>
               <StatusBadge status={s.answerStatus} />
+              {s.answer && <span className="text-[11px] text-zinc-400">({s.answer.length}자)</span>}
             </div>
             {s.source && <div className="mt-0.5 text-[11px] text-zinc-400">출처: {s.source}</div>}
           </li>
@@ -84,6 +101,7 @@ function EssayBlock({
         {score !== "" && <span className="text-xs text-zinc-400">{score} / {max}점</span>}
       </div>
       <p className="mt-1 whitespace-pre-wrap text-sm text-zinc-800">{text || "(작성 안 함)"}</p>
+      {text && <p className="mt-1 text-right text-[11px] text-zinc-400">{text.length}자</p>}
     </div>
   );
 }
@@ -146,6 +164,14 @@ export function EssayDetailSection({ record }: { record?: InquiryRecord }) {
         <div className="rounded-lg border border-[var(--color-lavender)] bg-[var(--color-lavender)]/30 px-3 py-2">
           <p className="text-xs font-medium text-[var(--color-lavender-deep)]">AI 피드백 (감점 사유)</p>
           <p className="mt-1 whitespace-pre-wrap text-xs text-[var(--color-ink)]">{record.comment}</p>
+        </div>
+      )}
+      {record.essayProperNounFeedback && (
+        <div className="rounded-lg border border-[var(--color-badge-text)]/30 bg-[var(--color-badge-text)]/10 px-3 py-2">
+          <p className="text-xs font-medium text-[var(--color-badge-text)]">🔍 표기 확인</p>
+          <p className="mt-1 whitespace-pre-wrap text-xs text-[var(--color-ink)]">
+            {record.essayProperNounFeedback}
+          </p>
         </div>
       )}
     </div>

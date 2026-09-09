@@ -27,6 +27,12 @@ function designFeedbackKey(timestamp: string) {
   return `subqDesign:${timestamp}`;
 }
 
+// 보조질문 문구 안 고유명사 표기 오류를 짚어주는 참고용 피드백 - designFeedback과
+// 같은 이유로 세션스토리지 + 서버 저장 둘 다로 들고 다닌다.
+function properNounFeedbackKey(timestamp: string) {
+  return `subqProperNoun:${timestamp}`;
+}
+
 // 답변/답변 판정/출처는 이 화면(보조질문 만들기) 소관이 아니라 SubAnswersForm이 쓰는
 // 값이지만, saveDraft가 여기서도 같이 저장을 호출하므로 기존 값을 읽어와 그대로
 // 실어 보내야 한다 - 안 그러면 여기서 저장할 때마다 답변/출처가 빈 문자열로 덮어써진다.
@@ -93,6 +99,23 @@ function saveDesignFeedback(timestamp: string, value: string) {
   }
 }
 
+function loadProperNounFeedback(timestamp: string): string {
+  if (typeof window === "undefined") return "";
+  try {
+    return window.sessionStorage.getItem(properNounFeedbackKey(timestamp)) || "";
+  } catch {
+    return "";
+  }
+}
+
+function saveProperNounFeedback(timestamp: string, value: string) {
+  try {
+    window.sessionStorage.setItem(properNounFeedbackKey(timestamp), value);
+  } catch {
+    // 사생활 보호 모드 등에서 sessionStorage 쓰기가 막혀 있어도 화면은 계속 동작하게 둔다
+  }
+}
+
 function loadCardArray<T>(key: string, fallback: T): T[] {
   if (typeof window === "undefined") return SUB_QUESTION_CARDS.map(() => fallback);
   try {
@@ -124,6 +147,7 @@ export default function SubQuestionsForm({
     () => SUB_QUESTION_CARDS.map(() => null)
   );
   const [designFeedback, setDesignFeedback] = useState<string>("");
+  const [properNounFeedback, setProperNounFeedback] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -141,6 +165,7 @@ export default function SubQuestionsForm({
       setValues(localValues);
       setComments(localComments);
       setDesignFeedback(loadDesignFeedback(timestamp));
+      setProperNounFeedback(loadProperNounFeedback(timestamp));
       return;
     }
     let cancelled = false;
@@ -158,12 +183,15 @@ export default function SubQuestionsForm({
           items[i]?.status ? { status: items[i].status!, comment: items[i].comment ?? "" } : null
         );
         const nextDesignFeedback = (data.record.subQuestionDesignFeedback as string) || "";
+        const nextProperNounFeedback = (data.record.subQuestionProperNounFeedback as string) || "";
         setValues(nextValues);
         setComments(nextComments);
         setDesignFeedback(nextDesignFeedback);
+        setProperNounFeedback(nextProperNounFeedback);
         saveJson(storageKey(timestamp), nextValues);
         saveJson(statusStorageKey(timestamp), nextComments);
         saveDesignFeedback(timestamp, nextDesignFeedback);
+        saveProperNounFeedback(timestamp, nextProperNounFeedback);
       })
       .catch(() => {
         // 서버에서 못 불러와도 빈 값으로 계속 진행 - 원래도 처음 쓰는 학생은 빈 값으로 시작한다
@@ -181,7 +209,8 @@ export default function SubQuestionsForm({
   async function saveDraft(
     nextValues: string[],
     nextComments: (SubQuestionCheckResult | null)[],
-    nextDesignFeedback: string
+    nextDesignFeedback: string,
+    nextProperNounFeedback: string
   ): Promise<boolean> {
     try {
       const answers = loadCardArray<string>(answersStorageKey(timestamp), "");
@@ -208,6 +237,7 @@ export default function SubQuestionsForm({
           subQuestions: items,
           draft: true,
           subQuestionDesignFeedback: nextDesignFeedback,
+          subQuestionProperNounFeedback: nextProperNounFeedback,
         }),
       });
       return res.ok;
@@ -227,7 +257,7 @@ export default function SubQuestionsForm({
     setSavingDraft(true);
     setDraftSaved(false);
     setDraftSaveError(false);
-    const ok = await saveDraft(values, comments, designFeedback);
+    const ok = await saveDraft(values, comments, designFeedback, properNounFeedback);
     setSavingDraft(false);
     if (ok) setDraftSaved(true);
     else setDraftSaveError(true);
@@ -250,6 +280,10 @@ export default function SubQuestionsForm({
     if (designFeedback) {
       setDesignFeedback("");
       saveDesignFeedback(timestamp, "");
+    }
+    if (properNounFeedback) {
+      setProperNounFeedback("");
+      saveProperNounFeedback(timestamp, "");
     }
     setDraftSaved(false);
     setDraftSaveError(false);
@@ -288,11 +322,14 @@ export default function SubQuestionsForm({
         nextComments[i] = results[resultIdx] ?? null;
       });
       const nextDesignFeedback = (data.designFeedback as string) || "";
+      const nextProperNounFeedback = (data.properNounFeedback as string) || "";
       setComments(nextComments);
       setDesignFeedback(nextDesignFeedback);
+      setProperNounFeedback(nextProperNounFeedback);
       saveJson(statusStorageKey(timestamp), nextComments);
       saveDesignFeedback(timestamp, nextDesignFeedback);
-      saveDraft(values, nextComments, nextDesignFeedback);
+      saveProperNounFeedback(timestamp, nextProperNounFeedback);
+      saveDraft(values, nextComments, nextDesignFeedback, nextProperNounFeedback);
     } catch {
       setError("코멘트를 받아오는 데 시간이 오래 걸리고 있어요. 잠시 후 다시 시도해 주세요.");
     } finally {
@@ -303,7 +340,7 @@ export default function SubQuestionsForm({
   async function goToSubAnswers() {
     // 2단계 진행 상태를 서버에 다시 한번 남겨서 교사 화면에 보이게 한다 - 실패해도
     // 부가 기능이라 학생 흐름(다음 단계 이동)은 막지 않는다.
-    await saveDraft(values, comments, designFeedback);
+    await saveDraft(values, comments, designFeedback, properNounFeedback);
     router.push(
       `/submit/sub-answers?ts=${encodeURIComponent(timestamp)}&q=${encodeURIComponent(mainQuestion)}&unit=${encodeURIComponent(unit)}`
     );
@@ -337,6 +374,18 @@ export default function SubQuestionsForm({
         <div className="card card-lavender p-5">
           <p className="text-sm font-semibold text-[var(--color-lavender-deep)]">🎯 탐구 설계 피드백</p>
           <p className="mt-2 whitespace-pre-wrap text-sm text-[var(--color-ink)]">{designFeedback}</p>
+          <p className="mt-2 text-xs text-[var(--color-ink-muted)]">
+            참고용 의견이에요 - 이대로 다음 단계로 넘어가도 괜찮아요.
+          </p>
+        </div>
+      )}
+
+      {properNounFeedback && (
+        <div className="card card-peach p-5">
+          <p className="text-sm font-semibold text-[var(--color-badge-text)]">🔍 표기 확인</p>
+          <p className="mt-2 whitespace-pre-wrap text-sm text-[var(--color-ink)]">
+            {properNounFeedback}
+          </p>
           <p className="mt-2 text-xs text-[var(--color-ink-muted)]">
             참고용 의견이에요 - 이대로 다음 단계로 넘어가도 괜찮아요.
           </p>

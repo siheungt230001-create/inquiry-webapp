@@ -38,6 +38,7 @@ export async function gradeEssay(
       bodyScore: 0,
       conclusionScore: 0,
       factScore: 0,
+      properNounFeedback: "",
       topicMismatch: buildOffTopicEssayComment(unitTitle),
     };
   }

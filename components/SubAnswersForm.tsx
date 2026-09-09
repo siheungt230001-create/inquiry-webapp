@@ -30,6 +30,11 @@ function answerSourceKey(timestamp: string) {
 function answerFeedbackKey(timestamp: string) {
   return `subAnswerFeedback:${timestamp}`;
 }
+// 답변 안 고유명사 표기 오류를 짚어주는 참고용 피드백 - answerFeedbackKey와 같은 이유로
+// 세션스토리지 + 서버 저장 둘 다로 들고 다닌다.
+function answerProperNounFeedbackKey(timestamp: string) {
+  return `subAnswerProperNoun:${timestamp}`;
+}
 
 function loadJson<T>(key: string, fallback: T, isValidShape?: (v: unknown) => boolean): T {
   if (typeof window === "undefined") return fallback;
@@ -74,6 +79,23 @@ function saveAnswerFeedback(timestamp: string, value: string) {
   }
 }
 
+function loadAnswerProperNounFeedback(timestamp: string): string {
+  if (typeof window === "undefined") return "";
+  try {
+    return window.sessionStorage.getItem(answerProperNounFeedbackKey(timestamp)) || "";
+  } catch {
+    return "";
+  }
+}
+
+function saveAnswerProperNounFeedback(timestamp: string, value: string) {
+  try {
+    window.sessionStorage.setItem(answerProperNounFeedbackKey(timestamp), value);
+  } catch {
+    // 사생활 보호 모드 등에서 sessionStorage 쓰기가 막혀 있어도 화면은 계속 동작하게 둔다
+  }
+}
+
 interface ApprovedItem {
   index: number;
   label: string;
@@ -112,6 +134,7 @@ export default function SubAnswersForm({
   // 대한 AI의 종합 피드백(참고용, 진행 차단 안 함) - SubQuestionsForm의 designFeedback과
   // 같은 성격이다.
   const [answerSufficiencyFeedback, setAnswerSufficiencyFeedback] = useState<string>("");
+  const [answerProperNounFeedback, setAnswerProperNounFeedback] = useState<string>("");
   const [loaded, setLoaded] = useState(false);
   const [checking, setChecking] = useState(false);
   const [checkError, setCheckError] = useState<string | null>(null);
@@ -175,6 +198,7 @@ export default function SubAnswersForm({
     if (!isTeacherView && values.some((v) => v.trim())) {
       applyItemsToState(values, statuses, answers, answerStatuses, sources);
       setAnswerSufficiencyFeedback(loadAnswerFeedback(timestamp));
+      setAnswerProperNounFeedback(loadAnswerProperNounFeedback(timestamp));
       setLoaded(true);
       return;
     }
@@ -209,13 +233,16 @@ export default function SubAnswersForm({
         const nextSources = SUB_QUESTION_CARDS.map((_, i) => serverItems[i]?.source ?? "");
         applyItemsToState(nextValues, nextStatuses, nextAnswers, nextAnswerStatuses, nextSources);
         const nextAnswerFeedback = (data.record.answerSufficiencyFeedback as string) || "";
+        const nextAnswerProperNounFeedback = (data.record.answerProperNounFeedback as string) || "";
         setAnswerSufficiencyFeedback(nextAnswerFeedback);
+        setAnswerProperNounFeedback(nextAnswerProperNounFeedback);
         saveJson(valuesKey(timestamp), nextValues);
         saveJson(statusKey(timestamp), nextStatuses);
         saveJson(answersKey(timestamp), nextAnswers);
         saveJson(answerStatusKey(timestamp), nextAnswerStatuses);
         saveJson(answerSourceKey(timestamp), nextSources);
         saveAnswerFeedback(timestamp, nextAnswerFeedback);
+        saveAnswerProperNounFeedback(timestamp, nextAnswerProperNounFeedback);
         setLoaded(true);
       })
       .catch(() => setLoaded(true));
@@ -241,6 +268,10 @@ export default function SubAnswersForm({
     if (answerSufficiencyFeedback) {
       setAnswerSufficiencyFeedback("");
       saveAnswerFeedback(timestamp, "");
+    }
+    if (answerProperNounFeedback) {
+      setAnswerProperNounFeedback("");
+      saveAnswerProperNounFeedback(timestamp, "");
     }
     setDraftSaved(false);
     setDraftSaveError(false);
@@ -288,8 +319,11 @@ export default function SubAnswersForm({
       setAnswerComments(nextComments);
       saveJson(answerStatusKey(timestamp), nextComments);
       const nextAnswerFeedback = (data.answerSufficiencyFeedback as string) || "";
+      const nextAnswerProperNounFeedback = (data.properNounFeedback as string) || "";
       setAnswerSufficiencyFeedback(nextAnswerFeedback);
+      setAnswerProperNounFeedback(nextAnswerProperNounFeedback);
       saveAnswerFeedback(timestamp, nextAnswerFeedback);
+      saveAnswerProperNounFeedback(timestamp, nextAnswerProperNounFeedback);
     } catch {
       setCheckError("코멘트를 받아오는 데 시간이 오래 걸리고 있어요. 잠시 후 다시 시도해 주세요.");
     } finally {
@@ -321,6 +355,7 @@ export default function SubAnswersForm({
           subQuestions: payloadItems,
           draft: true,
           answerSufficiencyFeedback,
+          answerProperNounFeedback,
         }),
       });
       return res.ok;
@@ -348,6 +383,7 @@ export default function SubAnswersForm({
       allStatuses,
       answerComments,
       answerSufficiencyFeedback,
+      answerProperNounFeedback,
     ],
     800
   );
@@ -425,6 +461,18 @@ export default function SubAnswersForm({
         </div>
       )}
 
+      {answerProperNounFeedback && (
+        <div className="card card-peach p-5">
+          <p className="text-sm font-semibold text-[var(--color-badge-text)]">🔍 표기 확인</p>
+          <p className="mt-2 whitespace-pre-wrap text-sm text-[var(--color-ink)]">
+            {answerProperNounFeedback}
+          </p>
+          <p className="mt-2 text-xs text-[var(--color-ink-muted)]">
+            참고용 의견이에요 - 이대로 다음 단계로 넘어가도 괜찮아요.
+          </p>
+        </div>
+      )}
+
       {approvedItems.length === 0 ? (
         <div className="card p-5 text-center">
           <p className="text-sm text-[var(--color-ink-soft)]">
@@ -461,6 +509,9 @@ export default function SubAnswersForm({
                 className="input mt-2 min-h-[90px]"
                 placeholder="이 질문에 대해 찾은 내용이나 생각을 적어보세요"
               />
+              <p className="mt-1 text-right text-xs text-[var(--color-ink-muted)]">
+                {(answers[item.index] ?? "").length}자
+              </p>
               {(() => {
                 const sourceMissing = answers[item.index]?.trim() && !sources[item.index]?.trim();
                 return (

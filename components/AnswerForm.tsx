@@ -186,11 +186,13 @@ export default function AnswerForm({
   const [comment, setComment] = useState<string | null>(null);
   const [scores, setScores] = useState<EssayScores | null>(null);
   const [topicMismatch, setTopicMismatch] = useState<string | null>(null);
+  const [properNounFeedback, setProperNounFeedback] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [submitScores, setSubmitScores] = useState<EssayScores | null>(null);
   const [submitTopicMismatch, setSubmitTopicMismatch] = useState<string | null>(null);
+  const [submitProperNounFeedback, setSubmitProperNounFeedback] = useState<string | null>(null);
 
   // sessionStorage에 값이 있으면 그대로 쓰고, 비어 있으면(탭을 닫았다 열거나 다른 기기)
   // 서버(시트)에 남은 진행 상황을 대신 불러온다.
@@ -296,6 +298,7 @@ export default function AnswerForm({
     setComment(null);
     setScores(null);
     setTopicMismatch(null);
+    setProperNounFeedback(null);
     try {
       const res = await fetchWithTimeout("/api/essay-feedback", {
         method: "POST",
@@ -326,6 +329,7 @@ export default function AnswerForm({
         factScore: data.factScore,
         totalScore: data.totalScore,
       });
+      setProperNounFeedback((data.properNounFeedback as string) || null);
     } catch {
       // 타임아웃(서버가 재시도하느라 오래 걸림)과 순수 네트워크 단절을 구분하지 않고
       // 안내 - 어느 쪽이든 학생이 할 수 있는 건 "다시 시도"뿐이다.
@@ -339,6 +343,7 @@ export default function AnswerForm({
     setSubmitting(true);
     setSubmitError(null);
     setSubmitTopicMismatch(null);
+    setSubmitProperNounFeedback(null);
     try {
       const res = await fetchWithTimeout("/api/inquiry-writing", {
         method: "POST",
@@ -369,6 +374,7 @@ export default function AnswerForm({
         factScore: data.factScore,
         totalScore: data.totalScore,
       });
+      setSubmitProperNounFeedback((data.essayProperNounFeedback as string) || null);
       setSubmitted(true);
     } catch {
       setSubmitError("제출 처리가 지연되고 있어요. 잠시 후 다시 시도해 주세요.");
@@ -422,6 +428,7 @@ export default function AnswerForm({
             onChange={(e) => updateEssay({ intro: e.target.value })}
             className="input mt-1 min-h-[70px]"
           />
+          <span className="self-end text-xs text-[var(--color-ink-muted)]">{essay.intro.length}자</span>
         </label>
       </div>
 
@@ -440,6 +447,7 @@ export default function AnswerForm({
             onChange={(e) => updateEssay({ body: e.target.value })}
             className="input mt-1 min-h-[160px]"
           />
+          <span className="self-end text-xs text-[var(--color-ink-muted)]">{essay.body.length}자</span>
         </label>
       </div>
 
@@ -458,6 +466,7 @@ export default function AnswerForm({
             onChange={(e) => updateEssay({ conclusion: e.target.value })}
             className="input mt-1 min-h-[70px]"
           />
+          <span className="self-end text-xs text-[var(--color-ink-muted)]">{essay.conclusion.length}자</span>
         </label>
       </div>
 
@@ -478,6 +487,14 @@ export default function AnswerForm({
             <p className="rounded-lg bg-[var(--color-lavender)]/40 border border-[var(--color-lavender)] px-3 py-2 text-sm text-[var(--color-lavender-deep)] whitespace-pre-wrap">
               {comment}
             </p>
+          )}
+          {properNounFeedback && (
+            <div className="card card-peach p-4">
+              <p className="text-xs font-semibold text-[var(--color-badge-text)]">🔍 표기 확인</p>
+              <p className="mt-1 whitespace-pre-wrap text-sm text-[var(--color-ink)]">
+                {properNounFeedback}
+              </p>
+            </div>
           )}
         </>
       )}
@@ -506,6 +523,14 @@ export default function AnswerForm({
       {submitted ? (
         <div className="flex flex-col gap-3">
           {submitScores && <ScoreBreakdown scores={submitScores} />}
+          {submitProperNounFeedback && (
+            <div className="card card-peach p-4">
+              <p className="text-xs font-semibold text-[var(--color-badge-text)]">🔍 표기 확인</p>
+              <p className="mt-1 whitespace-pre-wrap text-sm text-[var(--color-ink)]">
+                {submitProperNounFeedback}
+              </p>
+            </div>
+          )}
           <p className="rounded-lg bg-[var(--color-lavender)]/40 border border-[var(--color-lavender)] px-3 py-2 text-center text-sm text-[var(--color-lavender-deep)]">
             제출이 완료됐어요. 선생님이 이 탐구 글쓰기 기록을 확인할 수 있어요.
           </p>

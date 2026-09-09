@@ -159,6 +159,18 @@ export interface InquiryRecord {
   // 단계가 다르다(이건 보조질문 답 쓰기 단계). app/api/sub-answers/check가 답변을
   // 다시 판정할 때마다 함께 재생성된다.
   answerSufficiencyFeedback: string;
+  // 보조질문 문구 안 고유명사(인물·사건·제도·기관명) 표기 오류를 짚어주는 참고용
+  // 피드백 - subQuestionDesignFeedback과 같은 성격(참고용, 진행 차단 안 함)이며
+  // app/api/sub-questions/check가 보조질문을 다시 판정할 때마다 함께 재생성된다.
+  subQuestionProperNounFeedback: string;
+  // 보조질문 "답변" 안 고유명사 표기 오류를 짚어주는 참고용 피드백 - 위와 같은
+  // 성격이며 app/api/sub-answers/check가 답변을 다시 판정할 때마다 함께
+  // 재생성된다.
+  answerProperNounFeedback: string;
+  // 종합 글쓰기(서론/본론/결론) 안 고유명사 표기 오류를 짚어주는 참고용 피드백 -
+  // comment(구조 피드백)와는 별개 축이라 필드를 따로 둔다. 단원 확인 필요
+  // (topicMismatch)일 때는 ""로 비운다.
+  essayProperNounFeedback: string;
 }
 
 // 여기 새 컬럼을 추가할 땐 반드시 맨 끝에만 붙인다(중간 삽입 금지 - 실제 시트 컬럼도
@@ -186,6 +198,9 @@ export const INQUIRY_COLUMNS: (keyof InquiryRecord)[] = [
   "topicMismatch",
   "subQuestionDesignFeedback",
   "answerSufficiencyFeedback",
+  "subQuestionProperNounFeedback",
+  "answerProperNounFeedback",
+  "essayProperNounFeedback",
 ];
 
 // "학생_프로필" 시트의 한 행 - 로그인 계정(email)마다 최근 입력한 학년/반/번호/이름을

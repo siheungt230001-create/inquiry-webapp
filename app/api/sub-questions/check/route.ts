@@ -28,11 +28,12 @@ export async function POST(request: Request) {
   try {
     const groundingText = await getGroundingTextForUnit(unit);
     const prompt = buildSubQuestionCheckPrompt(groundingText, mainQuestion, items);
-    const { results, designFeedback } = await callGeminiGeneric<{
+    const { results, designFeedback, properNounFeedback } = await callGeminiGeneric<{
       results: SubQuestionCheckResult[];
       designFeedback: string;
+      properNounFeedback: string;
     }>(prompt, SUB_QUESTION_RESPONSE_SCHEMA);
-    return NextResponse.json({ results, designFeedback });
+    return NextResponse.json({ results, designFeedback, properNounFeedback });
   } catch (err) {
     return NextResponse.json(
       { error: toUserErrorMessage(err, "sub-questions/check") },

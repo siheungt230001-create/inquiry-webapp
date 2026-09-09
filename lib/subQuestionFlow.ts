@@ -20,6 +20,10 @@ export interface EssayFeedbackResult {
   // 직접 구성 - buildOffTopicEssayComment). 채워져 있으면 위 점수 4개는 의미 없는
   // 값(0)이고, 실제 저장 시엔 ""로 바뀐다(app/api/inquiry-writing/route.ts).
   topicMismatch?: string;
+  // 학생 답안 속 역사적 고유명사(인물·사건·제도·기관명) 표기 오류(오타 포함)를
+  // 짚어주는 참고용 피드백 - 점수(introScore 등)에는 전혀 영향을 주지 않는다.
+  // 오류가 없으면 빈 문자열.
+  properNounFeedback: string;
 }
 
 // 종합 글쓰기가 [읽기자료]와 완전히 다른 주제일 때 보여줄 안내 문구 - lib/rubric.ts의
@@ -66,6 +70,17 @@ ${unitReadingText}
 [학생이 만든 보조질문 목록]
 ${itemsText}
 
+[고유명사·표기 확인 - properNounFeedback]
+개별 판정과는 별개로, 학생이 쓴 보조질문 문구들 안에 역사적 인물·사건·제도·기관명
+등 고유명사의 표기 오류(오타 포함)가 있는지 확인한다.
+- 오류를 발견하면 "OO는 OO의 오타로 보여요. 정확한 표기는 OO예요."처럼 무엇이
+  어떻게 틀렸는지 구체적으로 짚어준다(예: "장동행성은 정동행성의 오타로
+  보여요. 정확한 표기는 정동행성이에요.").
+- 이 피드백은 점수나 status("양호"/"수정 필요") 판정에는 전혀 영향을 주지
+  않는 참고용이다.
+- 표기 오류를 하나도 못 찾았으면 빈 문자열("")로 둔다. 확신이 서지 않으면
+  언급하지 않는다.
+
 [각 보조질문 채점 기준 - results]
 - 메인 질문과 관련이 있는가(주어·초점이 메인 질문에서 다루는 대상/사건과
   이어지는가)?
@@ -97,6 +112,8 @@ ${itemsText}
 - results: 학생이 만든 보조질문 목록과 같은 순서로, 항목마다 status("양호"
   또는 "수정 필요")와 comment(1~2문장) 하나씩을 담은 배열.
 - designFeedback: 위 기준대로 작성한 탐구 설계 종합 피드백 문자열 하나.
+- properNounFeedback: 위 [고유명사·표기 확인] 기준대로 작성한 문자열 하나
+  (오류가 없으면 "").
 
 요청한 JSON 스키마에 맞춰서만 응답하세요.`;
 }
@@ -116,8 +133,9 @@ export const SUB_QUESTION_RESPONSE_SCHEMA = {
       },
     },
     designFeedback: { type: "STRING" },
+    properNounFeedback: { type: "STRING" },
   },
-  required: ["results", "designFeedback"],
+  required: ["results", "designFeedback", "properNounFeedback"],
 } as const;
 
 // 보조질문 "답변" 자체에 대한 피드백 - 보조질문 채점(위 buildSubQuestionCheckPrompt,
@@ -176,6 +194,17 @@ ${itemsText}
   본다). 사실 오류가 있어도 질문에 성실히 답했다면 "양호"로 판정하고, 사실
   확인 안내만 comment에 덧붙인다.
 
+[고유명사·표기 확인 - properNounFeedback]
+개별 판정과는 별개로, 학생이 쓴 답 안에 역사적 인물·사건·제도·기관명 등
+고유명사의 표기 오류(오타 포함)가 있는지 확인한다.
+- 오류를 발견하면 "OO는 OO의 오타로 보여요. 정확한 표기는 OO예요."처럼 무엇이
+  어떻게 틀렸는지 구체적으로 짚어준다(예: "장동행성은 정동행성의 오타로
+  보여요. 정확한 표기는 정동행성이에요.").
+- 이 피드백은 점수나 status("양호"/"수정 필요") 판정에는 전혀 영향을 주지
+  않는 참고용이다.
+- 표기 오류를 하나도 못 찾았으면 빈 문자열("")로 둔다. 확신이 서지 않으면
+  언급하지 않는다.
+
 [메인 질문 답변 충분성 종합 피드백 - answerSufficiencyFeedback]
 개별 답변 판정과는 별개로, 위 보조질문 답변들을 전부 종합했을 때 "메인 질문에
 대한 충분한 답이 되는가"를 평가하는 코멘트를 2~4문장으로 작성한다.
@@ -193,6 +222,8 @@ ${itemsText}
   2문장) 하나씩을 담은 배열.
 - answerSufficiencyFeedback: 위 기준대로 작성한 답변 충분성 종합 피드백 문자열
   하나.
+- properNounFeedback: 위 [고유명사·표기 확인] 기준대로 작성한 문자열 하나
+  (오류가 없으면 "").
 
 요청한 JSON 스키마에 맞춰서만 응답하세요.`;
 }
@@ -202,8 +233,9 @@ export const SUB_ANSWER_RESPONSE_SCHEMA = {
   properties: {
     results: SUB_QUESTION_RESPONSE_SCHEMA.properties.results,
     answerSufficiencyFeedback: { type: "STRING" },
+    properNounFeedback: { type: "STRING" },
   },
-  required: ["results", "answerSufficiencyFeedback"],
+  required: ["results", "answerSufficiencyFeedback", "properNounFeedback"],
 } as const;
 
 export function buildEssayFeedbackPrompt(
@@ -276,6 +308,18 @@ ${subQuestionsText}
   · [절대 규칙] 3번에 따라 factScore를 0으로 매겼다면, "감점 사유: ~"로
     시작하는 문장을 코멘트 끝에 넣어 왜 깎였는지 알려준다.
 
+[고유명사·표기 확인 - properNounFeedback]
+채점과는 별개로, 학생이 쓴 서론/본론/결론 안에 역사적 인물·사건·제도·기관명
+등 고유명사의 표기 오류(오타 포함)가 있는지 확인한다.
+- 오류를 발견하면 "OO는 OO의 오타로 보여요. 정확한 표기는 OO예요."처럼 무엇이
+  어떻게 틀렸는지 구체적으로 짚어준다(예: "장동행성은 정동행성의 오타로
+  보여요. 정확한 표기는 정동행성이에요.").
+- 이 피드백은 introScore 등 채점 점수나 topic_relevant 판정에는 전혀 영향을
+  주지 않는 참고용이다.
+- 표기 오류를 하나도 못 찾았으면 빈 문자열("")로 둔다. 확신이 서지 않으면
+  언급하지 않는다.
+- topic_relevant가 false인 경우에는 이 항목도 빈 문자열("")로 둔다.
+
 [채점 기준 (총 5점, 항목별 배점 아래 참고, 각 0.5점 단위)]
 - 서론(0~1점): 메인 질문에 대한 문제의식이 잘 드러났는가.
 - 본론(0~2.5점): 보조질문 글쓰기 내용, 메인 질문에 따른 보조질문의
@@ -303,6 +347,15 @@ export const ESSAY_RESPONSE_SCHEMA = {
     bodyScore: { type: "NUMBER" },
     conclusionScore: { type: "NUMBER" },
     factScore: { type: "NUMBER" },
+    properNounFeedback: { type: "STRING" },
   },
-  required: ["topic_relevant", "comment", "introScore", "bodyScore", "conclusionScore", "factScore"],
+  required: [
+    "topic_relevant",
+    "comment",
+    "introScore",
+    "bodyScore",
+    "conclusionScore",
+    "factScore",
+    "properNounFeedback",
+  ],
 } as const;

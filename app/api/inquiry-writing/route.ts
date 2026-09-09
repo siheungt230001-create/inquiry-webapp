@@ -52,6 +52,9 @@ export async function GET(request: Request) {
       topicMismatch: record.topicMismatch,
       subQuestionDesignFeedback: record.subQuestionDesignFeedback,
       answerSufficiencyFeedback: record.answerSufficiencyFeedback,
+      subQuestionProperNounFeedback: record.subQuestionProperNounFeedback,
+      answerProperNounFeedback: record.answerProperNounFeedback,
+      essayProperNounFeedback: record.essayProperNounFeedback,
     },
   });
 }
@@ -77,6 +80,10 @@ export async function POST(request: Request) {
     // 보조질문 답 쓰기 화면(SubAnswersForm)만 이 필드를 채워서 보낸다 - 위와 같은 이유로
     // 그 외 화면은 아예 안 보내고 기존 값을 그대로 유지한다.
     answerSufficiencyFeedback,
+    // 위 두 피드백과 같은 보존 규칙 - 각자의 화면(SubQuestionsForm/SubAnswersForm)만
+    // 채워 보내고, 그 외 화면의 자동 저장은 기존 값을 그대로 유지한다.
+    subQuestionProperNounFeedback,
+    answerProperNounFeedback,
   } = body || {};
 
   if (!mainQuestionTimestamp || !Array.isArray(subQuestions)) {
@@ -116,6 +123,14 @@ export async function POST(request: Request) {
     answerSufficiencyFeedback !== undefined
       ? answerSufficiencyFeedback
       : existingForFeedback?.answerSufficiencyFeedback ?? "";
+  const resolvedSubQuestionProperNounFeedback =
+    subQuestionProperNounFeedback !== undefined
+      ? subQuestionProperNounFeedback
+      : existingForFeedback?.subQuestionProperNounFeedback ?? "";
+  const resolvedAnswerProperNounFeedback =
+    answerProperNounFeedback !== undefined
+      ? answerProperNounFeedback
+      : existingForFeedback?.answerProperNounFeedback ?? "";
 
   // 진행중 저장(보조질문 작성/보조질문 답변/종합 글쓰기 초안 전부 여기로 온다) - 아직
   // "제출하기"를 안 눌렀으니 AI 채점 없이 지금까지 쓴 내용만 그대로 남긴다. intro/body/
@@ -162,6 +177,11 @@ export async function POST(request: Request) {
       topicMismatch: "",
       subQuestionDesignFeedback: resolvedDesignFeedback,
       answerSufficiencyFeedback: resolvedAnswerFeedback,
+      subQuestionProperNounFeedback: resolvedSubQuestionProperNounFeedback,
+      answerProperNounFeedback: resolvedAnswerProperNounFeedback,
+      // 종합 글쓰기는 아직 채점(gradeEssay) 전이니 기존 값을 그대로 옮겨 담는다 -
+      // comment/factScore와 같은 보존 패턴.
+      essayProperNounFeedback: existing?.essayProperNounFeedback ?? "",
     };
     try {
       await upsertInquiryRecord(record);
@@ -225,6 +245,9 @@ export async function POST(request: Request) {
     topicMismatch: scoreResult.topicMismatch ?? "",
     subQuestionDesignFeedback: resolvedDesignFeedback,
     answerSufficiencyFeedback: resolvedAnswerFeedback,
+    subQuestionProperNounFeedback: resolvedSubQuestionProperNounFeedback,
+    answerProperNounFeedback: resolvedAnswerProperNounFeedback,
+    essayProperNounFeedback: isOffTopic ? "" : scoreResult.properNounFeedback,
   };
 
   try {

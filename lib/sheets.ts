@@ -103,6 +103,9 @@ async function readDemoStore(): Promise<DemoStore> {
       if (r.topicMismatch === undefined) r.topicMismatch = "";
       if (r.subQuestionDesignFeedback === undefined) r.subQuestionDesignFeedback = "";
       if (r.answerSufficiencyFeedback === undefined) r.answerSufficiencyFeedback = "";
+      if (r.subQuestionProperNounFeedback === undefined) r.subQuestionProperNounFeedback = "";
+      if (r.answerProperNounFeedback === undefined) r.answerProperNounFeedback = "";
+      if (r.essayProperNounFeedback === undefined) r.essayProperNounFeedback = "";
     }
     for (const s of parsed.submissions) {
       if (s.grade === undefined) s.grade = "";
@@ -669,6 +672,9 @@ export async function upsertTeacherFeedback(
         topicMismatch: "",
         subQuestionDesignFeedback: "",
         answerSufficiencyFeedback: "",
+        subQuestionProperNounFeedback: "",
+        answerProperNounFeedback: "",
+        essayProperNounFeedback: "",
       };
   await upsertInquiryRecord(record);
 }
