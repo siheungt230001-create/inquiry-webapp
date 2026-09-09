@@ -27,7 +27,20 @@ export function SubQuestionList({ record }: { record?: InquiryRecord }) {
     subQuestions = [];
   }
   if (subQuestions.length === 0) {
-    return <p className="text-xs text-zinc-400">아직 작성한 보조질문이 없어요</p>;
+    // 보조질문을 하나도 안 쓴 채로 종합 글쓰기(intro/body/conclusion)에 진척이 있으면,
+    // 미착수가 아니라 history 화면의 "종합 글쓰기로 이동" 링크로 보조질문 단계를
+    // 건너뛰고 바로 에세이를 쓴 경우다 - 둘을 같은 문구로 보여주면 "데이터가
+    // 유실됐나"로 오해하기 쉬워서 구분한다.
+    const skippedToEssay =
+      record.totalScore !== "" ||
+      [record.intro, record.body, record.conclusion].some((v) => v.trim());
+    return (
+      <p className="text-xs text-zinc-400">
+        {skippedToEssay
+          ? "보조질문 단계를 건너뛰고 바로 종합 글쓰기를 작성했어요"
+          : "아직 작성한 보조질문이 없어요"}
+      </p>
+    );
   }
   return (
     <div className="flex flex-col gap-2">
