@@ -353,23 +353,6 @@ export default function SubQuestionsForm({
         <div className="mt-1 font-bold text-[var(--color-ink)]">{mainQuestion}</div>
       </div>
 
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={handleSaveDraft}
-          disabled={savingDraft}
-          className="btn-secondary !px-4 !py-1.5 !text-xs"
-        >
-          {savingDraft ? "저장하는 중..." : "임시 저장"}
-        </button>
-        {draftSaved && (
-          <span className="text-xs text-[var(--color-mint-deep)]">임시 저장됐어요</span>
-        )}
-        {draftSaveError && (
-          <span className="text-xs text-[var(--color-badge-text)]">저장에 실패했어요. 다시 시도해 주세요.</span>
-        )}
-      </div>
-
       {designFeedback && (
         <div className="card card-lavender p-5">
           <p className="text-sm font-semibold text-[var(--color-lavender-deep)]">🎯 탐구 설계 피드백</p>
@@ -451,6 +434,23 @@ export default function SubQuestionsForm({
       <button onClick={goToSubAnswers} className="btn-secondary flex items-center justify-center gap-1">
         보조질문 답 쓰기 <ArrowRightIcon />
       </button>
+
+      <div className="flex items-center justify-center gap-2">
+        <button
+          type="button"
+          onClick={handleSaveDraft}
+          disabled={savingDraft}
+          className="btn-secondary !px-4 !py-1.5 !text-xs"
+        >
+          {savingDraft ? "저장하는 중..." : "저장"}
+        </button>
+        {draftSaved && (
+          <span className="text-xs text-[var(--color-mint-deep)]">저장됐어요</span>
+        )}
+        {draftSaveError && (
+          <span className="text-xs text-[var(--color-badge-text)]">저장에 실패했어요. 다시 시도해 주세요.</span>
+        )}
+      </div>
     </div>
   );
 }

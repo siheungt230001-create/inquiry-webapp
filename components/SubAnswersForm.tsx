@@ -428,25 +428,6 @@ export default function SubAnswersForm({
         </details>
       )}
 
-      {approvedItems.length > 0 && (
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={handleSaveDraft}
-            disabled={savingDraft}
-            className="btn-secondary !px-4 !py-1.5 !text-xs"
-          >
-            {savingDraft ? "저장하는 중..." : "임시 저장"}
-          </button>
-          {draftSaved && (
-            <span className="text-xs text-[var(--color-mint-deep)]">임시 저장됐어요</span>
-          )}
-          {draftSaveError && (
-            <span className="text-xs text-[var(--color-badge-text)]">저장에 실패했어요. 다시 시도해 주세요.</span>
-          )}
-        </div>
-      )}
-
       {answerSufficiencyFeedback && (
         <div className="card card-lavender p-5">
           <p className="text-sm font-semibold text-[var(--color-lavender-deep)]">
@@ -574,6 +555,25 @@ export default function SubAnswersForm({
           </>
         )}
       </button>
+
+      {approvedItems.length > 0 && (
+        <div className="flex items-center justify-center gap-2">
+          <button
+            type="button"
+            onClick={handleSaveDraft}
+            disabled={savingDraft}
+            className="btn-secondary !px-4 !py-1.5 !text-xs"
+          >
+            {savingDraft ? "저장하는 중..." : "저장"}
+          </button>
+          {draftSaved && (
+            <span className="text-xs text-[var(--color-mint-deep)]">저장됐어요</span>
+          )}
+          {draftSaveError && (
+            <span className="text-xs text-[var(--color-badge-text)]">저장에 실패했어요. 다시 시도해 주세요.</span>
+          )}
+        </div>
+      )}
     </div>
   );
 }

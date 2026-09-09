@@ -256,18 +256,17 @@ export default function AnswerForm({
     };
   }, [timestamp, isTeacherView]);
 
-  // 서론/본론/결론을 쓰는 동안 타이핑이 잠깐 멈추면 서버에도 초안을 저장한다 - "제출하기"를
-  // 누르기 전까지는 서버 저장이 아예 없어서, sessionStorage만 지워지면(탭 닫기 등) 종합
-  // 글쓰기 내용이 통째로 사라지는 게 버그의 핵심 원인이었다.
-  useDebouncedEffect(
-    () => {
-      if (!loaded) return;
-      const hasAnyContent =
-        fullSubQuestions.some((item) => item.question.trim()) ||
-        Object.values(essay).some((v) => v.trim());
-      if (!hasAnyContent) return;
-      const payloadItems = toPersistedItems(fullSubQuestions);
-      fetch("/api/inquiry-writing", {
+  // 지금까지 쓴 서론/본론/결론(+보조질문)을 그대로 서버에 저장 - "제출하기"와 달리
+  // AI 채점 없이 초안만 남긴다. 디바운스 자동 저장과 "저장" 버튼(handleSaveDraft) 둘 다
+  // 이 함수를 쓴다. 반환값(성공 여부)은 버튼 클릭 시에만 확인/실패 문구를 보여주는 데 쓴다.
+  async function saveDraftNow(): Promise<boolean> {
+    const hasAnyContent =
+      fullSubQuestions.some((item) => item.question.trim()) ||
+      Object.values(essay).some((v) => v.trim());
+    if (!hasAnyContent) return true;
+    const payloadItems = toPersistedItems(fullSubQuestions);
+    try {
+      const res = await fetch("/api/inquiry-writing", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -278,13 +277,40 @@ export default function AnswerForm({
           conclusion: essay.conclusion,
           draft: true,
         }),
-      }).catch(() => {
-        // 무시 - 자동 저장은 부가 기능, 실패해도 화면 흐름은 막지 않는다
       });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  // 서론/본론/결론을 쓰는 동안 타이핑이 잠깐 멈추면 서버에도 초안을 저장한다 - "제출하기"를
+  // 누르기 전까지는 서버 저장이 아예 없어서, sessionStorage만 지워지면(탭 닫기 등) 종합
+  // 글쓰기 내용이 통째로 사라지는 게 버그의 핵심 원인이었다.
+  useDebouncedEffect(
+    () => {
+      if (!loaded) return;
+      saveDraftNow();
     },
     [essay, loaded, fullSubQuestions],
     800
   );
+
+  const [savingDraft, setSavingDraft] = useState(false);
+  const [draftSaved, setDraftSaved] = useState(false);
+  const [draftSaveError, setDraftSaveError] = useState(false);
+
+  // AI 채점과 무관하게 지금 쓴 내용만 그대로 저장 - 자동 저장과 같은 요청이지만,
+  // 눌렀을 때 바로 확인/실패 문구를 보여준다.
+  async function handleSaveDraft() {
+    setSavingDraft(true);
+    setDraftSaved(false);
+    setDraftSaveError(false);
+    const ok = await saveDraftNow();
+    setSavingDraft(false);
+    if (ok) setDraftSaved(true);
+    else setDraftSaveError(true);
+  }
 
   function updateEssay(patch: Partial<Essay>) {
     const next = { ...essay, ...patch };
@@ -540,6 +566,23 @@ export default function AnswerForm({
           {submitting ? "제출하는 중..." : "제출하기"}
         </button>
       )}
+
+      <div className="flex items-center justify-center gap-2">
+        <button
+          type="button"
+          onClick={handleSaveDraft}
+          disabled={savingDraft}
+          className="btn-secondary !px-4 !py-1.5 !text-xs"
+        >
+          {savingDraft ? "저장하는 중..." : "저장"}
+        </button>
+        {draftSaved && (
+          <span className="text-xs text-[var(--color-mint-deep)]">저장됐어요</span>
+        )}
+        {draftSaveError && (
+          <span className="text-xs text-[var(--color-badge-text)]">저장에 실패했어요. 다시 시도해 주세요.</span>
+        )}
+      </div>
     </div>
   );
 }
