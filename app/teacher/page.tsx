@@ -301,15 +301,15 @@ function StudentTable({
         const summaryQuestion = currentRow ? currentRow.question : s.question;
         return (
           <details key={s.email} id={s.email} open={s.email === highlightEmail} className="card">
-            <summary className="grid cursor-pointer grid-cols-[180px_180px_56px_130px_90px_1fr] items-center gap-x-3 gap-y-1.5 px-4 py-3">
+            <summary className="grid cursor-pointer grid-cols-[180px_110px_70px_56px_130px_90px_1fr] items-center gap-x-3 gap-y-1.5 px-4 py-3">
               <span className="truncate font-medium text-[var(--color-ink)]">
                 {classLabel(s.grade, s.ban)} {s.no}번 · {s.name}
               </span>
-              {/* 최신/진행 중인 질문의 AI 판정 - 펼치면 보이는 회차별 판정과는 별개로 한눈에 보는 요약 */}
-              <span className="flex items-center gap-1.5">
-                <span className="text-[10px] text-[var(--color-ink-muted)]">{summaryLabel}</span>
-                <span className="badge badge-level">{summaryLevel || "채점 대기중"}</span>
-              </span>
+              {/* 최신/진행 중인 질문의 AI 판정 - 펼치면 보이는 회차별 판정과는 별개로 한눈에 보는 요약.
+                  라벨("진행 중인 질문 판정"/"최신 질문 판정")과 레벨 배지를 각자 고정폭 칸으로
+                  나눠야, 라벨 길이가 달라도 뒤따르는 점수/승인상태/제출횟수 칸이 행마다 안 밀린다. */}
+              <span className="truncate text-[10px] text-[var(--color-ink-muted)]">{summaryLabel}</span>
+              <span className="badge badge-level w-fit">{summaryLevel || "채점 대기중"}</span>
               <span className="text-xs text-[var(--color-ink-soft)]">{summaryScore !== "" ? `${summaryScore}점` : ""}</span>
               <span className={approvalBadgeClass(summaryApproval)}>{summaryApproval || "처리중"}</span>
               <span className="text-xs text-[var(--color-ink-muted)]">총 {s.count}회 제출</span>
