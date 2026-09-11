@@ -1,5 +1,5 @@
 import { approvalBadgeClass, CRITERIA_ACCENTS } from "@/lib/badge";
-import { inquiryStageOf, inquiryStageBadgeClass } from "@/lib/aggregate";
+import { inquiryStageOf, inquiryStageBadgeClass, progressStatusOf } from "@/lib/aggregate";
 import { SubQuestionList, EssayDetailSection } from "@/components/InquiryEssayDetail";
 import PdfDownloadButton from "@/components/PdfDownloadButton";
 import TeacherFeedbackBox from "@/components/TeacherFeedbackBox";
@@ -66,12 +66,20 @@ export function QuestionRecordCard({
   const hasProgress = inquiryStageOf(record) !== "메인 질문만 제출됨";
   return (
     <details key={q.timestamp} className="card">
-      <summary className="grid cursor-pointer grid-cols-[70px_60px_130px_50px_120px_16px_70px_200px_150px_1fr] items-center gap-x-3 gap-y-1.5 px-4 py-3">
+      <summary className="grid cursor-pointer grid-cols-[70px_60px_130px_50px_160px_16px_70px_200px_150px_1fr] items-center gap-x-3 gap-y-1.5 px-4 py-3">
         <span className="truncate text-xs text-zinc-400">{showUnit ? q.unit : ""}</span>
         <span className="text-[10px] text-zinc-400">질문 판정</span>
         <span className="badge badge-level">{q.aiLevel || "채점 대기중"}</span>
         <span className="text-xs text-zinc-500">{q.aiScore !== "" ? `${q.aiScore}점` : ""}</span>
-        <span className={approvalBadgeClass(q.approval)}>{q.approval || "처리중"}</span>
+        {/* 점수·레벨과 무관하게 어디까지 진행/저장했는지만 보여준다 - "단원 확인 필요"는
+            진행 단계가 아니라 별도 판정이라 그대로 둔다. */}
+        {q.approval === "단원 확인 필요" ? (
+          <span className={approvalBadgeClass(q.approval)}>{q.approval}</span>
+        ) : (
+          <span className={inquiryStageBadgeClass(inquiryStageOf(record))}>
+            {progressStatusOf(record)}
+          </span>
+        )}
         <span className="flex h-4 w-px justify-self-center bg-zinc-200" aria-hidden />
         <span className="text-[10px] text-zinc-400">탐구 글쓰기</span>
         <span className="flex flex-wrap items-center gap-1">

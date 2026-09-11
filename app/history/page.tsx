@@ -3,7 +3,12 @@ import Link from "next/link";
 import { auth } from "@/auth";
 import { getSubmissionsByEmail, getAllInquiryRecords } from "@/lib/sheets";
 import { approvalBadgeClass } from "@/lib/badge";
-import { buildInquiryRecordByMainTimestamp } from "@/lib/aggregate";
+import {
+  buildInquiryRecordByMainTimestamp,
+  progressStatusOf,
+  inquiryStageOf,
+  inquiryStageBadgeClass,
+} from "@/lib/aggregate";
 import PdfDownloadButton from "@/components/PdfDownloadButton";
 import HistoryAutoRefresh from "@/components/HistoryAutoRefresh";
 import { ArrowLeftIcon, ArrowRightIcon } from "@/components/icons";
@@ -62,8 +67,8 @@ export default async function HistoryPage() {
         ) : (
           <div className="mt-6 flex flex-col gap-3">
             {rows.map((r, i) => {
-              const badgeClass = approvalBadgeClass(r.approval);
               const isTopicMismatch = r.approval === "단원 확인 필요";
+              const record = recordByMainTs.get(r.timestamp);
               // 채점이 실제로 끝나서 어떤 판정이든(승인/재제출/제출완료(미승인)) 난 카드에만
               // 종합 글쓰기 버튼을 보여준다 - 아직 처리중(빈 값)이거나 채점 오류, 단원과
               // 무관하다고 판정된 카드는 제외(질문 자체를 다시 써야 하므로).
@@ -74,7 +79,6 @@ export default async function HistoryPage() {
               const essayHref = `/submit/answer?ts=${encodeURIComponent(r.timestamp)}&q=${encodeURIComponent(r.question)}&unit=${encodeURIComponent(r.unit)}`;
               const essayLabel =
                 r.approval === "승인" ? "종합 글쓰기로 이동 →" : "종합 글쓰기 다시 작성하기 →";
-              const record = recordByMainTs.get(r.timestamp);
               const essayCompleted = record && record.totalScore !== "";
               return (
                 <div key={i} className="card p-5">
@@ -90,7 +94,15 @@ export default async function HistoryPage() {
                     {r.aiScore !== "" && (
                       <span className="text-xs text-[var(--color-ink-soft)]">{r.aiScore}점</span>
                     )}
-                    <span className={badgeClass}>{r.approval || "처리중"}</span>
+                    {/* 점수·레벨과 무관하게 어디까지 진행/저장했는지만 보여준다 - "단원 확인
+                        필요"는 진행 단계가 아니라 별도 판정이라 그대로 둔다. */}
+                    {isTopicMismatch ? (
+                      <span className={approvalBadgeClass(r.approval)}>{r.approval}</span>
+                    ) : (
+                      <span className={inquiryStageBadgeClass(inquiryStageOf(record))}>
+                        {progressStatusOf(record)}
+                      </span>
+                    )}
                   </div>
                   <p className="mt-3 whitespace-pre-wrap text-sm text-[var(--color-ink)]">
                     {r.feedback ||

@@ -17,6 +17,9 @@ import {
   buildInquiryRecordByMainTimestamp,
   pickCurrentInquiryTimestamps,
   classLabel,
+  progressStatusOf,
+  inquiryStageOf,
+  inquiryStageBadgeClass,
   type StudentLatest,
   type BanStat,
   type UnitStat,
@@ -294,24 +297,32 @@ function StudentTable({
         // 그 질문 기준으로 요약을 보여준다 - 학생이 최신 질문이 아니라 예전 질문으로
         // 계속 작업 중인 경우, 교사가 엉뚱한 질문의 판정을 보게 되는 걸 막는다.
         const currentRow = currentTs.size > 0 ? questions.find((q) => currentTs.has(q.timestamp)) : undefined;
-        const summaryLabel = currentRow ? "진행 중인 질문 판정" : "최신 질문 판정";
         const summaryLevel = currentRow ? currentRow.aiLevel : s.level;
         const summaryScore = currentRow ? currentRow.aiScore : s.score;
         const summaryApproval = currentRow ? currentRow.approval : s.approval;
         const summaryQuestion = currentRow ? currentRow.question : s.question;
+        const summaryRecord = recordByMainTs.get(currentRow ? currentRow.timestamp : s.timestamp);
         return (
           <details key={s.email} id={s.email} open={s.email === highlightEmail} className="card">
-            <summary className="grid cursor-pointer grid-cols-[180px_110px_70px_56px_130px_90px_1fr] items-center gap-x-3 gap-y-1.5 px-4 py-3">
+            <summary className="grid cursor-pointer grid-cols-[180px_70px_56px_160px_90px_1fr] items-center gap-x-3 gap-y-1.5 px-4 py-3">
               <span className="truncate font-medium text-[var(--color-ink)]">
                 {classLabel(s.grade, s.ban)} {s.no}번 · {s.name}
               </span>
-              {/* 최신/진행 중인 질문의 AI 판정 - 펼치면 보이는 회차별 판정과는 별개로 한눈에 보는 요약.
-                  라벨("진행 중인 질문 판정"/"최신 질문 판정")과 레벨 배지를 각자 고정폭 칸으로
-                  나눠야, 라벨 길이가 달라도 뒤따르는 점수/승인상태/제출횟수 칸이 행마다 안 밀린다. */}
-              <span className="truncate text-[10px] text-[var(--color-ink-muted)]">{summaryLabel}</span>
+              {/* 최신/진행 중인 질문의 AI 판정(펼치면 보이는 회차별 판정과는 별개인 한눈 요약) -
+                  어느 기준으로 골랐는지는 로직이 항상 같은 규칙(진행 흔적 있으면 그 질문, 없으면
+                  최신 질문)이라 매번 라벨로 밝힐 필요가 없다. 라벨 칸을 통째로 없애서, 라벨 길이
+                  차이로 뒤 칸들이 밀리던 문제도 같이 해결된다. */}
               <span className="badge badge-level w-fit">{summaryLevel || "채점 대기중"}</span>
               <span className="text-xs text-[var(--color-ink-soft)]">{summaryScore !== "" ? `${summaryScore}점` : ""}</span>
-              <span className={approvalBadgeClass(summaryApproval)}>{summaryApproval || "처리중"}</span>
+              {/* 점수·레벨과 무관하게 어디까지 진행/저장했는지만 보여준다 - "단원 확인 필요"는
+                  진행 단계가 아니라 별도 판정이라 그대로 둔다. */}
+              {summaryApproval === "단원 확인 필요" ? (
+                <span className={approvalBadgeClass(summaryApproval)}>{summaryApproval}</span>
+              ) : (
+                <span className={inquiryStageBadgeClass(inquiryStageOf(summaryRecord))}>
+                  {progressStatusOf(summaryRecord)}
+                </span>
+              )}
               <span className="text-xs text-[var(--color-ink-muted)]">총 {s.count}회 제출</span>
               <span className="min-w-0 truncate text-xs text-[var(--color-ink-soft)]">{summaryQuestion}</span>
             </summary>

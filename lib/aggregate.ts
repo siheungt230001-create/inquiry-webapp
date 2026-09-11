@@ -386,6 +386,27 @@ export function inquiryStageOf(record: InquiryRecord | undefined): InquiryStage 
   return "메인 질문만 제출됨";
 }
 
+export type ProgressStatus =
+  | "질문 제출"
+  | "보조질문 만들기 제출"
+  | "보조질문 답하기 제출"
+  | "종합 답안 글쓰기 제출";
+
+// 학생 화면/교사 대시보드에서 예전에 "승인"/"재제출"/"제출완료(미승인)" 뱃지로 보여주던
+// 자리를 대신한다 - 그 뱃지는 AI 채점 레벨/점수와 사실상 같은 정보를 다른 말로 반복할
+// 뿐이라 실제 진행 상황(어디까지 저장했는지) 파악엔 도움이 안 됐다. 점수·레벨과 완전히
+// 무관하게, inquiryStageOf가 이미 계산하는 5단계를 그대로 재사용해서 마지막 두 단계
+// (작성 중/완료)만 "종합 답안 글쓰기 제출" 하나로 묶는다 - 완료 여부는 별도 점수
+// 뱃지·PDF 다운로드 버튼(record.totalScore 유무)으로 이미 구분되므로 여기서 또 나눌
+// 필요가 없다.
+export function progressStatusOf(record: InquiryRecord | undefined): ProgressStatus {
+  const stage = inquiryStageOf(record);
+  if (stage === "메인 질문만 제출됨") return "질문 제출";
+  if (stage === "보조질문 작성 중") return "보조질문 만들기 제출";
+  if (stage === "보조질문 답변 작성 중") return "보조질문 답하기 제출";
+  return "종합 답안 글쓰기 제출"; // "종합 글쓰기 작성 중" | "종합 글쓰기 완료"
+}
+
 export function inquiryStageBadgeClass(stage: InquiryStage): string {
   if (stage === "종합 글쓰기 완료") return "badge badge-done";
   if (stage === "메인 질문만 제출됨") return "badge badge-pending";

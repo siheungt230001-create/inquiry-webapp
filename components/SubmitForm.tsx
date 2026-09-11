@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { SELF_LEVEL_LIST, validateProfileNumbers } from "@/lib/constants";
 import type { GradingResult } from "@/lib/types";
 import { approvalBadgeClass, CRITERIA_ACCENTS } from "@/lib/badge";
+import { progressStatusOf, inquiryStageOf, inquiryStageBadgeClass } from "@/lib/aggregate";
 import { fetchWithTimeout } from "@/lib/fetchWithTimeout";
 import AutoTextarea from "./AutoTextarea";
 import { Field, ProfileFields, type ProfileFieldsValue } from "./ProfileFields";
@@ -347,7 +348,6 @@ function ResultCard({
   const [finalStatus, setFinalStatus] = useState<string | null>(null);
   const [finalizing, setFinalizing] = useState(false);
   const [finalizeError, setFinalizeError] = useState<string | null>(null);
-  const displayApproval = finalStatus || result.approval;
 
   // 단원과 무관한 질문 - 점수/승인 자체가 없으므로 점수 카드 대신 안내만 보여주고
   // 바로 수정하게 한다("질문 제출하기"로 확정할 값 자체가 없다).
@@ -399,7 +399,12 @@ function ResultCard({
           <BoltIcon /> {result.level}
         </span>
         <span className="text-sm text-[var(--color-ink-soft)]">{result.score} / 5.0점</span>
-        <span className={`ml-auto ${approvalBadgeClass(displayApproval)}`}>{displayApproval}</span>
+        {/* 점수/승인 판정과 무관하게 "지금까지 어디까지 진행했는지"만 보여준다 - 이 화면은
+            메인 질문을 막 제출한 직후라 아직 보조질문 기록(InquiryRecord)이 없으므로
+            항상 "질문 제출"이다. */}
+        <span className={`ml-auto ${inquiryStageBadgeClass(inquiryStageOf(undefined))}`}>
+          {progressStatusOf(undefined)}
+        </span>
       </div>
 
       {result.self_assessment_mismatch && (
