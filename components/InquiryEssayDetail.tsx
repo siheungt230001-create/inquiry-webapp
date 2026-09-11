@@ -79,14 +79,20 @@ export function SubQuestionList({ record }: { record?: InquiryRecord }) {
       <ul className="flex flex-col gap-2">
         {subQuestions.map((s, i) => (
           <li key={i} className="rounded-lg border border-[var(--color-cream-200)] bg-[var(--color-cream-50)] px-3 py-2 text-xs">
-            <div className="flex items-center gap-1.5 text-zinc-700">
-              <span className="text-zinc-400">[{s.label}]</span> {s.question}
+            <div className="flex items-start gap-1.5 text-zinc-700">
+              <span className="min-w-0 flex-1 whitespace-pre-wrap break-words">
+                <span className="text-zinc-400">[{s.label}]</span> {s.question}
+              </span>
               <StatusBadge status={s.status} />
             </div>
-            <div className="mt-0.5 flex items-center gap-1.5 text-zinc-500">
-              <span>{s.answer ? s.answer : "(답을 안 씀)"}</span>
+            <div className="mt-0.5 flex items-start gap-1.5 text-zinc-500">
+              <span className="min-w-0 flex-1 whitespace-pre-wrap break-words">
+                {s.answer ? s.answer : "(답을 안 씀)"}
+              </span>
               <StatusBadge status={s.answerStatus} />
-              {s.answer && <span className="text-[11px] text-zinc-400">({s.answer.length}자)</span>}
+              {s.answer && (
+                <span className="shrink-0 text-[11px] text-zinc-400">({s.answer.length}자)</span>
+              )}
             </div>
             {s.source && <div className="mt-0.5 text-[11px] text-zinc-400">출처: {s.source}</div>}
           </li>
