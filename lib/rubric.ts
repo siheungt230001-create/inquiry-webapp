@@ -44,13 +44,36 @@ export interface EvaluatedResult {
   score: number;
   level: string;
   approval: "승인" | "재제출";
+  criteria: CriteriaScores;
+}
+
+// 항목별 허용값은 0/0.5/1 셋뿐이다 - JSON 스키마의 NUMBER 타입은 enum을 못 걸어서
+// (Gemini responseSchema는 STRING에만 enum 지원), Gemini가 가끔 0.8/0.3처럼 그 사이
+// 임의 소수를 내놓는 걸 스키마만으로는 못 막는다. 그래서 응답을 받은 뒤 여기서
+// 가장 가까운 허용값으로 강제 반올림한다(2026-09-10, 박지후 학생 3.8점 건).
+function roundToAllowedStep(value: number): number {
+  if (value <= 0.25) return 0;
+  if (value >= 0.75) return 1;
+  return 0.5;
+}
+
+function roundCriteria(criteria: CriteriaScores): CriteriaScores {
+  return {
+    fact_accuracy: roundToAllowedStep(criteria.fact_accuracy),
+    causal_depth: roundToAllowedStep(criteria.causal_depth),
+    comparison_clarity: roundToAllowedStep(criteria.comparison_clarity),
+    sentence_clarity: roundToAllowedStep(criteria.sentence_clarity),
+    integration_depth: roundToAllowedStep(criteria.integration_depth),
+  };
 }
 
 // Gemini가 돌려준 criteria_scores(항목별 0/0.5/1점)만 입력으로 받아 트랙·총점·레벨·승인
 // 여부를 전부 코드에서 재계산한다. Gemini 자신이 응답에 담아 보내는 level/score/approval
 // 필드는 신뢰하지 않고 항상 이 함수의 결과로 덮어써야 한다 - 이게 rubric.ts를 다시 설계한
-// 원래 목적(레벨-점수 불일치 방지)이다.
-export function evaluateCriteriaScores(criteria: CriteriaScores): EvaluatedResult {
+// 원래 목적(레벨-점수 불일치 방지)이다. 반환하는 criteria는 0/0.5/1로 반올림된 값이므로
+// 호출하는 쪽(gradeSubmission.ts)은 rawResult.criteria_scores가 아니라 이 값을 저장해야 한다.
+export function evaluateCriteriaScores(rawCriteria: CriteriaScores): EvaluatedResult {
+  const criteria = roundCriteria(rawCriteria);
   const score =
     criteria.fact_accuracy +
     criteria.causal_depth +
@@ -64,6 +87,7 @@ export function evaluateCriteriaScores(criteria: CriteriaScores): EvaluatedResul
     score,
     level: computeLevelBand(track, score),
     approval: computeApproval(score),
+    criteria,
   };
 }
 

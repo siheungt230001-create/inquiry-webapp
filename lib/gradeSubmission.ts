@@ -34,6 +34,7 @@ export async function gradeSubmission(
     band: evaluated.band,
     score: evaluated.score,
     approval: evaluated.approval,
+    criteria_scores: evaluated.criteria,
   };
 }
 
