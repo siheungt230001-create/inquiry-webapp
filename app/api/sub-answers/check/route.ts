@@ -4,6 +4,7 @@ import { callGeminiGeneric } from "@/lib/gemini";
 import { getGroundingTextForUnit } from "@/lib/sheets";
 import {
   buildSubAnswerCheckPrompt,
+  sanitizeProperNounFeedback,
   SUB_ANSWER_RESPONSE_SCHEMA,
   type SubAnswerCheckResult,
 } from "@/lib/subQuestionFlow";
@@ -33,7 +34,11 @@ export async function POST(request: Request) {
       answerSufficiencyFeedback: string;
       properNounFeedback: string;
     }>(prompt, SUB_ANSWER_RESPONSE_SCHEMA);
-    return NextResponse.json({ results, answerSufficiencyFeedback, properNounFeedback });
+    return NextResponse.json({
+      results,
+      answerSufficiencyFeedback,
+      properNounFeedback: sanitizeProperNounFeedback(properNounFeedback),
+    });
   } catch (err) {
     return NextResponse.json(
       { error: toUserErrorMessage(err, "sub-answers/check") },

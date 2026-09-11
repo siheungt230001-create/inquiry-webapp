@@ -1,7 +1,13 @@
 // 종합 글쓰기(서론/본론/결론) 채점 로직 - app/api/essay-feedback/route.ts("AI 피드백
 // 받기" 미리보기)와 app/api/inquiry-writing/route.ts("제출하기") 둘 다에서 재사용한다.
 // lib/gradeSubmission.ts(메인 질문 채점)와 같은 이유로 뺐다.
-import { buildEssayFeedbackPrompt, buildOffTopicEssayComment, ESSAY_RESPONSE_SCHEMA, type EssayFeedbackResult } from "./subQuestionFlow";
+import {
+  buildEssayFeedbackPrompt,
+  buildOffTopicEssayComment,
+  sanitizeProperNounFeedback,
+  ESSAY_RESPONSE_SCHEMA,
+  type EssayFeedbackResult,
+} from "./subQuestionFlow";
 import { callGeminiGeneric } from "./gemini";
 import { getGroundingTextForUnit } from "./sheets";
 
@@ -42,5 +48,5 @@ export async function gradeEssay(
       topicMismatch: buildOffTopicEssayComment(unitTitle),
     };
   }
-  return rawResult;
+  return { ...rawResult, properNounFeedback: sanitizeProperNounFeedback(rawResult.properNounFeedback) };
 }

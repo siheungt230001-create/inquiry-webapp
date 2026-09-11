@@ -14,6 +14,7 @@ import {
 } from "../lib/rubric";
 import { gradingResultToSubmissionFields } from "../lib/gradeSubmission";
 import { validateProfileNumbers } from "../lib/constants";
+import { sanitizeProperNounFeedback } from "../lib/subQuestionFlow";
 
 function assert(cond: unknown, msg: string) {
   if (!cond) {
@@ -94,6 +95,26 @@ assert(evaluated.track === "L1", "criteria_scores 기준 실제 트랙은 L1 (Ge
 assert(evaluated.score === 2.0, "criteria_scores 합산 실제 총점은 2.0 (Gemini의 5.0 자체 판단 무시)");
 assert(evaluated.approval === "재제출", "실제 승인 여부는 재제출 (Gemini의 승인 자체 판단 무시)");
 assert(evaluated.level === "L1", "실제 레벨은 L1 (Gemini의 L4 자체 판단 무시)");
+
+// Gemini가 항목별로 0/0.5/1이 아닌 임의 소수(0.8, 0.3 등)를 응답에 담아 보내는 경우 -
+// responseSchema의 NUMBER 타입은 enum을 못 걸어 스키마만으로는 못 막으므로, 응답을
+// 받은 뒤 가장 가까운 허용값으로 강제 반올림해야 한다(2026-09-10, 박지후 학생 3.8점 건).
+const sloppyCriteria = {
+  fact_accuracy: 1,
+  causal_depth: 0.8,
+  comparison_clarity: 0.7,
+  sentence_clarity: 0.3,
+  integration_depth: 0.2,
+};
+const roundedEvaluated = evaluateCriteriaScores(sloppyCriteria);
+assert(
+  roundedEvaluated.criteria.causal_depth === 1 &&
+    roundedEvaluated.criteria.comparison_clarity === 0.5 &&
+    roundedEvaluated.criteria.sentence_clarity === 0.5 &&
+    roundedEvaluated.criteria.integration_depth === 0,
+  "항목별 임의 소수(0.8/0.7/0.3/0.2)는 가장 가까운 허용값(1/0.5/0.5/0)으로 반올림됨"
+);
+assert(roundedEvaluated.score === 3, "반올림된 항목 합산 총점은 3 (1+1+0.5+0.5+0)");
 
 // 정상 채점 결과는 gradingResultToSubmissionFields를 거쳐도 숫자가 그대로 남아야
 // 한다(단원 무관 분기가 정상 케이스까지 건드리지 않는지 확인).
@@ -208,6 +229,19 @@ assert(validateProfileNumbers("4", "1", "23") !== null, "범위를 벗어난 학
 assert(validateProfileNumbers("", "1", "23") !== null, "학년이 비어 있으면 거부(필수 입력)");
 assert(validateProfileNumbers("3", "99", "23") !== null, "범위를 벗어난 반(99)은 거부");
 assert(validateProfileNumbers("3", "1", "abc") !== null, "숫자가 아닌 번호는 거부");
+
+// sanitizeProperNounFeedback: "OO는 OO의 오타로 보여요. 정확한 표기는 OO예요."에서
+// 지적한 단어와 정정한 단어가 완전히 같으면(자기 자신을 오타라고 지적) 그 문장을
+// 버려야 한다(2026-09-10, 박시원 학생의 "충선왕은 충선왕의 오타로 보여요..." 건).
+assert(
+  sanitizeProperNounFeedback("충선왕은 충선왕의 오타로 보여요. 정확한 표기는 충선왕이에요.") === "",
+  "지적한 단어와 정정한 단어가 완전히 같으면 피드백을 통째로 버림"
+);
+assert(
+  sanitizeProperNounFeedback("장동행성은 정동행성의 오타로 보여요. 정확한 표기는 정동행성이에요.") !== "",
+  "실제로 다른 단어를 지적하는 정상 피드백은 그대로 남김"
+);
+assert(sanitizeProperNounFeedback("") === "", "빈 피드백은 그대로 빈 문자열");
 
 (async () => {
   await testCallGeminiSuccess();

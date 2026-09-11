@@ -2,6 +2,41 @@
 // 메인 질문 채점 로직(lib/rubric.ts)과는 완전히 분리되어 있고, 이 파일을 고쳐도
 // 메인 채점 흐름에는 영향이 없습니다.
 
+// "OO는 OO의 오타로 보여요. 정확한 표기는 OO예요." 패턴에서 [틀린 표기]/[정확한 표기]를
+// 뽑아낸다. 세 군데(buildSubQuestionCheckPrompt/buildSubAnswerCheckPrompt/
+// buildEssayFeedbackPrompt)의 properNounFeedback이 전부 이 문장 틀을 쓰므로 패턴 하나를
+// 공유한다.
+const TYPO_FEEDBACK_PATTERN =
+  /([^\s".,]+?)(?:은|는)\s+([^\s".,]+?)의\s*오타로\s*보여요\.\s*정확한\s*표기는\s*([^\s".,]+?)(?:이에요|예요|입니다)\.?/g;
+
+// 보이지 않는 폭 없는 문자(zero-width space 등)와 공백 차이 때문에 겉보기엔 같아 보이는
+// 두 문자열이 다르게 비교되는 걸 막는다. 코드포인트 숫자로만 다뤄서 소스 파일 안에 실제
+// 폭 없는 문자를 심지 않는다.
+const ZERO_WIDTH_CODE_POINTS = [0x200b, 0x200c, 0x200d, 0x2060, 0xfeff];
+function normalizeForCompare(s: string): string {
+  let out = s.normalize("NFC");
+  for (const codePoint of ZERO_WIDTH_CODE_POINTS) {
+    out = out.split(String.fromCodePoint(codePoint)).join("");
+  }
+  return out.replace(/\s/g, "");
+}
+
+// Gemini가 "OO는 OO의 오타로 보여요. 정확한 표기는 OO예요."처럼 지적한 단어와 정정한
+// 단어가 완전히 같은, 자기 자신을 오타라고 지적하는 문장을 만들 때가 있다(2026-09-10,
+// 박시원 학생의 "충선왕은 충선왕의 오타로 보여요. 정확한 표기는 충선왕이에요." 건 - 원문에
+// 실제 오타나 숨은 유니코드 차이는 없었고 AI가 지어낸 오탐이었다). responseSchema의 STRING
+// 타입은 이런 내용 검증을 걸 수 없으므로 응답을 받은 뒤 여기서 걸러낸다.
+export function sanitizeProperNounFeedback(feedback: string): string {
+  if (!feedback) return feedback;
+  const cleaned = feedback.replace(TYPO_FEEDBACK_PATTERN, (match, wrong, correctA, correctB) => {
+    const isSelfReferential =
+      normalizeForCompare(wrong) === normalizeForCompare(correctA) ||
+      normalizeForCompare(wrong) === normalizeForCompare(correctB);
+    return isSelfReferential ? "" : match;
+  });
+  return cleaned.trim();
+}
+
 export interface SubQuestionCheckResult {
   status: "양호" | "수정 필요";
   comment: string;
