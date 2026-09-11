@@ -224,16 +224,25 @@ export default function AnswerForm({
           return;
         }
         const serverItems = data.record.subQuestions as FullSubQuestion[];
-        const nextFull: FullSubQuestion[] = SUB_QUESTION_CARDS.map((card, i) => ({
-          label: card.label,
-          question: serverItems[i]?.question ?? "",
-          answer: serverItems[i]?.answer ?? "",
-          status: serverItems[i]?.status ?? null,
-          comment: serverItems[i]?.comment ?? "",
-          answerStatus: serverItems[i]?.answerStatus ?? null,
-          answerComment: serverItems[i]?.answerComment ?? "",
-          source: serverItems[i]?.source ?? "",
-        }));
+        // 저장할 때 빈 카드는 건너뛰고 채운 것만 저장하므로(toPersistedItems의 filter),
+        // 저장된 배열은 SUB_QUESTION_CARDS보다 짧고 칸이 압축돼 있다 - 위치(인덱스)로
+        // 그대로 매칭하면 압축으로 밀린 항목이 엉뚱한 카드 자리에 들어간다(카드를
+        // 추가/재배열한 경우도 마찬가지). 항목마다 이미 들어있는 label로 자기 카드를
+        // 찾아서 매칭해야 한다 - SubQuestionsForm.tsx/SubAnswersForm.tsx와 같은 이유·수정.
+        const byLabel = new Map(serverItems.map((it) => [it.label, it]));
+        const nextFull: FullSubQuestion[] = SUB_QUESTION_CARDS.map((card) => {
+          const it = byLabel.get(card.label);
+          return {
+            label: card.label,
+            question: it?.question ?? "",
+            answer: it?.answer ?? "",
+            status: it?.status ?? null,
+            comment: it?.comment ?? "",
+            answerStatus: it?.answerStatus ?? null,
+            answerComment: it?.answerComment ?? "",
+            source: it?.source ?? "",
+          };
+        });
         const nextEssay: Essay = {
           intro: data.record.intro ?? "",
           body: data.record.body ?? "",

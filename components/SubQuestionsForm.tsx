@@ -174,14 +174,22 @@ export default function SubQuestionsForm({
       .then((data) => {
         if (cancelled || !data.record) return;
         const items = data.record.subQuestions as {
+          label: string;
           question: string;
           status?: SubQuestionCheckResult["status"] | null;
           comment?: string;
         }[];
-        const nextValues = SUB_QUESTION_CARDS.map((_, i) => items[i]?.question ?? "");
-        const nextComments = SUB_QUESTION_CARDS.map((_, i) =>
-          items[i]?.status ? { status: items[i].status!, comment: items[i].comment ?? "" } : null
-        );
+        // 저장할 때 빈 카드는 건너뛰고 채운 것만 저장하므로(saveDraft의 filter), 저장된
+        // 배열은 SUB_QUESTION_CARDS보다 짧고 칸이 압축돼 있다 - 위치(인덱스)로 그대로
+        // 매칭하면 압축으로 밀린 항목이 엉뚱한 카드 자리에 들어간다(카드를 추가/재배열한
+        // 경우도 마찬가지). 항목마다 이미 들어있는 label로 자기 카드를 찾아서 매칭해야
+        // 한다 - 2026-09-11, "사례형" 카드로 쓴 질문이 "비교·대안형" 라벨로 보이던 버그.
+        const byLabel = new Map(items.map((it) => [it.label, it]));
+        const nextValues = SUB_QUESTION_CARDS.map((card) => byLabel.get(card.label)?.question ?? "");
+        const nextComments = SUB_QUESTION_CARDS.map((card) => {
+          const it = byLabel.get(card.label);
+          return it?.status ? { status: it.status!, comment: it.comment ?? "" } : null;
+        });
         const nextDesignFeedback = (data.record.subQuestionDesignFeedback as string) || "";
         const nextProperNounFeedback = (data.record.subQuestionProperNounFeedback as string) || "";
         setValues(nextValues);
