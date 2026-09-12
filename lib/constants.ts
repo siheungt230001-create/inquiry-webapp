@@ -40,12 +40,15 @@ export function formatRound(submissionNumber: number): string {
   return ROUND_LIST[Math.max(idx, 0)];
 }
 
-// 보조질문 만들기(2단계) 카드 6개 - hint가 null인 카드("기타")는 빈칸 템플릿 없이
+// 보조질문 만들기(2단계) 카드 7개 - hint가 null인 카드("기타")는 빈칸 템플릿 없이
 // 자유롭게 쓰는 칸. 카드 테두리 색은 질문 유형이 아니라 AI 판정 상태 기준(양호=민트,
 // 수정 필요=피치, 미판정=무색)이라 여기엔 색 정보를 두지 않는다. 카드가 늘어나도
 // SubQuestionsForm의 "AI 코멘트 받기" 최소 작성 기준(MIN_FILLED)은 그대로 3개라
 // 학생이 채워야 하는 최소 개수는 안 늘어난다 - 나머지는 여전히 선택.
+// "사실 확인형"은 원인(왜)·결과가 아니라 "실제로 무엇이 어떻게 이루어졌는지" 사실·
+// 과정 자체를 묻는 유형이라, 원인·배경형보다 더 기초적인 단계로 보고 맨 앞에 뒀다.
 export const SUB_QUESTION_CARDS = [
+  { key: "fact_check", label: "사실 확인형", hint: "○○은 구체적으로 어떻게 이루어졌을까?" },
   { key: "cause", label: "원인·배경형", hint: "○○은 왜 ~했을까?" },
   { key: "effect", label: "결과·영향형", hint: "○○ 이후 ~는 어떻게 달라졌을까?" },
   { key: "compare", label: "비교·대안형", hint: "그 당시 ○○ 말고 다른 방법은 없었을까?" },
