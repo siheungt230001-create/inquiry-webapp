@@ -68,6 +68,14 @@ export function SubQuestionList({ record }: { record?: InquiryRecord }) {
           </p>
         </div>
       )}
+      {record.subQuestionTypeFitFeedback && (
+        <div className="rounded-lg border border-[var(--color-pink-deep)]/30 bg-[var(--color-pink)]/10 px-3 py-2">
+          <p className="text-xs font-medium text-[var(--color-pink-deep)]">🔀 유형 확인</p>
+          <p className="mt-1 whitespace-pre-wrap text-xs text-[var(--color-ink)]">
+            {record.subQuestionTypeFitFeedback}
+          </p>
+        </div>
+      )}
       {record.answerProperNounFeedback && (
         <div className="rounded-lg border border-[var(--color-badge-text)]/30 bg-[var(--color-badge-text)]/10 px-3 py-2">
           <p className="text-xs font-medium text-[var(--color-badge-text)]">🔍 답변 표기 확인</p>

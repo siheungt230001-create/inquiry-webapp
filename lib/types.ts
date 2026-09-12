@@ -171,6 +171,12 @@ export interface InquiryRecord {
   // comment(구조 피드백)와는 별개 축이라 필드를 따로 둔다. 단원 확인 필요
   // (topicMismatch)일 때는 ""로 비운다.
   essayProperNounFeedback: string;
+  // 학생이 고른 질문 유형(label) 형식은 맞지만 메인 질문 맥락상 억지로 끼워
+  // 맞춘 느낌이 나는 보조질문이 있을 때 더 자연스러운 유형을 제안하는 참고용
+  // 피드백(예: 인물 입장형의 감정 추측 질문 → 사례형 제안) - subQuestionDesignFeedback과
+  // 같은 성격(참고용, status/점수에 영향 없음, 진행 차단 안 함)이며
+  // app/api/sub-questions/check가 보조질문을 다시 판정할 때마다 함께 재생성된다.
+  subQuestionTypeFitFeedback: string;
 }
 
 // 여기 새 컬럼을 추가할 땐 반드시 맨 끝에만 붙인다(중간 삽입 금지 - 실제 시트 컬럼도
@@ -201,6 +207,7 @@ export const INQUIRY_COLUMNS: (keyof InquiryRecord)[] = [
   "subQuestionProperNounFeedback",
   "answerProperNounFeedback",
   "essayProperNounFeedback",
+  "subQuestionTypeFitFeedback",
 ];
 
 // "학생_프로필" 시트의 한 행 - 로그인 계정(email)마다 최근 입력한 학년/반/번호/이름을

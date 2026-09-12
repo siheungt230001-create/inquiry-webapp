@@ -33,6 +33,13 @@ function properNounFeedbackKey(timestamp: string) {
   return `subqProperNoun:${timestamp}`;
 }
 
+// 유형(label)은 맞지만 맥락상 억지로 끼워 맞춘 느낌이 나는 보조질문을 짚어주는
+// 참고용 피드백 - designFeedback과 같은 이유로 세션스토리지 + 서버 저장 둘 다로
+// 들고 다닌다.
+function typeFitFeedbackKey(timestamp: string) {
+  return `subqTypeFit:${timestamp}`;
+}
+
 // 답변/답변 판정/출처는 이 화면(보조질문 만들기) 소관이 아니라 SubAnswersForm이 쓰는
 // 값이지만, saveDraft가 여기서도 같이 저장을 호출하므로 기존 값을 읽어와 그대로
 // 실어 보내야 한다 - 안 그러면 여기서 저장할 때마다 답변/출처가 빈 문자열로 덮어써진다.
@@ -116,6 +123,23 @@ function saveProperNounFeedback(timestamp: string, value: string) {
   }
 }
 
+function loadTypeFitFeedback(timestamp: string): string {
+  if (typeof window === "undefined") return "";
+  try {
+    return window.sessionStorage.getItem(typeFitFeedbackKey(timestamp)) || "";
+  } catch {
+    return "";
+  }
+}
+
+function saveTypeFitFeedback(timestamp: string, value: string) {
+  try {
+    window.sessionStorage.setItem(typeFitFeedbackKey(timestamp), value);
+  } catch {
+    // 사생활 보호 모드 등에서 sessionStorage 쓰기가 막혀 있어도 화면은 계속 동작하게 둔다
+  }
+}
+
 function loadCardArray<T>(key: string, fallback: T): T[] {
   if (typeof window === "undefined") return SUB_QUESTION_CARDS.map(() => fallback);
   try {
@@ -148,6 +172,7 @@ export default function SubQuestionsForm({
   );
   const [designFeedback, setDesignFeedback] = useState<string>("");
   const [properNounFeedback, setProperNounFeedback] = useState<string>("");
+  const [typeFitFeedback, setTypeFitFeedback] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -166,6 +191,7 @@ export default function SubQuestionsForm({
       setComments(localComments);
       setDesignFeedback(loadDesignFeedback(timestamp));
       setProperNounFeedback(loadProperNounFeedback(timestamp));
+      setTypeFitFeedback(loadTypeFitFeedback(timestamp));
       return;
     }
     let cancelled = false;
@@ -192,14 +218,17 @@ export default function SubQuestionsForm({
         });
         const nextDesignFeedback = (data.record.subQuestionDesignFeedback as string) || "";
         const nextProperNounFeedback = (data.record.subQuestionProperNounFeedback as string) || "";
+        const nextTypeFitFeedback = (data.record.subQuestionTypeFitFeedback as string) || "";
         setValues(nextValues);
         setComments(nextComments);
         setDesignFeedback(nextDesignFeedback);
         setProperNounFeedback(nextProperNounFeedback);
+        setTypeFitFeedback(nextTypeFitFeedback);
         saveJson(storageKey(timestamp), nextValues);
         saveJson(statusStorageKey(timestamp), nextComments);
         saveDesignFeedback(timestamp, nextDesignFeedback);
         saveProperNounFeedback(timestamp, nextProperNounFeedback);
+        saveTypeFitFeedback(timestamp, nextTypeFitFeedback);
       })
       .catch(() => {
         // 서버에서 못 불러와도 빈 값으로 계속 진행 - 원래도 처음 쓰는 학생은 빈 값으로 시작한다
@@ -218,7 +247,8 @@ export default function SubQuestionsForm({
     nextValues: string[],
     nextComments: (SubQuestionCheckResult | null)[],
     nextDesignFeedback: string,
-    nextProperNounFeedback: string
+    nextProperNounFeedback: string,
+    nextTypeFitFeedback: string
   ): Promise<boolean> {
     try {
       const answers = loadCardArray<string>(answersStorageKey(timestamp), "");
@@ -246,6 +276,7 @@ export default function SubQuestionsForm({
           draft: true,
           subQuestionDesignFeedback: nextDesignFeedback,
           subQuestionProperNounFeedback: nextProperNounFeedback,
+          subQuestionTypeFitFeedback: nextTypeFitFeedback,
         }),
       });
       return res.ok;
@@ -265,7 +296,7 @@ export default function SubQuestionsForm({
     setSavingDraft(true);
     setDraftSaved(false);
     setDraftSaveError(false);
-    const ok = await saveDraft(values, comments, designFeedback, properNounFeedback);
+    const ok = await saveDraft(values, comments, designFeedback, properNounFeedback, typeFitFeedback);
     setSavingDraft(false);
     if (ok) setDraftSaved(true);
     else setDraftSaveError(true);
@@ -292,6 +323,10 @@ export default function SubQuestionsForm({
     if (properNounFeedback) {
       setProperNounFeedback("");
       saveProperNounFeedback(timestamp, "");
+    }
+    if (typeFitFeedback) {
+      setTypeFitFeedback("");
+      saveTypeFitFeedback(timestamp, "");
     }
     setDraftSaved(false);
     setDraftSaveError(false);
@@ -331,13 +366,16 @@ export default function SubQuestionsForm({
       });
       const nextDesignFeedback = (data.designFeedback as string) || "";
       const nextProperNounFeedback = (data.properNounFeedback as string) || "";
+      const nextTypeFitFeedback = (data.typeFitFeedback as string) || "";
       setComments(nextComments);
       setDesignFeedback(nextDesignFeedback);
       setProperNounFeedback(nextProperNounFeedback);
+      setTypeFitFeedback(nextTypeFitFeedback);
       saveJson(statusStorageKey(timestamp), nextComments);
       saveDesignFeedback(timestamp, nextDesignFeedback);
       saveProperNounFeedback(timestamp, nextProperNounFeedback);
-      saveDraft(values, nextComments, nextDesignFeedback, nextProperNounFeedback);
+      saveTypeFitFeedback(timestamp, nextTypeFitFeedback);
+      saveDraft(values, nextComments, nextDesignFeedback, nextProperNounFeedback, nextTypeFitFeedback);
     } catch {
       setError("코멘트를 받아오는 데 시간이 오래 걸리고 있어요. 잠시 후 다시 시도해 주세요.");
     } finally {
@@ -348,7 +386,7 @@ export default function SubQuestionsForm({
   async function goToSubAnswers() {
     // 2단계 진행 상태를 서버에 다시 한번 남겨서 교사 화면에 보이게 한다 - 실패해도
     // 부가 기능이라 학생 흐름(다음 단계 이동)은 막지 않는다.
-    await saveDraft(values, comments, designFeedback, properNounFeedback);
+    await saveDraft(values, comments, designFeedback, properNounFeedback, typeFitFeedback);
     router.push(
       `/submit/sub-answers?ts=${encodeURIComponent(timestamp)}&q=${encodeURIComponent(mainQuestion)}&unit=${encodeURIComponent(unit)}`
     );
@@ -379,6 +417,18 @@ export default function SubQuestionsForm({
           </p>
           <p className="mt-2 text-xs text-[var(--color-ink-muted)]">
             참고용 의견이에요 - 이대로 다음 단계로 넘어가도 괜찮아요.
+          </p>
+        </div>
+      )}
+
+      {typeFitFeedback && (
+        <div className="card card-pink p-5">
+          <p className="text-sm font-semibold text-[var(--color-pink-deep)]">🔀 유형 확인</p>
+          <p className="mt-2 whitespace-pre-wrap text-sm text-[var(--color-ink)]">
+            {typeFitFeedback}
+          </p>
+          <p className="mt-2 text-xs text-[var(--color-ink-muted)]">
+            참고용 의견이에요 - 지금 유형 그대로 다음 단계로 넘어가도 괜찮아요.
           </p>
         </div>
       )}

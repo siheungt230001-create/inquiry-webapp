@@ -675,6 +675,7 @@ export async function upsertTeacherFeedback(
         subQuestionProperNounFeedback: "",
         answerProperNounFeedback: "",
         essayProperNounFeedback: "",
+        subQuestionTypeFitFeedback: "",
       };
   await upsertInquiryRecord(record);
 }

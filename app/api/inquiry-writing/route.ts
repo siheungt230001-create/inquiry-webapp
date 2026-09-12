@@ -55,6 +55,7 @@ export async function GET(request: Request) {
       subQuestionProperNounFeedback: record.subQuestionProperNounFeedback,
       answerProperNounFeedback: record.answerProperNounFeedback,
       essayProperNounFeedback: record.essayProperNounFeedback,
+      subQuestionTypeFitFeedback: record.subQuestionTypeFitFeedback,
     },
   });
 }
@@ -84,6 +85,9 @@ export async function POST(request: Request) {
     // 채워 보내고, 그 외 화면의 자동 저장은 기존 값을 그대로 유지한다.
     subQuestionProperNounFeedback,
     answerProperNounFeedback,
+    // 보조질문 만들기 화면(SubQuestionsForm)만 이 필드를 채워서 보낸다 - 위와 같은
+    // 보존 규칙.
+    subQuestionTypeFitFeedback,
   } = body || {};
 
   if (!mainQuestionTimestamp || !Array.isArray(subQuestions)) {
@@ -131,6 +135,10 @@ export async function POST(request: Request) {
     answerProperNounFeedback !== undefined
       ? answerProperNounFeedback
       : existingForFeedback?.answerProperNounFeedback ?? "";
+  const resolvedTypeFitFeedback =
+    subQuestionTypeFitFeedback !== undefined
+      ? subQuestionTypeFitFeedback
+      : existingForFeedback?.subQuestionTypeFitFeedback ?? "";
 
   // 진행중 저장(보조질문 작성/보조질문 답변/종합 글쓰기 초안 전부 여기로 온다) - 아직
   // "제출하기"를 안 눌렀으니 AI 채점 없이 지금까지 쓴 내용만 그대로 남긴다. intro/body/
@@ -182,6 +190,7 @@ export async function POST(request: Request) {
       // 종합 글쓰기는 아직 채점(gradeEssay) 전이니 기존 값을 그대로 옮겨 담는다 -
       // comment/factScore와 같은 보존 패턴.
       essayProperNounFeedback: existing?.essayProperNounFeedback ?? "",
+      subQuestionTypeFitFeedback: resolvedTypeFitFeedback,
     };
     try {
       await upsertInquiryRecord(record);
@@ -248,6 +257,7 @@ export async function POST(request: Request) {
     subQuestionProperNounFeedback: resolvedSubQuestionProperNounFeedback,
     answerProperNounFeedback: resolvedAnswerProperNounFeedback,
     essayProperNounFeedback: isOffTopic ? "" : scoreResult.properNounFeedback,
+    subQuestionTypeFitFeedback: resolvedTypeFitFeedback,
   };
 
   try {

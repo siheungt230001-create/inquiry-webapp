@@ -11,10 +11,21 @@ import {
   computeTrack,
   evaluateCriteriaScores,
   computeFinalStatus,
+  FEEDBACK_FALLBACK_TEXT,
 } from "../lib/rubric";
 import { gradingResultToSubmissionFields } from "../lib/gradeSubmission";
 import { validateProfileNumbers } from "../lib/constants";
-import { sanitizeProperNounFeedback } from "../lib/subQuestionFlow";
+import {
+  sanitizeProperNounFeedback,
+  ensureNonEmpty,
+  buildSubQuestionCheckPrompt,
+  buildSubAnswerCheckPrompt,
+  SUB_QUESTION_RESPONSE_SCHEMA,
+  SUB_QUESTION_COMMENT_FALLBACK,
+  SUB_ANSWER_COMMENT_FALLBACK,
+  DESIGN_FEEDBACK_FALLBACK,
+  ANSWER_SUFFICIENCY_FEEDBACK_FALLBACK,
+} from "../lib/subQuestionFlow";
 
 function assert(cond: unknown, msg: string) {
   if (!cond) {
@@ -43,6 +54,12 @@ assert(prompt.includes("정보 요소"), "프롬프트에 자료 통합 깊이 �
 assert(RESPONSE_SCHEMA.required.includes("self_assessment_mismatch"), "스키마에 self_assessment_mismatch 필수 필드 포함");
 assert(RESPONSE_SCHEMA.required.includes("topic_relevant"), "스키마에 topic_relevant 필수 필드 포함(단원 관련성 게이트)");
 assert(prompt.includes("단원 관련성 확인"), "프롬프트에 단원 관련성 확인 섹션 포함");
+assert(prompt.includes("[채점 심화 지침"), "프롬프트에 채점 심화 지침 섹션 포함");
+assert(prompt.includes("문장의 모호성 점검"), "프롬프트에 문장 모호성 점검 지침(A) 포함");
+assert(prompt.includes("가정형·비교형 질문의 구체성 점검"), "프롬프트에 가정·비교형 구체성 지침(B) 포함");
+assert(prompt.includes("추상적 개념의 구체화 점검"), "프롬프트에 추상적 개념 구체화 지침(C) 포함");
+assert(prompt.includes("레벨 강요 금지"), "프롬프트에 레벨 강요 금지 안내 포함");
+assert(prompt.includes("절대 빈 문자열로 두지 않는다"), "프롬프트에 feedback_text 빈 문자열 금지 규칙 포함");
 
 // 2026-09-07 학생이 단원과 무관한 질문을 만들어도 구조만 갖추면 점수가 높게 나와
 // "승인"되던 버그 - buildOffTopicResult가 점수 없이 "단원 확인 필요" 상태만 돌려주고,
@@ -126,6 +143,14 @@ const normalResult = {
 };
 const normalFields = gradingResultToSubmissionFields(normalResult);
 assert(normalFields.aiScore === 2.0, "정상 채점 결과는 aiScore가 숫자 그대로 저장됨");
+
+// gradeSubmission.ts가 쓰는 안전장치와 같은 조건 - Gemini가 feedback_text를 빈
+// 문자열로 돌려줘도(채점 심화 지침으로 요구사항이 늘면서 재발할 수 있는 문제) 학생
+// 화면에 빈 피드백이 노출되지 않도록 대체 문구가 준비돼 있는지 확인한다.
+assert(FEEDBACK_FALLBACK_TEXT.trim().length > 0, "feedback_text가 비었을 때 쓸 대체 문구가 준비돼 있음");
+const emptyFeedback = "";
+const fallbackApplied = emptyFeedback.trim() ? emptyFeedback : FEEDBACK_FALLBACK_TEXT;
+assert(fallbackApplied === FEEDBACK_FALLBACK_TEXT, "빈 feedback_text는 대체 문구로 치환됨");
 
 // 2) callGemini() 성공 경로 - fetch를 가짜로 바꿔서 실제 네트워크 없이 파싱 로직만 검증
 async function testCallGeminiSuccess() {
@@ -242,6 +267,45 @@ assert(
   "실제로 다른 단어를 지적하는 정상 피드백은 그대로 남김"
 );
 assert(sanitizeProperNounFeedback("") === "", "빈 피드백은 그대로 빈 문자열");
+
+// 메인 질문(lib/rubric.ts)에 넣은 채점 심화 지침(A/B/C)을 보조질문 만들기/답하기
+// 프롬프트에도 똑같이 반영했는지 확인한다.
+const subQPrompt = buildSubQuestionCheckPrompt("더미 읽기자료", "공민왕은 왜 전민변정도감을 설치했을까?", [
+  { label: "원인·배경형", text: "공민왕은 왜 개혁을 했을까?" },
+]);
+assert(subQPrompt.includes("[질문 다듬기 심화 지침"), "보조질문 프롬프트에 심화 지침 섹션 포함");
+assert(subQPrompt.includes("문장의 모호성"), "보조질문 프롬프트에 (A) 모호성·역사적 오류 지침 포함");
+assert(subQPrompt.includes("뻔한 가정형·비교형"), "보조질문 프롬프트에 (B) 가정·비교형 구체성 지침 포함");
+assert(subQPrompt.includes("추상적 개념의 구체화"), "보조질문 프롬프트에 (C) 추상적 개념 구체화 지침 포함");
+assert(subQPrompt.includes("레벨(유형) 강요 금지"), "보조질문 프롬프트에 레벨(유형) 강요 금지 안내 포함");
+assert(subQPrompt.includes("comment는 절대 빈 문자열로 두지 않는다"), "보조질문 프롬프트에 comment 빈 문자열 금지 규칙 포함");
+
+// "유형 억지 끼워맞추기" 감지(2026-09-12 추가) - 형식은 맞지만 맥락상 부자연스러운
+// 질문(인물 입장형+심정 추측 등)에 다른 유형을 제안하는 참고용 피드백.
+assert(subQPrompt.includes("[유형 억지 끼워맞추기 감지"), "보조질문 프롬프트에 유형 억지 끼워맞추기 감지 섹션 포함");
+assert(subQPrompt.includes("인물 입장형"), "보조질문 프롬프트에 인물 입장형+감정 추측 예시 포함");
+assert(subQPrompt.includes("사례형"), "보조질문 프롬프트에 사례형 전환 제안 예시 포함");
+assert(
+  "typeFitFeedback" in SUB_QUESTION_RESPONSE_SCHEMA.properties &&
+    (SUB_QUESTION_RESPONSE_SCHEMA.required as readonly string[]).includes("typeFitFeedback"),
+  "SUB_QUESTION_RESPONSE_SCHEMA에 typeFitFeedback 필드 포함"
+);
+
+const subAPrompt = buildSubAnswerCheckPrompt("더미 읽기자료", "공민왕은 왜 전민변정도감을 설치했을까?", [
+  { label: "원인·배경형", subQuestion: "공민왕은 왜 개혁을 했을까?", answer: "여러 이유로 개혁을 했다." },
+]);
+assert(subAPrompt.includes("[답변 다듬기 심화 지침"), "보조답변 프롬프트에 심화 지침 섹션 포함");
+assert(subAPrompt.includes("문장의 모호성"), "보조답변 프롬프트에 (A) 모호성·역사적 오류 지침 포함");
+assert(subAPrompt.includes("추상적 개념의 구체화"), "보조답변 프롬프트에 (C) 추상적 개념 구체화 지침 포함");
+assert(subAPrompt.includes("레벨(유형) 강요 금지"), "보조답변 프롬프트에 레벨(유형) 강요 금지 안내 포함");
+assert(subAPrompt.includes("comment는 절대 빈 문자열로 두지 않는다"), "보조답변 프롬프트에 comment 빈 문자열 금지 규칙 포함");
+
+// 안전장치: Gemini가 그래도 빈 문자열을 주면 대체 문구로 채워지는지 확인.
+assert(ensureNonEmpty("", SUB_QUESTION_COMMENT_FALLBACK) === SUB_QUESTION_COMMENT_FALLBACK, "보조질문 comment 빈 값은 대체 문구로 치환");
+assert(ensureNonEmpty("이미 채워진 코멘트", SUB_QUESTION_COMMENT_FALLBACK) === "이미 채워진 코멘트", "채워진 comment는 그대로 유지");
+assert(ensureNonEmpty("", SUB_ANSWER_COMMENT_FALLBACK) === SUB_ANSWER_COMMENT_FALLBACK, "보조답변 comment 빈 값은 대체 문구로 치환");
+assert(ensureNonEmpty("", DESIGN_FEEDBACK_FALLBACK) === DESIGN_FEEDBACK_FALLBACK, "designFeedback 빈 값은 대체 문구로 치환");
+assert(ensureNonEmpty("", ANSWER_SUFFICIENCY_FEEDBACK_FALLBACK) === ANSWER_SUFFICIENCY_FEEDBACK_FALLBACK, "answerSufficiencyFeedback 빈 값은 대체 문구로 치환");
 
 (async () => {
   await testCallGeminiSuccess();

@@ -5,6 +5,9 @@ import { getGroundingTextForUnit } from "@/lib/sheets";
 import {
   buildSubAnswerCheckPrompt,
   sanitizeProperNounFeedback,
+  ensureNonEmpty,
+  SUB_ANSWER_COMMENT_FALLBACK,
+  ANSWER_SUFFICIENCY_FEEDBACK_FALLBACK,
   SUB_ANSWER_RESPONSE_SCHEMA,
   type SubAnswerCheckResult,
 } from "@/lib/subQuestionFlow";
@@ -35,8 +38,14 @@ export async function POST(request: Request) {
       properNounFeedback: string;
     }>(prompt, SUB_ANSWER_RESPONSE_SCHEMA);
     return NextResponse.json({
-      results,
-      answerSufficiencyFeedback,
+      results: results.map((r) => ({
+        ...r,
+        comment: ensureNonEmpty(r.comment, SUB_ANSWER_COMMENT_FALLBACK),
+      })),
+      answerSufficiencyFeedback: ensureNonEmpty(
+        answerSufficiencyFeedback,
+        ANSWER_SUFFICIENCY_FEEDBACK_FALLBACK
+      ),
       properNounFeedback: sanitizeProperNounFeedback(properNounFeedback),
     });
   } catch (err) {
