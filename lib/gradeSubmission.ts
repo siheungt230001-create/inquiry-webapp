@@ -1,7 +1,7 @@
 // 메인 질문 채점 로직 - app/api/submit/route.ts(동기 경로)와
 // app/api/process-submit/route.ts(QStash 큐 처리 경로) 둘 다에서 재사용한다.
 // 로직 자체는 그대로이고, 두 곳에서 중복해서 짜지 않으려고 뺀 것뿐이다.
-import { buildPrompt, buildOffTopicResult, evaluateCriteriaScores } from "./rubric";
+import { buildPrompt, buildOffTopicResult, evaluateCriteriaScores, FEEDBACK_FALLBACK_TEXT } from "./rubric";
 import { callGemini } from "./gemini";
 import { getGroundingTextForUnit } from "./sheets";
 import type { GradingResult, SubmissionRow } from "./types";
@@ -35,6 +35,7 @@ export async function gradeSubmission(
     score: evaluated.score,
     approval: evaluated.approval,
     criteria_scores: evaluated.criteria,
+    feedback_text: rawResult.feedback_text?.trim() ? rawResult.feedback_text : FEEDBACK_FALLBACK_TEXT,
   };
 }
 
