@@ -87,3 +87,13 @@ export function BoltIcon(props: SVGProps<SVGSVGElement>) {
     </Icon>
   );
 }
+
+// 선생님 피드백(교사 코멘트)이 저장된 제출 건을 표시하는 작은 말풍선 - 다른 배지들과
+// 겹치지 않는 크기(w-3.5 h-3.5 정도)로 QuestionRecordCard 요약줄에 쓴다.
+export function ChatBubbleIcon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8z" />
+    </Icon>
+  );
+}

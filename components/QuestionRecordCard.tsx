@@ -3,7 +3,27 @@ import { inquiryStageOf, inquiryStageBadgeClass, progressStatusOf } from "@/lib/
 import { SubQuestionList, EssayDetailSection } from "@/components/InquiryEssayDetail";
 import PdfDownloadButton from "@/components/PdfDownloadButton";
 import TeacherFeedbackBox from "@/components/TeacherFeedbackBox";
+import { ChatBubbleIcon } from "@/components/icons";
 import type { InquiryRecord, SubmissionRow } from "@/lib/types";
+
+// 이 제출 건에 선생님 피드백(교사 코멘트)이 저장돼 있는지 - 학생이 코멘트를 받고도
+// 이어서 안 쓰고 다른 질문으로 넘어가는 경우가 많아서, 카드를 펼치지 않아도 요약줄에서
+// 바로 알아볼 수 있게 한다. 빈 문자열/공백만 있는 경우는 "저장된 코멘트 없음"으로 본다.
+export function hasTeacherFeedback(record: InquiryRecord | undefined): boolean {
+  return Boolean(record?.teacherFeedback?.trim());
+}
+
+// hover 시 코멘트 내용을 미리 보여주는 작은 말풍선 - 네이티브 title 속성만으로 구현해서
+// 별도 상태·JS 없이도 브라우저 기본 툴팁이 뜬다. 60자 넘으면 잘라서 요약만 보여준다.
+function TeacherFeedbackIndicator({ feedback }: { feedback: string }) {
+  const preview = feedback.trim();
+  const title = `선생님 피드백: ${preview.length > 60 ? `${preview.slice(0, 60)}...` : preview}`;
+  return (
+    <span title={title} className="inline-flex">
+      <ChatBubbleIcon className="h-3.5 w-3.5 shrink-0 text-[var(--color-lavender-deep)]" aria-label={title} />
+    </span>
+  );
+}
 
 // "질문 만들기" 세부 채점 5개 타일 - app/teacher/page.tsx, app/teacher/all/page.tsx가 같이 쓴다.
 export function CriteriaGrid({ values }: { values: (number | "")[] }) {
@@ -64,10 +84,14 @@ export function QuestionRecordCard({
   isCurrentAttempt?: boolean;
 }) {
   const hasProgress = inquiryStageOf(record) !== "메인 질문만 제출됨";
+  const hasComment = hasTeacherFeedback(record);
   return (
     <details key={q.timestamp} className="card">
-      <summary className="grid cursor-pointer grid-cols-[70px_60px_130px_50px_160px_16px_70px_200px_150px_1fr] items-center gap-x-3 gap-y-1.5 px-4 py-3">
+      <summary className="grid cursor-pointer grid-cols-[70px_16px_60px_130px_50px_160px_16px_70px_200px_150px_1fr] items-center gap-x-3 gap-y-1.5 px-4 py-3">
         <span className="truncate text-xs text-zinc-400">{showUnit ? q.unit : ""}</span>
+        <span className="flex justify-center">
+          {hasComment && <TeacherFeedbackIndicator feedback={record!.teacherFeedback} />}
+        </span>
         <span className="text-[10px] text-zinc-400">질문 판정</span>
         <span className="badge badge-level">{q.aiLevel || "채점 대기중"}</span>
         <span className="text-xs text-zinc-500">{q.aiScore !== "" ? `${q.aiScore}점` : ""}</span>

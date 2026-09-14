@@ -7,7 +7,8 @@ import { approvalBadgeClass } from "@/lib/badge";
 import TeacherAccessDenied from "@/components/TeacherAccessDenied";
 import Breadcrumb from "@/components/Breadcrumb";
 import TeacherModeTabs from "@/components/TeacherModeTabs";
-import { QuestionRecordCard } from "@/components/QuestionRecordCard";
+import { QuestionRecordCard, hasTeacherFeedback } from "@/components/QuestionRecordCard";
+import { ChatBubbleIcon } from "@/components/icons";
 import {
   buildStudentLatest,
   buildStudentQuestionHistory,
@@ -302,11 +303,24 @@ function StudentTable({
         const summaryApproval = currentRow ? currentRow.approval : s.approval;
         const summaryQuestion = currentRow ? currentRow.question : s.question;
         const summaryRecord = recordByMainTs.get(currentRow ? currentRow.timestamp : s.timestamp);
+        // 이 학생이 이 단원에 낸 제출 중 어느 하나라도 선생님 피드백이 저장돼 있으면
+        // 펼치기 전 요약줄에서부터 표시한다 - 어느 학생부터 확인해야 할지 미리 알 수 있게.
+        const hasAnyComment = questions.some((q) => hasTeacherFeedback(recordByMainTs.get(q.timestamp)));
         return (
           <details key={s.email} id={s.email} open={s.email === highlightEmail} className="card">
             <summary className="grid cursor-pointer grid-cols-[180px_70px_56px_160px_90px_1fr] items-center gap-x-3 gap-y-1.5 px-4 py-3">
-              <span className="truncate font-medium text-[var(--color-ink)]">
-                {classLabel(s.grade, s.ban)} {s.no}번 · {s.name}
+              <span className="flex min-w-0 items-center gap-1 truncate font-medium text-[var(--color-ink)]">
+                <span className="truncate">
+                  {classLabel(s.grade, s.ban)} {s.no}번 · {s.name}
+                </span>
+                {hasAnyComment && (
+                  <span title="선생님 피드백이 저장된 제출이 있어요" className="inline-flex shrink-0">
+                    <ChatBubbleIcon
+                      className="h-3.5 w-3.5 text-[var(--color-lavender-deep)]"
+                      aria-label="선생님 피드백이 저장된 제출이 있어요"
+                    />
+                  </span>
+                )}
               </span>
               {/* 최신/진행 중인 질문의 AI 판정(펼치면 보이는 회차별 판정과는 별개인 한눈 요약) -
                   어느 기준으로 골랐는지는 로직이 항상 같은 규칙(진행 흔적 있으면 그 질문, 없으면
