@@ -61,6 +61,50 @@ assert(prompt.includes("추상적 개념의 구체화 점검"), "프롬프트에
 assert(prompt.includes("레벨 강요 금지"), "프롬프트에 레벨 강요 금지 안내 포함");
 assert(prompt.includes("절대 빈 문자열로 두지 않는다"), "프롬프트에 feedback_text 빈 문자열 금지 규칙 포함");
 
+// 시대착오(연대 모순) 감지 - 2026-09-14 이태준 학생 "고려-몽골 전쟁에 명이 간섭" 건.
+// 명(1368 건국)은 고려-몽골 전쟁(13세기)보다 100년 뒤라 성립할 수 없는 전제인데
+// 사실 정확성 0.5점을 받았다. 원인은 (1) 기존 관용 규칙 두 개가 "다른 시대·국가
+// 언급은 감점하지 않음"이라고 명시해 시대착오까지 덮어줬고, (2) 연대 교차 확인
+// 지침 자체가 없었던 것.
+assert(prompt.includes("[시대착오 확인]"), "프롬프트에 시대착오 확인 섹션 포함");
+assert(prompt.includes("(A-2) 시대착오"), "프롬프트에 (A-2) 시대착오 지침 포함");
+assert(
+  prompt.includes("이 관용 규칙의 예외"),
+  "절대 규칙3(다른 시대 언급 감점 안 함)에 시대착오 예외가 명시됨"
+);
+assert(
+  prompt.includes("예외에 해당하지 않으며 반드시 0점이다"),
+  "사실 정확성 항목에 시대착오 0점 규칙이 명시됨"
+);
+assert(
+  prompt.includes("임의로 바꿔 읽지 않는다"),
+  "프롬프트에 학생이 쓴 국가·인물명 임의 치환 금지 규칙 포함(오독으로 시대착오가 가려지던 문제)"
+);
+assert(prompt.includes("과잉 적용 금지"), "프롬프트에 시대착오 과잉 적용 금지(정상적 시대 비교 보호) 포함");
+assert(
+  "anachronism_detected" in RESPONSE_SCHEMA.properties &&
+    (RESPONSE_SCHEMA.required as readonly string[]).includes("anachronism_detected"),
+  "RESPONSE_SCHEMA에 anachronism_detected 필드 포함(필수)"
+);
+
+// 코드 강제 로직: anachronism_detected가 true면 fact_accuracy를 0으로 덮어쓴 뒤
+// 재계산해야 한다(lib/gradeSubmission.ts와 같은 식). 모델이 피드백 본문에서는
+// 시대착오를 짚으면서도 점수는 0.5를 주는 일이 있어 점수는 코드가 강제한다.
+const anachronismRaw = {
+  fact_accuracy: 1,
+  causal_depth: 0,
+  comparison_clarity: 1,
+  sentence_clarity: 0.5,
+  integration_depth: 1,
+};
+const forcedCriteria = { ...anachronismRaw, fact_accuracy: 0 };
+const forcedEval = evaluateCriteriaScores(forcedCriteria);
+assert(forcedEval.criteria.fact_accuracy === 0, "시대착오 판정 시 사실 정확성이 0으로 강제됨");
+assert(
+  forcedEval.score === evaluateCriteriaScores(anachronismRaw).score - 1,
+  "사실 정확성 0점 강제가 총점에 그대로 반영됨(원래 1점이던 만큼 총점도 1점 감소)"
+);
+
 // 2026-09-07 학생이 단원과 무관한 질문을 만들어도 구조만 갖추면 점수가 높게 나와
 // "승인"되던 버그 - buildOffTopicResult가 점수 없이 "단원 확인 필요" 상태만 돌려주고,
 // gradingResultToSubmissionFields가 그 상태를 시트에 숫자 0이 아니라 빈 값("")으로

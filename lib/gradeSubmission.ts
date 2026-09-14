@@ -23,10 +23,20 @@ export async function gradeSubmission(
     return buildOffTopicResult(unit);
   }
 
+  // 시대착오(연대 모순)로 판정된 질문은 사실 정확성을 코드가 0점으로 강제한다 -
+  // Gemini는 이 오류를 피드백 본문에서는 잘 짚어내면서도 fact_accuracy에는 0.5를
+  // 주는 식으로 점수 반영이 일관되지 않았다(2026-09-14, 이태준 학생 "고려-몽골
+  // 전쟁에 명이 간섭" 건 - 명은 몽골 전쟁보다 100년 뒤에 건국). "판정은 모델,
+  // 점수 강제는 코드"로 나누는 건 evaluateCriteriaScores가 level/score/approval을
+  // 재계산하는 것과 같은 원칙이다.
+  const criteriaForScoring = rawResult.anachronism_detected
+    ? { ...rawResult.criteria_scores, fact_accuracy: 0 }
+    : rawResult.criteria_scores;
+
   // Gemini가 응답에 담아 보낸 level/score/approval은 신뢰하지 않고, criteria_scores만
   // 가져와 코드에서 재계산한다 (lib/rubric.ts의 evaluateCriteriaScores) - "레벨은
   // 낮음인데 승인" 같은 불일치가 다시는 생기지 않도록 이 값을 최종값으로 쓴다.
-  const evaluated = evaluateCriteriaScores(rawResult.criteria_scores);
+  const evaluated = evaluateCriteriaScores(criteriaForScoring);
   return {
     ...rawResult,
     level: evaluated.level,

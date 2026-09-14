@@ -97,9 +97,14 @@ export async function callGeminiGeneric<T>(prompt: string, schema: object): Prom
   throw new Error("모든 Gemini 모델 후보가 실패했습니다:\n" + errors.join("\n"));
 }
 
-// topic_relevant는 RESPONSE_SCHEMA엔 있지만 GradingResult 타입(최종 결과)엔 없다 -
-// lib/gradeSubmission.ts가 이 필드만 보고 점수를 매길지/버릴지 결정한 뒤, 최종
-// GradingResult에는 담지 않는다(승인 여부는 approval 필드 하나로 이미 충분히 표현됨).
-export async function callGemini(prompt: string): Promise<GradingResult & { topic_relevant?: boolean }> {
-  return callGeminiGeneric<GradingResult & { topic_relevant?: boolean }>(prompt, RESPONSE_SCHEMA);
+// topic_relevant/anachronism_detected는 RESPONSE_SCHEMA엔 있지만 GradingResult
+// 타입(최종 결과)엔 없다 - lib/gradeSubmission.ts가 이 두 필드를 보고 각각
+// "점수를 매길지 버릴지"와 "사실 정확성을 0으로 강제할지"를 결정한 뒤, 최종
+// GradingResult에는 담지 않는다(결과는 approval/criteria_scores에 이미 반영됨).
+export async function callGemini(
+  prompt: string
+): Promise<GradingResult & { topic_relevant?: boolean; anachronism_detected?: boolean }> {
+  return callGeminiGeneric<
+    GradingResult & { topic_relevant?: boolean; anachronism_detected?: boolean }
+  >(prompt, RESPONSE_SCHEMA);
 }
