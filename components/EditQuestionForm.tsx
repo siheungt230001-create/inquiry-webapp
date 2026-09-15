@@ -5,6 +5,7 @@ import Link from "next/link";
 import { SELF_LEVEL_LIST, validateProfileNumbers } from "@/lib/constants";
 import { fetchWithTimeout } from "@/lib/fetchWithTimeout";
 import AutoTextarea from "./AutoTextarea";
+import NoPasteInput from "./NoPasteInput";
 import { Field, ProfileFields } from "./ProfileFields";
 
 interface EditableFields {
@@ -16,6 +17,11 @@ interface EditableFields {
   question: string;
   selfLevel: string;
   textbookLink: string;
+  // 읽기 전용 표시용 - 아직 채점이 안 끝났으면 전부 빈 값(""), 표시 안 함.
+  aiLevel: string;
+  aiScore: number | "";
+  approval: string;
+  feedback: string;
 }
 
 // 이미 제출한 메인 질문을 고치는 화면 - components/SubmitForm.tsx의 입력 항목과 같지만,
@@ -109,6 +115,16 @@ export default function EditQuestionForm({ timestamp }: { timestamp: string }) {
 
   return (
     <form onSubmit={handleSave} className="card flex flex-col gap-4 p-6">
+      {fields.feedback && (
+        <div className="rounded-lg border border-[var(--color-lavender)] bg-[var(--color-lavender)]/20 px-3 py-2">
+          <p className="text-xs font-medium text-[var(--color-lavender-deep)]">
+            제출한 질문에 대한 AI 피드백 {fields.aiLevel && `· ${fields.aiLevel}`}
+            {fields.aiScore !== "" && ` · ${fields.aiScore}점`}
+          </p>
+          <p className="mt-1 whitespace-pre-wrap text-sm text-[var(--color-ink)]">{fields.feedback}</p>
+        </div>
+      )}
+
       <ProfileFields
         value={{ grade: fields.grade, ban: fields.ban, no: fields.no, name: fields.name }}
         onChange={(next) => {
@@ -148,7 +164,7 @@ export default function EditQuestionForm({ timestamp }: { timestamp: string }) {
       </Field>
 
       <Field label="교과서 연결 내용">
-        <input
+        <NoPasteInput
           value={fields.textbookLink}
           onChange={(e) => update("textbookLink", e.target.value)}
           className="input"

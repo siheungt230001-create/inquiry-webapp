@@ -32,6 +32,7 @@ function row(overrides: Partial<SubmissionRow>): SubmissionRow {
     feedback: "",
     processedAt: "",
     abuseFlag: "",
+    revisedAt: "",
     ...overrides,
   };
 }

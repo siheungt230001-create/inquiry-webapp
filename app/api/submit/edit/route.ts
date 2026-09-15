@@ -32,6 +32,12 @@ export async function GET(request: Request) {
     question: row.question,
     selfLevel: row.selfLevel,
     textbookLink: row.textbookLink,
+    // 읽기 전용 표시용 - "질문 수정하기" 화면이 AI 피드백을 보여준 뒤 재작성하게
+    // 하려면 이전 채점 결과가 필요하다. 아직 채점이 안 끝났으면 전부 빈 값.
+    aiLevel: row.aiLevel,
+    aiScore: row.aiScore,
+    approval: row.approval,
+    feedback: row.feedback,
   });
 }
 
@@ -87,6 +93,10 @@ export async function POST(request: Request) {
   const needsRegrade =
     existing.question !== question || existing.unit !== unit || existing.selfLevel !== selfLevel;
 
+  // "질문 수정하기" 필수 단계 완료 표시 - 재채점 여부와 무관하게 이 API를 통해
+  // 저장이 한 번이라도 됐으면 완료로 본다(app/submit/sub-questions/page.tsx가 확인).
+  const revisedAt = new Date().toISOString();
+
   if (!needsRegrade) {
     const ok = await updateSubmissionResult(email, timestamp, {
       grade,
@@ -97,6 +107,7 @@ export async function POST(request: Request) {
       question,
       selfLevel,
       textbookLink,
+      revisedAt,
     });
     if (!ok) {
       return NextResponse.json({ error: "수정에 실패했습니다." }, { status: 500 });
@@ -118,6 +129,7 @@ export async function POST(request: Request) {
       status: "완료",
       ...gradingResultToSubmissionFields(result),
       processedAt: new Date().toISOString(),
+      revisedAt,
     });
     if (!ok) {
       return NextResponse.json({ error: "수정에 실패했습니다." }, { status: 500 });
@@ -150,6 +162,7 @@ export async function POST(request: Request) {
       approval: "",
       mismatch: "",
       feedback: "",
+      revisedAt,
     }).catch(() => {});
     return NextResponse.json(
       { error: toUserErrorMessage(err, "submit/edit") },

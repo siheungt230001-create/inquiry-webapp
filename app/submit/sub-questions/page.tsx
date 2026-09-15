@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@/auth";
 import { isTeacherEmail } from "@/lib/teacher-auth";
+import { getSubmissionsByEmail } from "@/lib/sheets";
 import SubQuestionsForm from "@/components/SubQuestionsForm";
 import { ArrowLeftIcon } from "@/components/icons";
 
@@ -15,6 +16,15 @@ export default async function SubQuestionsPage({
 
   const { ts, q, unit } = await searchParams;
   if (!ts || !q) redirect("/history");
+
+  // 필수 단계("질문 수정하기")를 안 거쳤으면 여기로 못 들어오게 막는다 - 카드의
+  // "질문 수정하기" 버튼이 기본 진입로지만, URL을 직접 쳐서 들어오는 경우까지
+  // 막으려면 서버에서 한 번 더 확인해야 한다.
+  const rows = await getSubmissionsByEmail(session.user?.email || "");
+  const row = rows.find((r) => r.timestamp === ts);
+  if (row && !row.revisedAt) {
+    redirect(`/submit/edit?ts=${encodeURIComponent(ts)}`);
+  }
 
   return (
     <div className="flex-1 bg-pastel-gradient px-4 py-10">

@@ -113,6 +113,7 @@ export async function POST(request: Request) {
     feedback: "",
     processedAt: "",
     abuseFlag: "",
+    revisedAt: "",
   };
 
   if (QUEUE_MODE) {

@@ -119,6 +119,14 @@ export default async function HistoryPage() {
                     </div>
                   )}
                   <div className="mt-3 flex flex-wrap items-center gap-2">
+                    {!isTopicMismatch && r.approval !== "승인" && !r.revisedAt && (
+                      <Link
+                        href={`/submit/edit?ts=${encodeURIComponent(r.timestamp)}`}
+                        className="inline-flex items-center gap-1 rounded-full border border-[var(--color-lavender)] bg-white px-3 py-1.5 text-xs font-medium text-[var(--color-lavender-deep)] hover:bg-[var(--color-cream-200)]"
+                      >
+                        질문 수정하기 <ArrowRightIcon />
+                      </Link>
+                    )}
                     {!isTopicMismatch && (
                       <Link
                         href={`/submit/sub-questions?ts=${encodeURIComponent(r.timestamp)}&q=${encodeURIComponent(r.question)}&unit=${encodeURIComponent(r.unit)}`}

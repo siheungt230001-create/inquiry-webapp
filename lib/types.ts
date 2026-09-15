@@ -57,6 +57,10 @@ export interface SubmissionRow {
   feedback: string;
   processedAt: string;
   abuseFlag: string;
+  // 신규 필수 단계("질문 수정하기") 완료 여부 - AI 피드백을 읽고 메인 질문을 다시
+  // 제출(app/api/submit/edit)한 시각(ISO). 비어 있으면 아직 이 행에 대해 그 단계를
+  // 안 거친 것 - app/submit/sub-questions/page.tsx가 이 값으로 진입을 막는다.
+  revisedAt: string;
 }
 
 // 시트에 쓸 때 컬럼 순서 그대로 나열 (apps_script_자동화.gs COL과 반드시 일치시킬 것)
@@ -90,6 +94,7 @@ export const SHEET_COLUMNS: (keyof SubmissionRow)[] = [
   "levelTrack",
   "levelBand",
   "grade",
+  "revisedAt",
 ];
 
 // "탐구_글쓰기_기록" 시트의 한 행 - 메인 질문 채점(SubmissionRow)과는 별개 탭.
