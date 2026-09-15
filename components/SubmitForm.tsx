@@ -7,6 +7,7 @@ import { approvalBadgeClass, CRITERIA_ACCENTS } from "@/lib/badge";
 import { progressStatusOf, inquiryStageOf, inquiryStageBadgeClass } from "@/lib/aggregate";
 import { fetchWithTimeout } from "@/lib/fetchWithTimeout";
 import AutoTextarea from "./AutoTextarea";
+import NoPasteInput from "./NoPasteInput";
 import { Field, ProfileFields, type ProfileFieldsValue } from "./ProfileFields";
 import { BoltIcon } from "./icons";
 
@@ -304,7 +305,7 @@ export default function SubmitForm() {
       </Field>
 
       <Field label="교과서 연결 내용">
-        <input
+        <NoPasteInput
           value={textbookLink}
           onChange={(e) => setTextbookLink(e.target.value)}
           className="input"

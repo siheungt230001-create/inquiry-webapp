@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { SUB_QUESTION_CARDS } from "@/lib/constants";
@@ -8,6 +8,7 @@ import type { SubQuestionCheckResult } from "@/lib/subQuestionFlow";
 import { useDebouncedEffect } from "@/lib/useDebouncedEffect";
 import { fetchWithTimeout } from "@/lib/fetchWithTimeout";
 import AutoTextarea from "./AutoTextarea";
+import NoPasteInput from "./NoPasteInput";
 import { ArrowRightIcon, BookIcon, CheckIcon, WarningIcon } from "./icons";
 
 function valuesKey(timestamp: string) {
@@ -139,6 +140,11 @@ export default function SubAnswersForm({
   const [checking, setChecking] = useState(false);
   const [checkError, setCheckError] = useState<string | null>(null);
 
+  // 마지막으로 AI 피드백을 성공적으로 받았을 때(또는 이미 판정된 상태로 불러왔을 때)의
+  // 답변 스냅샷 - SubQuestionsForm의 lastCheckedValuesRef와 같은 이유·같은 용도다
+  // (2026-09-14, "답변 충분성 피드백 카드가 간헐적으로 안 보임" 버그).
+  const lastCheckedAnswersRef = useRef<string[]>(SUB_QUESTION_CARDS.map(() => ""));
+
   function applyItemsToState(
     values: string[],
     statuses: (SubQuestionCheckResult | null)[],
@@ -160,6 +166,7 @@ export default function SubAnswersForm({
     setAllStatuses(statuses);
     setAnswerComments(answerStatuses);
     setSources(sourcesValue);
+    lastCheckedAnswersRef.current = answersValue;
   }
 
   // sessionStorage에 값이 있으면(같은 탭에서 이어서 들어온 경우) 그걸 우선 쓰고, 비어
@@ -258,11 +265,29 @@ export default function SubAnswersForm({
     };
   }, [timestamp, isTeacherView]);
 
+  // 텍스트 자체는 매 키 입력마다 그대로 반영한다 - 무효화 여부는 여기서 안 따진다.
+  // SubQuestionsForm의 updateValue와 같은 이유 - 매 keystroke마다 "직전 값과 다른가"로
+  // 판단하면, 아직 답을 안 쓴 칸에 뭔가 입력했다 지우는 것도 매번 무효화를 태워서
+  // 최종 결과가 원래와 같아도(빈 칸 그대로) 이미 지워진 채로 남는다. 무효화 판단은
+  // 그 칸에서 포커스가 벗어나는 시점(handleAnswerBlur)으로 미뤄서 "최종 값"만 본다.
   function updateAnswer(index: number, text: string) {
     const next = [...answers];
     next[index] = text;
     setAnswers(next);
     saveJson(answersKey(timestamp), next);
+    setDraftSaved(false);
+    setDraftSaveError(false);
+  }
+
+  // 답변 칸에서 포커스가 벗어날 때, 그 답의 최종 값이 마지막 판정(handleCheckAnswers)
+  // 시점의 값과 실제로 달라졌을 때만 관련 피드백을 무효화한다(2026-09-14, "답변
+  // 충분성 피드백 카드가 간헐적으로 안 보임" 버그 - SubQuestionsForm의 handleBlur와
+  // 같은 이유).
+  function handleAnswerBlur(index: number) {
+    const current = answers[index]?.trim() ?? "";
+    const checked = lastCheckedAnswersRef.current[index]?.trim() ?? "";
+    if (current === checked) return;
+
     // 답을 고치면 그 항목의 이전 AI 피드백은 더 이상 맞지 않으니 지운다.
     if (answerComments[index]) {
       const nextComments = [...answerComments];
@@ -329,6 +354,8 @@ export default function SubAnswersForm({
       const nextAnswerProperNounFeedback = (data.properNounFeedback as string) || "";
       setAnswerSufficiencyFeedback(nextAnswerFeedback);
       setAnswerProperNounFeedback(nextAnswerProperNounFeedback);
+      // 이 판정에 쓰인 답변을 새 비교 기준점으로 삼는다 - updateAnswer/handleAnswerBlur 참고.
+      lastCheckedAnswersRef.current = answers;
       saveAnswerFeedback(timestamp, nextAnswerFeedback);
       saveAnswerProperNounFeedback(timestamp, nextAnswerProperNounFeedback);
     } catch {
@@ -494,6 +521,7 @@ export default function SubAnswersForm({
               <AutoTextarea
                 value={answers[item.index] ?? ""}
                 onChange={(e) => updateAnswer(item.index, e.target.value)}
+                onBlur={() => handleAnswerBlur(item.index)}
                 className="input mt-2 min-h-[90px]"
                 placeholder="이 질문에 대해 찾은 내용이나 생각을 적어보세요"
               />
@@ -507,7 +535,7 @@ export default function SubAnswersForm({
                     <label className="mt-2 block text-xs font-medium text-[var(--color-ink-soft)]">
                       출처 <span className="text-[var(--color-pink-deep)]">*</span>
                     </label>
-                    <input
+                    <NoPasteInput
                       value={sources[item.index] ?? ""}
                       onChange={(e) => updateSource(item.index, e.target.value)}
                       className={`input mt-1 text-xs ${sourceMissing ? "input-invalid" : ""}`}

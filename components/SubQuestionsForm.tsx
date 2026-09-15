@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { SUB_QUESTION_CARDS } from "@/lib/constants";
 import type { SubQuestionCheckResult } from "@/lib/subQuestionFlow";
@@ -176,6 +176,16 @@ export default function SubQuestionsForm({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // 마지막으로 AI 코멘트를 성공적으로 받았을 때(또는 이미 판정된 상태로 불러왔을 때)의
+  // 질문 구성 스냅샷 - 어떤 칸이든 포커스를 벗어날 때(handleBlur) 이 스냅샷과 비교해서
+  // "실제로 판정 시점과 달라졌을 때만" 피드백을 무효화한다. 매 키 입력(onChange)마다
+  // 비교하면 "빈 칸에 타이핑했다가 다시 지워서 최종 값은 원래와 같은" 경우까지 무효화돼
+  // 버렸다 - 학생이 다른 카드를 잠깐 눌러보기만 해도 이미 받은 designFeedback/
+  // typeFitFeedback이 조용히 영구 삭제되던 버그의 원인(2026-09-14, "탐구 설계 피드백
+  // 카드가 간헐적으로 안 보임"). ref를 쓰는 이유는 이 값이 렌더링에 영향을 주지 않고
+  // 그저 "마지막 비교 기준점"일 뿐이라서다.
+  const lastCheckedValuesRef = useRef<string[]>(SUB_QUESTION_CARDS.map(() => ""));
+
   // sessionStorage는 서버에 없으므로 마운트 후 클라이언트에서만 불러온다. sessionStorage는
   // 탭을 닫거나 다른 기기로 오면 비어 있으므로, 그럴 때는 서버(시트)에 남은 진행 상황을
   // 대신 불러온다 - 탭을 다시 열면 다 사라져 보이던 버그의 원인이 sessionStorage 단일
@@ -192,6 +202,7 @@ export default function SubQuestionsForm({
       setDesignFeedback(loadDesignFeedback(timestamp));
       setProperNounFeedback(loadProperNounFeedback(timestamp));
       setTypeFitFeedback(loadTypeFitFeedback(timestamp));
+      lastCheckedValuesRef.current = localValues;
       return;
     }
     let cancelled = false;
@@ -224,6 +235,7 @@ export default function SubQuestionsForm({
         setDesignFeedback(nextDesignFeedback);
         setProperNounFeedback(nextProperNounFeedback);
         setTypeFitFeedback(nextTypeFitFeedback);
+        lastCheckedValuesRef.current = nextValues;
         saveJson(storageKey(timestamp), nextValues);
         saveJson(statusStorageKey(timestamp), nextComments);
         saveDesignFeedback(timestamp, nextDesignFeedback);
@@ -302,11 +314,31 @@ export default function SubQuestionsForm({
     else setDraftSaveError(true);
   }
 
+  // 텍스트 자체는 매 키 입력마다 그대로 반영한다 - 무효화 여부는 여기서 안 따진다.
+  // 매 keystroke마다 "직전 값과 다른가"로 판단하면, 학생이 빈 칸에 뭔가 타이핑했다가
+  // 지우는 것도(각 글자 입력·삭제가 그 자체로는 항상 "직전과 다름") 매번 무효화를
+  // 태워서 최종 결과가 원래와 완전히 같아도 이미 지워진 채로 남는다. 그래서 무효화
+  // 판단은 그 칸에서 포커스가 벗어나는 시점(handleBlur)으로 미뤄서 "최종 값"만 본다.
   function updateValue(index: number, text: string) {
     const next = [...values];
     next[index] = text;
     setValues(next);
     saveJson(storageKey(timestamp), next);
+    setDraftSaved(false);
+    setDraftSaveError(false);
+  }
+
+  // 한 칸에서 포커스가 벗어날 때, 그 칸의 최종 값이 마지막 판정(handleCheck) 시점의
+  // 값과 실제로 달라졌을 때만 관련 피드백을 무효화한다 - "테스트"라고 썼다가 다시
+  // 지우고 손을 뗀 경우처럼 최종적으로 판정 시점과 똑같이 돌아왔으면 아무것도
+  // 지우지 않는다(2026-09-14, "탐구 설계 피드백 카드가 간헐적으로 안 보임" 버그 -
+  // 개별 질문 3개는 "양호"로 멀쩡히 남아있는데 세트 전체 피드백만 사라진 실제 사례로
+  // 재현·확인했다).
+  function handleBlur(index: number) {
+    const current = values[index]?.trim() ?? "";
+    const checked = lastCheckedValuesRef.current[index]?.trim() ?? "";
+    if (current === checked) return;
+
     // 내용을 고치면 그 카드의 이전 코멘트는 더 이상 맞지 않으니 지운다.
     if (comments[index]) {
       const nextComments = [...comments];
@@ -371,6 +403,8 @@ export default function SubQuestionsForm({
       setDesignFeedback(nextDesignFeedback);
       setProperNounFeedback(nextProperNounFeedback);
       setTypeFitFeedback(nextTypeFitFeedback);
+      // 이 판정에 쓰인 질문 구성을 새 비교 기준점으로 삼는다 - updateValue/handleBlur 참고.
+      lastCheckedValuesRef.current = values;
       saveJson(statusStorageKey(timestamp), nextComments);
       saveDesignFeedback(timestamp, nextDesignFeedback);
       saveProperNounFeedback(timestamp, nextProperNounFeedback);
@@ -453,6 +487,7 @@ export default function SubQuestionsForm({
             <AutoTextarea
               value={values[i] ?? ""}
               onChange={(e) => updateValue(i, e.target.value)}
+              onBlur={() => handleBlur(i)}
               className="input mt-2 min-h-[70px]"
               placeholder={card.hint ? "빈칸을 채워 나만의 질문을 만들어보세요" : "자유롭게 써보세요"}
             />
